@@ -1,10 +1,35 @@
-/.env
+# Dépendances (Backend & Frontend)
 /vendor/
 /node_modules/
-/data/*.sqlite
-/data/*.db
-/storage/logs/*
+
+# Configuration et Sécurité[cite: 5]
+.env
+
+# Données persistantes et Fichiers Sensibles[cite: 5]
+/storage/db/*.sqlite
+!/storage/db/.gitkeep
+/storage/private_uploads/*
+!/storage/private_uploads/.gitkeep
+
+# Artefacts de Tests Playwright & Allure
 /test-results/
 /playwright-report/
+/playwright/.cache/
+/allure-results/
+/allure-report/
+/error-reports/
+
+# Fichiers TS compilés (si versionnés via le build CI/CD plutôt que git)
+# /public/assets/ts/*.js 
+# /public/assets/ts/*.js.map
+*.tsbuildinfo
+
+# Fichiers OS et Éditeurs
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

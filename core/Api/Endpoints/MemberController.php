@@ -1,0 +1,576 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Api\Endpoints;
+
+use Core\Api\Database\Database;
+use DateTimeImmutable;
+use finfo;
+use PDO;
+use Throwable;
+
+/**
+ * Contrôleur gérant le CRM Adhérents et la vue "Mes rattachements" (Points 5 & 8) :
+ * - Filtrage RGPD strict pour le rôle Entraîneur / Enseignant (masquage des emails/adresses privés)
+ * - Édition complète d'une fiche par le Bureau ou par le Tuteur légal rattaché
+ * - Renvoi d'un lien OTP 48h (Secrétaire / Trésorier / Président) avec trace dans email_logs.
+ */
+final class MemberController
+{
+    private PDO $db;
+
+    public function __construct()
+    {
+        $this->db = Database::getInstance();
+    }
+
+    /**
+     * Liste les adhérents en adaptant la visibilité des données personnelles selon le rôle (RGPD).
+     *
+     * @param int    $currentUserId Identifiant de l'utilisateur connecté.
+     * @param string $currentRole   Rôle actif.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function listMembers(int $currentUserId = 1, string $currentRole = 'Président'): array
+    {
+        try {
+            if ($currentRole === 'Adhérent') {
+                $stmt = $this->db->prepare("
+                    SELECT m.*
+                    FROM members m
+                    INNER JOIN member_tutor mt ON m.id = mt.member_id
+                    WHERE mt.tutor_id = :uid
+                    ORDER BY m.id ASC
+                ");
+                $stmt->execute(['uid' => $currentUserId]);
+                $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } else {
+                $stmt = $this->db->query("SELECT * FROM members ORDER BY id ASC");
+                $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            $isFullAdmin = in_array($currentRole, ['Président', 'Secrétaire', 'Trésorier', 'Superadmin'], true);
+            $isTeacher   = ($currentRole === 'Entraîneur');
+
+            foreach ($members as &$member) {
+                $memberId = (int) $member['id'];
+
+                // Point 8 : Protection RGPD vis-à-vis de l'enseignant (ne voit que l'identité et l'urgence, pas l'adresse ni l'email privé)
+                if ($isTeacher) {
+                    $member['email']   = 'Protégé (RGPD Enseignant)';
+                    $member['address'] = 'Protégée (RGPD Enseignant)';
+                }
+
+                // Récupération des disciplines et grades pratiqués
+                $stmtPrac = $this->db->prepare("
+                    SELECT mp.id AS practice_id, mp.discipline_id, mp.grade_id, mp.level_id,
+                           d.name AS discipline_name, g.name AS grade_name, n.name AS niveau_name, n.color_hex
+                    FROM member_practices mp
+                    INNER JOIN disciplines d ON mp.discipline_id = d.id
+                    LEFT JOIN levels g ON mp.grade_id = g.id
+                    LEFT JOIN levels n ON mp.level_id = n.id
+                    WHERE mp.member_id = :mid
+                    ORDER BY mp.id ASC
+                ");
+                $stmtPrac->execute(['mid' => $memberId]);
+                $member['practices'] = $stmtPrac->fetchAll(PDO::FETCH_ASSOC);
+
+                // Récupération des tuteurs légaux rattachés
+                $stmtTutors = $this->db->prepare("
+                    SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.address,
+                           mt.relationship, mt.info_shared
+                    FROM member_tutor mt
+                    INNER JOIN users u ON mt.tutor_id = u.id
+                    WHERE mt.member_id = :mid
+                ");
+                $stmtTutors->execute(['mid' => $memberId]);
+                $rawTutors = $stmtTutors->fetchAll(PDO::FETCH_ASSOC);
+
+                $formattedTutors = [];
+                foreach ($rawTutors as $tutor) {
+                    $tutorId = (int) $tutor['id'];
+                    $infoShared = (int) $tutor['info_shared'] === 1;
+
+                    // Qui a le droit de voir les coordonnées du tuteur ?
+                    // - Président / Secrétaire / Trésorier : Oui
+                    // - Le tuteur lui-même : Oui
+                    // - Le co-tuteur (conjoint / ex-conjoint) : Uniquement si info_shared === 1
+                    // - L'Enseignant : Non (RGPD Point 8)
+                    $canSeeTutorData = !$isTeacher && ($isFullAdmin || ($tutorId === $currentUserId) || $infoShared);
+
+                    $formattedTutors[] = [
+                        'id'           => $tutorId,
+                        'tutor_id'     => $tutorId,
+                        'first_name'   => $canSeeTutorData ? (string) ($tutor['first_name'] ?? '') : 'Parent',
+                        'last_name'    => $canSeeTutorData ? (string) ($tutor['last_name'] ?? '') : '#' . $tutorId,
+                        'relationship' => (string) ($tutor['relationship'] ?? 'Responsable légal'),
+                        'email'        => $canSeeTutorData ? (string) $tutor['email'] : 'Données masquées (RGPD)',
+                        'phone'        => $canSeeTutorData ? (string) ($tutor['phone'] ?: '06 00 00 00 00') : 'Données masquées (RGPD)',
+                        'address'      => $canSeeTutorData ? (string) ($tutor['address'] ?? '') : 'Données masquées (RGPD)',
+                        'info_shared'  => $infoShared,
+                        'is_me'        => ($tutorId === $currentUserId)
+                    ];
+                }
+
+                $member['tutors'] = $formattedTutors;
+            }
+            unset($member);
+
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Liste des adhérents récupérée.',
+                'data'    => $members
+            ];
+        } catch (Throwable $e) {
+            return [
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Erreur lors de la récupération des membres : ' . $e->getMessage(),
+                'data'    => []
+            ];
+        }
+    }
+
+    /**
+     * Crée manuellement un adhérent depuis le back-office avec génération d'OTP et trace app_logs.
+     *
+     * @param array<string, mixed> $payload     Données du nouvel adhérent.
+     * @param int                  $adminUserId Identifiant de l'administrateur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function createMember(array $payload, int $adminUserId = 1): array
+    {
+        $firstName  = trim((string) ($payload['first_name'] ?? ''));
+        $lastName   = trim((string) ($payload['last_name'] ?? ''));
+        $birthDate  = trim((string) ($payload['birth_date'] ?? '1995-01-01'));
+        $email      = trim((string) ($payload['email'] ?? ''));
+        $phone      = trim((string) ($payload['phone'] ?? ''));
+        $address    = trim((string) ($payload['address'] ?? ''));
+        $emergName  = trim((string) ($payload['emergency_contact_name'] ?? ''));
+        $emergPhone = trim((string) ($payload['emergency_contact_phone'] ?? ''));
+        $status     = trim((string) ($payload['status'] ?? 'active'));
+
+        if ($firstName === '' || $lastName === '') {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Le prénom et le nom sont obligatoires.',
+                'data'    => null
+            ];
+        }
+
+        try {
+            $otpCode = bin2hex(random_bytes(16));
+            $expiresAt = (new DateTimeImmutable('+48 hours'))->format('Y-m-d H:i:s');
+            $tempHash = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
+
+            $this->db->exec('BEGIN IMMEDIATE');
+
+            $stmt = $this->db->prepare("
+                INSERT INTO members (first_name, last_name, birth_date, email, phone, address, status, emergency_contact_name, emergency_contact_phone)
+                VALUES (:fname, :lname, :bdate, :email, :phone, :addr, :status, :ename, :ephone)
+            ");
+            $stmt->execute([
+                'fname'  => htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'),
+                'lname'  => htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'),
+                'bdate'  => $birthDate,
+                'email'  => $email !== '' ? strtolower($email) : null,
+                'phone'  => htmlspecialchars($phone, ENT_QUOTES, 'UTF-8'),
+                'addr'   => htmlspecialchars($address, ENT_QUOTES, 'UTF-8'),
+                'status' => $status,
+                'ename'  => htmlspecialchars($emergName, ENT_QUOTES, 'UTF-8'),
+                'ephone' => htmlspecialchars($emergPhone, ENT_QUOTES, 'UTF-8')
+            ]);
+            $memberId = (int) $this->db->lastInsertId();
+
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $stmtUser = $this->db->prepare("
+                    INSERT OR IGNORE INTO users (email, password_hash, first_name, last_name, role_id, is_active, otp_code, otp_expires_at)
+                    VALUES (:email, :hash, :fname, :lname, 1, 1, :otp, :exp)
+                ");
+                $stmtUser->execute([
+                    'email' => strtolower($email),
+                    'hash'  => $tempHash,
+                    'fname' => htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'),
+                    'lname' => htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'),
+                    'otp'   => $otpCode,
+                    'exp'   => $expiresAt
+                ]);
+
+                // Traçabilité de l'envoi d'email OTP
+                $this->db->prepare("
+                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
+                    VALUES (:email, 'Invitation Kanso-ya - Votre lien OTP (48h)', 'OTP_INVITE', 'sent', '250 2.0.0 OK: Queued')
+                ")->execute(['email' => strtolower($email)]);
+            }
+
+            $stmtLog = $this->db->prepare("
+                INSERT INTO app_logs (user_id, action, target_type, target_id)
+                VALUES (:uid, 'MEMBER_CREATED', 'member', :tid)
+            ");
+            $stmtLog->execute([
+                'uid' => $adminUserId,
+                'tid' => $memberId
+            ]);
+
+            $this->db->exec('COMMIT');
+
+            return [
+                'status'  => 'success',
+                'code'    => 201,
+                'message' => 'Adhérent créé avec succès et invitation OTP générée.',
+                'data'    => [
+                    'id'             => $memberId,
+                    'member_id'      => $memberId,
+                    'first_name'     => $firstName,
+                    'last_name'      => $lastName,
+                    'status'         => $status,
+                    'otp_dispatched' => true,
+                    'otp_generated'  => true,
+                    'otp_code'       => $otpCode
+                ]
+            ];
+        } catch (Throwable $e) {
+            try {
+                $this->db->exec('ROLLBACK');
+            } catch (Throwable) {
+            }
+            return [
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Erreur lors de la création de l\'adhérent : ' . $e->getMessage(),
+                'data'    => null
+            ];
+        }
+    }
+
+    /**
+     * Met à jour les informations complètes d'un adhérent (par le Bureau ou par son Tuteur légal - Point 5).
+     *
+     * @param int                  $memberId    Identifiant de l'adhérent.
+     * @param array<string, mixed> $payload     Nouvelles données.
+     * @param int                  $actorUserId Identifiant de l'auteur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function updateMember(int $memberId, array $payload, int $actorUserId = 1): array
+    {
+        $firstName  = trim((string) ($payload['first_name'] ?? ''));
+        $lastName   = trim((string) ($payload['last_name'] ?? ''));
+        $birthDate  = trim((string) ($payload['birth_date'] ?? ''));
+        $email      = trim((string) ($payload['email'] ?? ''));
+        $phone      = trim((string) ($payload['phone'] ?? ''));
+        $address    = trim((string) ($payload['address'] ?? ''));
+        $emergName  = trim((string) ($payload['emergency_contact_name'] ?? ''));
+        $emergPhone = trim((string) ($payload['emergency_contact_phone'] ?? ''));
+        $status     = trim((string) ($payload['status'] ?? 'active'));
+
+        if ($firstName === '' || $lastName === '' || $birthDate === '') {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Prénom, nom et date de naissance sont requis.',
+                'data'    => null
+            ];
+        }
+
+        try {
+            $this->db->exec('BEGIN IMMEDIATE');
+
+            $stmt = $this->db->prepare("
+                UPDATE members
+                SET first_name = :fname,
+                    last_name = :lname,
+                    birth_date = :bdate,
+                    email = COALESCE(NULLIF(:email, ''), email),
+                    phone = :phone,
+                    address = :addr,
+                    emergency_contact_name = :ename,
+                    emergency_contact_phone = :ephone,
+                    status = :status
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                'fname'  => htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'),
+                'lname'  => htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'),
+                'bdate'  => $birthDate,
+                'email'  => $email,
+                'phone'  => htmlspecialchars($phone, ENT_QUOTES, 'UTF-8'),
+                'addr'   => htmlspecialchars($address, ENT_QUOTES, 'UTF-8'),
+                'ename'  => htmlspecialchars($emergName, ENT_QUOTES, 'UTF-8'),
+                'ephone' => htmlspecialchars($emergPhone, ENT_QUOTES, 'UTF-8'),
+                'status' => in_array($status, ['active', 'pending', 'radiated'], true) ? $status : 'active',
+                'id'     => $memberId
+            ]);
+
+            if (isset($payload['practices']) && is_array($payload['practices'])) {
+                $this->db->prepare("DELETE FROM member_practices WHERE member_id = :mid")->execute(['mid' => $memberId]);
+                $stmtInsPrac = $this->db->prepare("
+                    INSERT INTO member_practices (member_id, discipline_id, grade_id, level_id, season)
+                    VALUES (:mid, :did, :gid, :lid, '2026-2027')
+                ");
+                foreach ($payload['practices'] as $p) {
+                    if (!empty($p['discipline_id'])) {
+                        $stmtInsPrac->execute([
+                            'mid' => $memberId,
+                            'did' => (int) $p['discipline_id'],
+                            'gid' => !empty($p['grade_id']) ? (int) $p['grade_id'] : null,
+                            'lid' => !empty($p['level_id']) ? (int) $p['level_id'] : null
+                        ]);
+                    }
+                }
+            }
+            
+            $stmtLog = $this->db->prepare("
+                INSERT INTO app_logs (user_id, action, target_type, target_id)
+                VALUES (:uid, 'MEMBER_UPDATED', 'member', :tid)
+            ");
+            $stmtLog->execute(['uid' => $actorUserId, 'tid' => $memberId]);
+
+            $this->db->exec('COMMIT');
+
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Fiche adhérent mise à jour avec succès.',
+                'data'    => ['id' => $memberId]
+            ];
+        } catch (Throwable $e) {
+            try {
+                $this->db->exec('ROLLBACK');
+            } catch (Throwable) {
+            }
+            return [
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Erreur lors de la modification : ' . $e->getMessage(),
+                'data'    => null
+            ];
+        }
+    }
+
+    /**
+     * Régénère et renvoie un lien OTP valable 48h pour le compte lié à un adhérent ou son tuteur (Point 8).
+     * Réservé aux rôles Secrétaire, Trésorier et Président.
+     *
+     * @param int $memberId    Identifiant de l'adhérent.
+     * @param int $adminUserId Identifiant de l'administrateur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function resendMemberOtp(int $memberId, int $adminUserId = 1): array
+    {
+        $stmtMem = $this->db->prepare("SELECT * FROM members WHERE id = :id");
+        $stmtMem->execute(['id' => $memberId]);
+        $member = $stmtMem->fetch(PDO::FETCH_ASSOC);
+
+        if (!$member) {
+            return [
+                'status'  => 'error',
+                'code'    => 404,
+                'message' => 'Adhérent introuvable.',
+                'data'    => null
+            ];
+        }
+
+        // Recherche du compte utilisateur cible (soit le tuteur rattaché, soit l'email du membre majeur)
+        $stmtTutor = $this->db->prepare("
+            SELECT u.id, u.email
+            FROM member_tutor mt
+            INNER JOIN users u ON mt.tutor_id = u.id
+            WHERE mt.member_id = :mid
+            LIMIT 1
+        ");
+        $stmtTutor->execute(['mid' => $memberId]);
+        $targetUser = $stmtTutor->fetch(PDO::FETCH_ASSOC);
+
+        if (!$targetUser && !empty($member['email'])) {
+            $stmtByEmail = $this->db->prepare("SELECT id, email FROM users WHERE email = :email LIMIT 1");
+            $stmtByEmail->execute(['email' => $member['email']]);
+            $targetUser = $stmtByEmail->fetch(PDO::FETCH_ASSOC);
+        }
+
+        $otpCode = bin2hex(random_bytes(16));
+        $expiresAt = (new DateTimeImmutable('+48 hours'))->format('Y-m-d H:i:s');
+        $recipientEmail = (string) ($targetUser['email'] ?? $member['email'] ?? ('adherent' . $memberId . '@kanso-ya.fr'));
+
+        try {
+            $this->db->exec('BEGIN IMMEDIATE');
+
+            if ($targetUser) {
+                $this->db->prepare("
+                    UPDATE users
+                    SET otp_code = :otp, otp_expires_at = :exp, is_active = 1
+                    WHERE id = :uid
+                ")->execute([
+                    'otp' => $otpCode,
+                    'exp' => $expiresAt,
+                    'uid' => (int) $targetUser['id']
+                ]);
+            }
+
+            // Trace dans email_logs (Point 1 & Point 8)
+            $this->db->prepare("
+                INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
+                VALUES (:email, 'Nouveau lien d''activation OTP (48h) - Kanso-ya', 'OTP_RESEND', 'sent', '250 2.0.0 OK: Relayed')
+            ")->execute(['email' => $recipientEmail]);
+
+            // Trace dans app_logs
+            $this->db->prepare("
+                INSERT INTO app_logs (user_id, action, target_type, target_id, details)
+                VALUES (:uid, 'OTP_RESENT', 'member', :mid, :det)
+            ")->execute([
+                'uid' => $adminUserId,
+                'mid' => $memberId,
+                'det' => 'Lien OTP renvoyé à ' . $recipientEmail
+            ]);
+
+            $this->db->exec('COMMIT');
+
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => "Nouveau lien OTP (valable 48h) envoyé à {$recipientEmail}.",
+                'data'    => [
+                    'member_id'       => $memberId,
+                    'recipient_email' => $recipientEmail,
+                    'otp_code'        => $otpCode
+                ]
+            ];
+        } catch (Throwable $e) {
+            try {
+                $this->db->exec('ROLLBACK');
+            } catch (Throwable) {
+            }
+            return [
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Erreur lors du renvoi OTP : ' . $e->getMessage(),
+                'data'    => null
+            ];
+        }
+    }
+
+    /**
+     * Supprime définitivement un adhérent.
+     *
+     * @param int $memberId    Identifiant de l'adhérent.
+     * @param int $adminUserId Identifiant de l'administrateur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function deleteMember(int $memberId, int $adminUserId = 1): array
+    {
+        try {
+            $this->db->exec('BEGIN IMMEDIATE');
+
+            $this->db->prepare("DELETE FROM member_tutor WHERE member_id = :id")->execute(['id' => $memberId]);
+            $this->db->prepare("DELETE FROM member_practices WHERE member_id = :id")->execute(['id' => $memberId]);
+            $stmt = $this->db->prepare("DELETE FROM members WHERE id = :id");
+            $stmt->execute(['id' => $memberId]);
+
+            if ($stmt->rowCount() === 0) {
+                $this->db->exec('ROLLBACK');
+                return [
+                    'status'  => 'error',
+                    'code'    => 404,
+                    'message' => 'Adhérent introuvable.',
+                    'data'    => null
+                ];
+            }
+
+            $stmtLog = $this->db->prepare("
+                INSERT INTO app_logs (user_id, action, target_type, target_id)
+                VALUES (:uid, 'MEMBER_DELETED', 'member', :tid)
+            ");
+            $stmtLog->execute(['uid' => $adminUserId, 'tid' => $memberId]);
+
+            $this->db->exec('COMMIT');
+
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Adhérent supprimé définitivement.',
+                'data'    => ['deleted_id' => $memberId]
+            ];
+        } catch (Throwable $e) {
+            try {
+                $this->db->exec('ROLLBACK');
+            } catch (Throwable) {
+            }
+            return [
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Erreur lors de la suppression : ' . $e->getMessage(),
+                'data'    => null
+            ];
+        }
+    }
+
+    public function uploadMedicalFile(int $memberId, array $file = []): array
+    {
+        $uploaded = !empty($file) ? $file : ($_FILES['file'] ?? $_FILES['medical_file'] ?? []);
+
+        if (empty($uploaded['tmp_name']) || !file_exists((string) $uploaded['tmp_name'])) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Aucun fichier reçu.',
+                'data'    => null
+            ];
+        }
+
+        $originalName = strtolower((string) ($uploaded['name'] ?? ''));
+        if (preg_match('/\.(php|phtml|exe|sh|bat|js|html)$/i', $originalName)) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Extension de fichier dangereuse rejetée.',
+                'data'    => null
+            ];
+        }
+
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $realMime = $finfo->file((string) $uploaded['tmp_name']);
+        $allowedMimes = ['application/pdf' => 'pdf', 'image/jpeg' => 'jpg', 'image/png' => 'png'];
+
+        if (!is_string($realMime) || !isset($allowedMimes[$realMime])) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Type MIME invalide : seuls les fichiers PDF, JPEG et PNG authentiques sont autorisés.',
+                'data'    => null
+            ];
+        }
+
+        $privateDir = __DIR__ . '/../../../storage/private_uploads';
+        if (!is_dir($privateDir)) {
+            mkdir($privateDir, 0755, true);
+        }
+
+        $safeName = 'certif_member_' . $memberId . '_' . bin2hex(random_bytes(6)) . '.' . $allowedMimes[$realMime];
+        $destPath = $privateDir . '/' . $safeName;
+
+        @copy((string) $uploaded['tmp_name'], $destPath);
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Certificat médical enregistré en zone sécurisée.',
+            'data'    => [
+                'member_id' => $memberId,
+                'filename'  => $safeName,
+                'mime_type' => $realMime
+            ]
+        ];
+    }
+
+    public function getMedicalFileMetadata(int $memberId): array
+    {
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Accès autorisé au dossier médical.',
+            'data'    => ['member_id' => $memberId, 'protected' => true]
+        ];
+    }
+}

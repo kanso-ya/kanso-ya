@@ -1,0 +1,34 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 1. Conserver l'en-tête Authorization pour l'API et Playwright
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
+    # 2. Routes d'authentification, console furtive et inscription publique
+    RewriteRule ^login/?$ login.php [L,NC]
+    RewriteRule ^sys-admin-xyz/?$ sys-admin-login.php [L,NC]
+    RewriteRule ^sys-console/?$ sys-console.php [L,NC]
+    RewriteRule ^register/?$ register.php [L,NC]
+
+    # 3. Routes propres du Back-Office (incluant /stats)
+    RewriteRule ^dashboard/?$ dashboard.php [L,NC]
+    RewriteRule ^stats/?$ stats.php [L,NC]
+    RewriteRule ^members/?$ members.php [L,NC]
+    RewriteRule ^registrations/?$ registrations.php [L,NC]
+    RewriteRule ^cms/?$ cms.php [L,NC]
+    RewriteRule ^disciplines/?$ disciplines.php [L,NC]
+    RewriteRule ^roles/?$ roles.php [L,NC]
+
+    # 4. Pages institutionnelles et légales fixes (US 4.1 - CA3)
+    RewriteRule ^(rgpd|cgv|mentions-legales|horaires)/?$ legal.php?slug=$1 [L,QSA,NC]
+
+    # 5. Accès direct aux fichiers physiques existants
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 6. Redirection de tout le trafic API vers le Front-Controller api.php
+    RewriteCond %{REQUEST_URI} ^/api/ [NC]
+    RewriteRule ^(.*)$ api.php [L,QSA]
+</IfModule>
