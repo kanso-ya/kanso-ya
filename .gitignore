@@ -1,0 +1,10 @@
+/.env
+/vendor/
+/node_modules/
+/data/*.sqlite
+/data/*.db
+/storage/logs/*
+/test-results/
+/playwright-report/
+.DS_Store
+Thumbs.db
