@@ -69,12 +69,33 @@ ob_start();
                     <button type="button" data-status="radiated" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Radiés</button>
                 </div>
 
+                <!-- Filtres combinés CRM (Points 22 & 23) -->
+                <select id="filter-member-age" data-testid="filter-member-age" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold bg-white <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>">
+                    <option value="">Tous les âges</option>
+                    <option value="minor">Mineurs (< 18 ans)</option>
+                    <option value="adult">Majeurs (18 ans +)</option>
+                </select>
+
+                <select id="filter-member-health" data-testid="filter-member-health" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold bg-white <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>">
+                    <option value="">Tous statuts santé</option>
+                    <option value="signed">Attestation Cerfa validée</option>
+                    <option value="pending">Certificat médical requis</option>
+                </select>
+
                 <!-- Filtre par Discipline -->
                 <select id="member-discipline-filter" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold bg-white <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>">
                     <option value="all">Toutes les disciplines</option>
                 </select>
 
-                <input type="search" id="member-search" placeholder="Rechercher (Nom, Grade, Ceinture)..." class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-full sm:w-56 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                <input type="search" id="member-search" placeholder="Rechercher (Nom, Grade, Ceinture)..." class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-full sm:w-48 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+
+                <!-- Bouton Actions Groupées & Export (Points 21 & 24) -->
+                <button type="button" id="btn-bulk-resend-otp" data-testid="btn-bulk-resend-otp" class="hidden px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold transition">
+                    📧 Relancer OTP (<span id="bulk-selected-count">0</span>)
+                </button>
+                <button type="button" id="btn-export-csv" data-testid="btn-export-csv" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center gap-1.5 <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>">
+                    📥 Exporter CSV
+                </button>
 
                 <?php if (in_array($currentRole, ['Président', 'Secrétaire'], true)): ?>
                     <button id="btn-add-member" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shrink-0 shadow-xs transition">
@@ -84,15 +105,29 @@ ob_start();
             </div>
         </div>
 
+        <!-- Onglets Disciplines Dynamiques (Sans parenthèses - Sprint 9) -->
+        <div id="discipline-tabs-container" class="flex items-center gap-2 overflow-x-auto pb-1 text-xs <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>"></div>
+
         <div class="overflow-x-auto rounded-xl border border-slate-200 max-h-[68vh]">
             <table id="members-table" class="w-full text-left border-collapse">
                 <thead class="sticky top-0 bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200 z-10">
                     <tr>
-                        <th class="p-3.5">Adhérent</th>
-                        <th class="p-3.5">Naissance & Âge</th>
-                        <th class="p-3.5">Disciplines, Cours (Grade) & Niveau</th>
+                        <th class="p-3.5 w-10 text-center <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>">
+                            <input type="checkbox" id="select-all-members" class="rounded text-emerald-600 focus:ring-emerald-500">
+                        </th>
+                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="name">
+                            Adhérent <span class="sort-icon text-[10px] text-slate-400">↕</span>
+                        </th>
+                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="birth_date">
+                            Naissance & Âge <span class="sort-icon text-[10px] text-slate-400">↕</span>
+                        </th>
+                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="discipline">
+                            Disciplines, Cours (Grade) & Niveau <span class="sort-icon text-[10px] text-slate-400">↕</span>
+                        </th>
                         <th class="p-3.5">Contact d'Urgence</th>
-                        <th class="p-3.5">Statut & Rattachement</th>
+                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="status">
+                            Statut & Santé <span class="sort-icon text-[10px] text-slate-400">↕</span>
+                        </th>
                         <th class="p-3.5 text-right">Actions</th>
                     </tr>
                 </thead>

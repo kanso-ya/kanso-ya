@@ -58,12 +58,16 @@ interface DisciplineRef {
 
 let allRegistrations: RegistrationRecord[] = [];
 let disciplinesCatalog: DisciplineRef[] = [];
+let currentSortField = 'id';
+let currentSortOrder: 'asc' | 'desc' = 'desc';
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadDisciplinesReference();
     await loadRegistrations();
     initStatusFilter();
     initInspectModalClose();
+    initSorting();
+    initDocumentModal();
 });
 
 async function loadDisciplinesReference(): Promise<void> {
@@ -79,6 +83,73 @@ async function loadRegistrations(): Promise<void> {
 
     allRegistrations = res.data;
     renderRegistrationsTable(allRegistrations);
+}
+
+function sortRecords(records: RegistrationRecord[]): RegistrationRecord[] {
+    return [...records].sort((a, b) => {
+        let valA: string | number = '';
+        let valB: string | number = '';
+
+        if (currentSortField === 'id') {
+            valA = a.id;
+            valB = b.id;
+        } else if (currentSortField === 'payer') {
+            valA = (a.payer_email || '').toLowerCase();
+            valB = (b.payer_email || '').toLowerCase();
+        } else if (currentSortField === 'amount') {
+            valA = Number(a.total_amount) || 0;
+            valB = Number(b.total_amount) || 0;
+        } else if (currentSortField === 'status') {
+            valA = a.status.toLowerCase();
+            valB = b.status.toLowerCase();
+        }
+
+        if (valA < valB) return currentSortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return currentSortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+}
+
+function initSorting(): void {
+    const headers = document.querySelectorAll<HTMLTableCellElement>('th[data-sort]');
+    headers.forEach((th) => {
+        th.addEventListener('click', () => {
+            const field = th.getAttribute('data-sort');
+            if (!field) return;
+
+            if (currentSortField === field) {
+                currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortField = field;
+                currentSortOrder = 'asc';
+            }
+
+            headers.forEach((h) => {
+                const icon = h.querySelector('.sort-icon');
+                if (icon) {
+                    if (h.getAttribute('data-sort') === currentSortField) {
+                        icon.textContent = currentSortOrder === 'asc' ? ' ▲' : ' ▼';
+                        (icon as HTMLElement).style.opacity = '1';
+                    } else {
+                        icon.textContent = ' ⇅';
+                        (icon as HTMLElement).style.opacity = '0.4';
+                    }
+                }
+            });
+
+            applyFilterAndRender();
+        });
+    });
+}
+
+function applyFilterAndRender(): void {
+    const select = document.getElementById('filter-reg-status') as HTMLSelectElement | null;
+    const val = select?.value || 'all';
+    let filtered = allRegistrations;
+    if (val !== 'all') {
+        filtered = allRegistrations.filter((r) => r.status === val);
+    }
+    renderRegistrationsTable(sortRecords(filtered));
 }
 
 function renderRegistrationsTable(records: RegistrationRecord[]): void {
@@ -141,6 +212,36 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
                     await triggerValidation(reg.id, btnVal, []);
                 });
                 actionCell.appendChild(btnVal);
+            }
+
+            if (reg.status === 'validated') {
+                const btnReceipt = document.createElement('button');
+                btnReceipt.type = 'button';
+                btnReceipt.className = 'btn-download-receipt bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition';
+                btnReceipt.setAttribute('data-reg-id', String(reg.id));
+                btnReceipt.setAttribute('data-testid', `btn-receipt-${reg.id}`);
+                btnReceipt.textContent = '📄 Reçu';
+                btnReceipt.addEventListener('click', async () => {
+                    const res = await fetchApi<{ receipt_text: string }>(`/api/v1/registrations/${reg.id}/receipt`);
+                    if (res.status === 'success' && res.data) {
+                        openDocumentModal(`Reçu de Cotisation — Dossier #${reg.id}`, 'Reçu Officiel', res.data.receipt_text);
+                    }
+                });
+                actionCell.appendChild(btnReceipt);
+
+                const btnCse = document.createElement('button');
+                btnCse.type = 'button';
+                btnCse.className = 'btn-download-cse bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition';
+                btnCse.setAttribute('data-reg-id', String(reg.id));
+                btnCse.setAttribute('data-testid', `btn-cse-${reg.id}`);
+                btnCse.textContent = '🏢 Attestation CSE';
+                btnCse.addEventListener('click', async () => {
+                    const res = await fetchApi<{ attestation_text: string }>(`/api/v1/registrations/${reg.id}/cse-attestation`);
+                    if (res.status === 'success' && res.data) {
+                        openDocumentModal(`Attestation de Prise en Charge CE / CSE — Dossier #${reg.id}`, 'Attestation CSE', res.data.attestation_text);
+                    }
+                });
+                actionCell.appendChild(btnCse);
             }
 
             if (reg.status === 'radiated') {
@@ -358,12 +459,7 @@ function initStatusFilter(): void {
     if (!select) return;
 
     select.addEventListener('change', () => {
-        const val = select.value;
-        if (val === 'all') {
-            renderRegistrationsTable(allRegistrations);
-        } else {
-            renderRegistrationsTable(allRegistrations.filter((r) => r.status === val));
-        }
+        applyFilterAndRender();
     });
 }
 
@@ -378,4 +474,38 @@ function initInspectModalClose(): void {
     };
     close1?.addEventListener('click', close);
     close2?.addEventListener('click', close);
+}
+
+function openDocumentModal(title: string, badge: string, content: string): void {
+    const modal = document.getElementById('document-preview-modal');
+    const titleEl = document.getElementById('doc-modal-title');
+    const badgeEl = document.getElementById('doc-modal-type-badge');
+    const bodyEl = document.getElementById('doc-modal-body');
+
+    if (!modal || !titleEl || !badgeEl || !bodyEl) return;
+
+    titleEl.textContent = title;
+    badgeEl.textContent = badge;
+    bodyEl.textContent = content;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function initDocumentModal(): void {
+    const modal = document.getElementById('document-preview-modal');
+    const closeBtn = document.getElementById('btn-close-doc-modal');
+    const dismissBtn = document.getElementById('btn-dismiss-doc-modal');
+    const printBtn = document.getElementById('btn-print-doc');
+
+    const close = (): void => {
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+    };
+
+    closeBtn?.addEventListener('click', close);
+    dismissBtn?.addEventListener('click', close);
+    printBtn?.addEventListener('click', () => {
+        window.print();
+    });
 }

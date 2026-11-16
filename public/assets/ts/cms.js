@@ -10,6 +10,8 @@ import { openConfirmModal, setButtonLoading, showToast } from './main.js';
 let draggedBlock = null;
 let activeColumnTarget = null;
 let canPublishArticles = true;
+let allArticles = [];
+let articlesSortOrder = 'desc';
 document.addEventListener('DOMContentLoaded', () => {
     initCmsTabs();
     initMultiColumnBuilder();
@@ -17,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadArticles();
     initArticleForm();
     initLegalPagesEditor();
+    initMediaCleanup();
+    initArticlesSort();
     window.addEventListener('kanso:auth-ready', (e) => {
         const ctx = e.detail;
         canPublishArticles = ctx.permissions.includes('articles.publish') || ctx.role === 'Superadmin';
@@ -373,17 +377,30 @@ function initPreviewModal() {
     });
 }
 async function loadArticles() {
+    const response = await fetchApi('/api/v1/articles');
+    if (response.status !== 'success' || !response.data)
+        return;
+    allArticles = response.data;
+    renderArticlesList();
+}
+function renderArticlesList() {
     const container = document.getElementById('articles-list');
     const countSpan = document.getElementById('cms-articles-count');
     if (!container)
         return;
-    const response = await fetchApi('/api/v1/articles');
-    if (response.status !== 'success' || !response.data)
-        return;
     if (countSpan)
-        countSpan.textContent = String(response.data.length);
+        countSpan.textContent = String(allArticles.length);
     container.innerHTML = '';
-    response.data.forEach((art) => {
+    const sorted = [...allArticles].sort((a, b) => {
+        const dateA = a.created_at || String(a.id);
+        const dateB = b.created_at || String(b.id);
+        if (dateA < dateB)
+            return articlesSortOrder === 'asc' ? -1 : 1;
+        if (dateA > dateB)
+            return articlesSortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+    sorted.forEach((art) => {
         const card = document.createElement('div');
         card.className = 'p-5 border border-slate-200 rounded-2xl flex flex-col gap-2 bg-slate-50/70';
         const isPub = art.status === 'published';
@@ -399,6 +416,20 @@ async function loadArticles() {
         const meta = document.createElement('div');
         meta.className = 'flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500';
         meta.innerHTML = `<div class="flex items-center gap-2">${statusPill} <span>• Audience : <strong>${art.visibility}</strong></span></div>`;
+        const authorName = (art.author_first_name && art.author_last_name)
+            ? `${art.author_first_name} ${art.author_last_name}`
+            : (art.created_by ? `Utilisateur #${art.created_by}` : 'Direction');
+        const authorDate = art.created_at ? new Date(art.created_at).toLocaleDateString('fr-FR') : '';
+        const editorName = (art.editor_first_name && art.editor_last_name)
+            ? `${art.editor_first_name} ${art.editor_last_name}`
+            : (art.updated_by ? `Utilisateur #${art.updated_by}` : null);
+        const editorDate = art.updated_at ? new Date(art.updated_at).toLocaleDateString('fr-FR') : '';
+        const traceability = document.createElement('div');
+        traceability.className = 'text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1';
+        traceability.innerHTML = `
+            <span data-testid="article-author" class="article-author font-medium text-slate-600">✍️ Rédigé par <strong>${authorName}</strong>${authorDate ? ` le ${authorDate}` : ''}</span>
+            ${editorName ? `<span data-testid="article-editor" class="article-editor text-slate-400">✏️ Dernière modification par <strong>${editorName}</strong>${editorDate ? ` le ${editorDate}` : ''}</span>` : ''}
+        `;
         const btnGroup = document.createElement('div');
         btnGroup.className = 'flex items-center gap-2';
         const editBtn = document.createElement('button');
@@ -463,6 +494,7 @@ async function loadArticles() {
         body.className = 'text-sm text-slate-700 pt-2 border-t border-slate-200/60';
         body.innerHTML = art.content;
         card.appendChild(header);
+        card.appendChild(traceability);
         card.appendChild(meta);
         card.appendChild(body);
         container.appendChild(card);
@@ -561,5 +593,37 @@ function initLegalPagesEditor() {
         finally {
             setButtonLoading(saveBtn, false, 'Sauvegarder la page');
         }
+    });
+}
+function initMediaCleanup() {
+    const btn = document.getElementById('btn-cleanup-orphans');
+    if (!btn)
+        return;
+    btn.addEventListener('click', () => {
+        openConfirmModal('Nettoyer les médias orphelins', 'Voulez-vous analyser et supprimer tous les fichiers de /uploads/ qui ne sont référencés dans aucun article ?', async () => {
+            setButtonLoading(btn, true, 'Nettoyage...');
+            try {
+                const res = await fetchApi('/api/v1/articles/media/cleanup', {
+                    method: 'POST'
+                });
+                if (res.status === 'success') {
+                    const count = res.data?.cleaned_files_count ?? 0;
+                    showToast(`Nettoyage terminé : ${count} média(s) orphelin(s) supprimé(s).`, 'success');
+                }
+            }
+            finally {
+                setButtonLoading(btn, false, '🧹 Nettoyer médias orphelins');
+            }
+        });
+    });
+}
+function initArticlesSort() {
+    const sortBtn = document.getElementById('btn-sort-articles');
+    if (!sortBtn)
+        return;
+    sortBtn.addEventListener('click', () => {
+        articlesSortOrder = articlesSortOrder === 'asc' ? 'desc' : 'asc';
+        sortBtn.textContent = articlesSortOrder === 'asc' ? 'Tri : Plus anciens d\'abord ▲' : 'Tri : Plus récents d\'abord ▼';
+        renderArticlesList();
     });
 }

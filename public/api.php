@@ -278,6 +278,30 @@ try {
     }
 
     // 2. CRM ADHÉRENTS, RATTACHEMENTS & RENVOI OTP
+    if ($method === 'GET' && $uri === '/api/v1/members/export') {
+        if ($currentRole === 'Rédacteur' || !$isAuthenticated) {
+            $logUnauthorizedAttempt($uri);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : consultation des adhérents interdite.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\MemberController();
+        $filters = [
+            'status'        => (string) ($_GET['status'] ?? 'all'),
+            'age_group'     => (string) ($_GET['age_group'] ?? ''),
+            'health_status' => (string) ($_GET['health_status'] ?? '')
+        ];
+        sendJson($controller->exportMembers($currentUserId, $currentRole, $permissions, $filters));
+    }
+
+    if ($method === 'POST' && $uri === '/api/v1/members/bulk-resend-otp') {
+        if (!in_array('members.edit', $permissions, true) && !in_array('finances.manage', $permissions, true)) {
+            $logUnauthorizedAttempt($uri);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : permissions insuffisantes.', 'data' => null]);
+        }
+        $memberIds = (array) ($payload['member_ids'] ?? []);
+        $controller = new \Core\Api\Endpoints\MemberController();
+        sendJson($controller->bulkResendOtp($memberIds, $currentUserId));
+    }
+
     if ($method === 'GET' && $uri === '/api/v1/members') {
         if ($currentRole === 'Rédacteur' || !$isAuthenticated) {
             $logUnauthorizedAttempt($uri);
@@ -405,6 +429,16 @@ try {
         sendJson(['status' => 'success', 'code' => 200, 'message' => 'Dossier supprimé définitivement.', 'data' => null]);
     }
 
+    if ($method === 'GET' && preg_match('#^/api/v1/registrations/(\d+)/receipt$#', $uri, $m)) {
+        $controller = new \Core\Api\Endpoints\RegistrationController();
+        sendJson($controller->getReceipt((int) $m[1], $currentUserId, $permissions));
+    }
+
+    if ($method === 'GET' && preg_match('#^/api/v1/registrations/(\d+)/cse-attestation$#', $uri, $m)) {
+        $controller = new \Core\Api\Endpoints\RegistrationController();
+        sendJson($controller->getCseAttestation((int) $m[1], $currentUserId, $permissions));
+    }
+
     if ($method === 'POST' && $uri === '/api/v1/auth/activate-otp') {
         $controller = new \Core\Api\Endpoints\RegistrationController();
         sendJson($controller->activateAccountWithOtp($payload));
@@ -436,7 +470,7 @@ try {
             sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé.', 'data' => null]);
         }
         $controller = new \Core\Api\Endpoints\CmsController();
-        sendJson($controller->updateArticle((int) $m[1], $payload, $permissions));
+        sendJson($controller->updateArticle((int) $m[1], $payload, $permissions, $currentUserId));
     }
 
     if ($method === 'DELETE' && preg_match('#^/api/v1/articles/(\d+)$#', $uri, $m)) {
@@ -464,6 +498,15 @@ try {
         }
         $controller = new \Core\Api\Endpoints\CmsController();
         sendJson($controller->uploadArticleMedia($_FILES['file'] ?? []));
+    }
+
+    if ($method === 'POST' && $uri === '/api/v1/articles/media/cleanup') {
+        if (!in_array('articles.publish', $permissions, true) && !$isSuperadmin) {
+            $logUnauthorizedAttempt($uri);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : droit articles.publish requis.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\CmsController();
+        sendJson($controller->cleanupOrphanMedia());
     }
 
     if ($method === 'GET' && $uri === '/api/v1/pages') {

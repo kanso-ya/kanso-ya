@@ -197,6 +197,8 @@ function runCoreSchemaMigration(): void
         content TEXT NOT NULL,
         category_id INTEGER NOT NULL DEFAULT 1,
         author_id INTEGER NOT NULL DEFAULT 1,
+        created_by INTEGER NULL,
+        updated_by INTEGER NULL,
         visibility VARCHAR(30) NOT NULL DEFAULT 'public',
         status VARCHAR(30) NOT NULL DEFAULT 'draft',
         image_url VARCHAR(255) NULL,
@@ -239,7 +241,9 @@ SQL;
         "ALTER TABLE members ADD COLUMN health_attestation_signed INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE members ADD COLUMN health_attestation_date DATETIME NULL",
         "ALTER TABLE registrations ADD COLUMN discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00",
-        "ALTER TABLE registrations ADD COLUMN discount_description VARCHAR(255) NULL"
+        "ALTER TABLE registrations ADD COLUMN discount_description VARCHAR(255) NULL",
+        "ALTER TABLE articles ADD COLUMN created_by INTEGER NULL",
+        "ALTER TABLE articles ADD COLUMN updated_by INTEGER NULL"
     ];
     foreach ($alters as $q) {
         try {

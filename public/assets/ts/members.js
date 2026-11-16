@@ -12,11 +12,21 @@ let allMembers = [];
 let disciplinesCatalog = [];
 let activeStatusFilter = 'all';
 let activeDisciplineFilter = 'all';
+let activeAgeFilter = '';
+let activeHealthFilter = '';
+let activeSearchQuery = '';
+let activeSortColumn = 'name';
+let activeSortDirection = 'asc';
+const selectedMemberIds = new Set();
 document.addEventListener('DOMContentLoaded', async () => {
     await loadDisciplinesCatalog();
     await loadMembersTable();
     initStatusTabs();
     initDisciplineFilter();
+    initAdvancedFilters();
+    initTableSorting();
+    initBulkActions();
+    initExportCsv();
     initEditMemberModal();
     initMedicalUploadModal();
     window.addEventListener('kanso:members-updated', () => loadMembersTable());
@@ -63,6 +73,7 @@ async function loadMembersTable() {
         return;
     allMembers = response.data;
     updateKpiCounters(allMembers);
+    renderDisciplineTabs();
     renderMembersRows();
 }
 function updateKpiCounters(members) {
@@ -86,11 +97,48 @@ function renderMembersRows() {
     const canDeleteOrRadiate = perms.includes('members.edit') || role === 'Superadmin';
     const canResendOtp = ['Président', 'Secrétaire', 'Trésorier', 'Superadmin'].includes(role);
     const isTeacher = (role === 'Entraîneur');
-    const filtered = allMembers.filter((m) => {
+    const isAdherent = (role === 'Adhérent');
+    let filtered = allMembers.filter((m) => {
         const matchStatus = activeStatusFilter === 'all' || m.status === activeStatusFilter;
         const matchDisc = activeDisciplineFilter === 'all'
             || (m.practices || []).some((p) => String(p.discipline_id) === activeDisciplineFilter);
-        return matchStatus && matchDisc;
+        // Filtre Âge
+        const age = computeAge(m.birth_date);
+        const matchAge = activeAgeFilter === ''
+            || (activeAgeFilter === 'minor' && age < 18)
+            || (activeAgeFilter === 'adult' && age >= 18);
+        // Filtre Santé
+        const hasSigned = !emptyHealthAttestation(m);
+        const matchHealth = activeHealthFilter === ''
+            || (activeHealthFilter === 'signed' && hasSigned)
+            || (activeHealthFilter === 'pending' && !hasSigned);
+        return matchStatus && matchDisc && matchAge && matchHealth;
+    });
+    // Tri multi-colonnes interactif (Point 26)
+    filtered.sort((a, b) => {
+        let valA = '';
+        let valB = '';
+        if (activeSortColumn === 'name') {
+            valA = `${a.last_name} ${a.first_name}`.toLowerCase();
+            valB = `${b.last_name} ${b.first_name}`.toLowerCase();
+        }
+        else if (activeSortColumn === 'birth_date') {
+            valA = a.birth_date;
+            valB = b.birth_date;
+        }
+        else if (activeSortColumn === 'discipline') {
+            valA = a.practices?.[0]?.discipline_name || '';
+            valB = b.practices?.[0]?.discipline_name || '';
+        }
+        else if (activeSortColumn === 'status') {
+            valA = a.status;
+            valB = b.status;
+        }
+        if (valA < valB)
+            return activeSortDirection === 'asc' ? -1 : 1;
+        if (valA > valB)
+            return activeSortDirection === 'asc' ? 1 : -1;
+        return 0;
     });
     tbody.innerHTML = '';
     filtered.forEach((member) => {
@@ -108,6 +156,10 @@ function renderMembersRows() {
         else if (member.status === 'radiated') {
             statusBadge = '<span class="px-2.5 py-0.5 text-[11px] rounded-full bg-red-50 text-red-600 font-semibold">Radié</span>';
         }
+        const isHealthOk = !emptyHealthAttestation(member);
+        const healthBadge = isHealthOk
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 block mt-1">✓ Cerfa validé</span>`
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 block mt-1">Certif. requis</span>`;
         // Affichage des Disciplines, Cours (Grade d'âge) et Niveaux (Ceinture)
         const practices = member.practices || [];
         const practicesHtml = practices.length > 0
@@ -145,7 +197,11 @@ function renderMembersRows() {
         const addressLine = (!isTeacher && member.address)
             ? `<div class="text-[11px] text-slate-400 truncate max-w-[180px]">📍 ${member.address}</div>`
             : '';
+        const isChecked = selectedMemberIds.has(member.id);
         memberTr.innerHTML = `
+            <td class="p-3.5 text-center ${isAdherent ? 'hidden' : ''}">
+                <input type="checkbox" class="member-select-cb member-row-checkbox rounded text-emerald-600 focus:ring-emerald-500" data-id="${member.id}" ${isChecked ? 'checked' : ''}>
+            </td>
             <td class="p-3.5">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
@@ -168,6 +224,7 @@ function renderMembersRows() {
             </td>
             <td class="p-3.5">
                 ${statusBadge}
+                ${healthBadge}
                 ${tutorSummary}
             </td>
             <td class="p-3.5 text-right space-x-1 action-buttons whitespace-nowrap">${buttons.join('')}</td>
@@ -288,8 +345,185 @@ function renderMembersRows() {
                 }
             });
         });
+        memberTr.querySelector('.member-select-cb')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const cb = e.currentTarget;
+            if (cb.checked) {
+                selectedMemberIds.add(member.id);
+            }
+            else {
+                selectedMemberIds.delete(member.id);
+            }
+            updateBulkUi();
+        });
         tbody.appendChild(memberTr);
         tbody.appendChild(accordionTr);
+    });
+    updateBulkUi();
+}
+function emptyHealthAttestation(m) {
+    return !m.health_attestation_signed || Number(m.health_attestation_signed) === 0;
+}
+function updateBulkUi() {
+    const btn = document.getElementById('btn-bulk-resend-otp');
+    const countSpan = document.getElementById('bulk-selected-count');
+    const count = selectedMemberIds.size;
+    if (countSpan)
+        countSpan.textContent = String(count);
+    if (btn) {
+        if (count > 0) {
+            btn.classList.remove('hidden');
+        }
+        else {
+            btn.classList.add('hidden');
+        }
+    }
+}
+function initAdvancedFilters() {
+    const searchInput = document.getElementById('member-search');
+    searchInput?.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase().trim();
+        document.querySelectorAll('#members-table tbody tr.member-row').forEach((row) => {
+            const text = row.textContent?.toLowerCase() || '';
+            const match = text.includes(query);
+            row.style.display = match ? '' : 'none';
+            const accordion = row.nextElementSibling;
+            if (accordion?.classList.contains('tutor-accordion') && !match) {
+                accordion.style.display = 'none';
+            }
+        });
+    });
+    const ageSelect = document.getElementById('filter-member-age');
+    ageSelect?.addEventListener('change', () => {
+        activeAgeFilter = ageSelect.value;
+        renderMembersRows();
+    });
+    const healthSelect = document.getElementById('filter-member-health');
+    healthSelect?.addEventListener('change', () => {
+        activeHealthFilter = healthSelect.value;
+        renderMembersRows();
+    });
+}
+function renderDisciplineTabs() {
+    const container = document.getElementById('discipline-tabs-container');
+    if (!container)
+        return;
+    container.innerHTML = '';
+    // Onglet "Toutes les disciplines"
+    const totalCount = allMembers.length;
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = `px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${activeDisciplineFilter === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
+    allBtn.innerHTML = `🥋 Toutes <span class="discipline-count-badge px-2 py-0.5 rounded-full text-[10px] ${activeDisciplineFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-white text-slate-700'}">${totalCount}</span>`;
+    allBtn.addEventListener('click', () => {
+        activeDisciplineFilter = 'all';
+        const sel = document.getElementById('member-discipline-filter');
+        if (sel)
+            sel.value = 'all';
+        renderDisciplineTabs();
+        renderMembersRows();
+    });
+    container.appendChild(allBtn);
+    disciplinesCatalog.forEach((d) => {
+        const discCount = allMembers.filter((m) => (m.practices || []).some((p) => Number(p.discipline_id) === Number(d.id))).length;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const isSel = String(d.id) === activeDisciplineFilter;
+        btn.className = `px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${isSel ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
+        btn.innerHTML = `🥋 ${d.name} <span class="discipline-count-badge px-2 py-0.5 rounded-full text-[10px] ${isSel ? 'bg-emerald-800 text-white' : 'bg-white text-slate-700 font-mono'}">${discCount}</span>`;
+        btn.addEventListener('click', () => {
+            activeDisciplineFilter = String(d.id);
+            const sel = document.getElementById('member-discipline-filter');
+            if (sel)
+                sel.value = String(d.id);
+            renderDisciplineTabs();
+            renderMembersRows();
+        });
+        container.appendChild(btn);
+    });
+}
+function initTableSorting() {
+    document.querySelectorAll('#members-table th[data-sort]').forEach((th) => {
+        th.addEventListener('click', () => {
+            const col = th.getAttribute('data-sort') || 'name';
+            if (activeSortColumn === col) {
+                activeSortDirection = activeSortDirection === 'asc' ? 'desc' : 'asc';
+            }
+            else {
+                activeSortColumn = col;
+                activeSortDirection = 'asc';
+            }
+            // Met à jour les icônes de tri
+            document.querySelectorAll('#members-table th[data-sort] .sort-icon').forEach((icon) => {
+                icon.textContent = '↕';
+                icon.className = 'sort-icon text-[10px] text-slate-400';
+            });
+            const activeIcon = th.querySelector('.sort-icon');
+            if (activeIcon) {
+                activeIcon.textContent = activeSortDirection === 'asc' ? '▲' : '▼';
+                activeIcon.className = 'sort-icon text-[10px] text-emerald-600 font-bold';
+            }
+            renderMembersRows();
+        });
+    });
+}
+function initBulkActions() {
+    const selectAllCb = document.getElementById('select-all-members');
+    selectAllCb?.addEventListener('change', () => {
+        const checked = selectAllCb.checked;
+        document.querySelectorAll('.member-select-cb').forEach((cb) => {
+            cb.checked = checked;
+            const id = parseInt(cb.getAttribute('data-id') || '0', 10);
+            if (checked && id > 0) {
+                selectedMemberIds.add(id);
+            }
+            else {
+                selectedMemberIds.delete(id);
+            }
+        });
+        updateBulkUi();
+    });
+    document.getElementById('btn-bulk-resend-otp')?.addEventListener('click', async () => {
+        if (selectedMemberIds.size === 0)
+            return;
+        const btn = document.getElementById('btn-bulk-resend-otp');
+        setButtonLoading(btn, true, 'Envoi en cours...');
+        try {
+            const res = await fetchApi('/api/v1/members/bulk-resend-otp', {
+                method: 'POST',
+                body: JSON.stringify({ member_ids: Array.from(selectedMemberIds) })
+            });
+            if (res.status === 'success' && res.data) {
+                showToast(`${res.data.sent_count} lien(s) OTP renvoyé(s) avec succès !`, 'success');
+                selectedMemberIds.clear();
+                updateBulkUi();
+            }
+        }
+        finally {
+            setButtonLoading(btn, false, '📧 Relancer OTP');
+        }
+    });
+}
+function initExportCsv() {
+    document.getElementById('btn-export-csv')?.addEventListener('click', async () => {
+        const params = new URLSearchParams({
+            status: activeStatusFilter,
+            age_group: activeAgeFilter,
+            health_status: activeHealthFilter
+        });
+        const res = await fetchApi(`/api/v1/members/export?${params.toString()}`);
+        if (res.status === 'success' && res.data) {
+            const blob = new Blob([res.data.csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kanso_adherents_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`Export de ${res.data.count} adhérent(s) téléchargé avec succès !`, 'success');
+        }
     });
 }
 function initStatusTabs() {

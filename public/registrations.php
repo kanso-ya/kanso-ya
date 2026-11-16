@@ -35,16 +35,38 @@ ob_start();
             <table class="w-full text-left border-collapse text-sm">
                 <thead class="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
                     <tr>
-                        <th class="p-4">Dossier</th>
-                        <th class="p-4">Payeur / Tuteur</th>
+                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="id">Dossier <span class="sort-icon ml-1 opacity-50">⇅</span></th>
+                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="payer">Payeur / Tuteur <span class="sort-icon ml-1 opacity-50">⇅</span></th>
                         <th class="p-4">Pratiquants inscrits</th>
-                        <th class="p-4">Montant & Règlement</th>
-                        <th class="p-4">Statut</th>
-                        <th class="p-4 text-right">Inspection, Radiation & Validation</th>
+                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="amount">Montant & Règlement <span class="sort-icon ml-1 opacity-50">⇅</span></th>
+                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="status">Statut <span class="sort-icon ml-1 opacity-50">⇅</span></th>
+                        <th class="p-4 text-right">Inspection, Documents & Validation</th>
                     </tr>
                 </thead>
                 <tbody id="registrations-tbody" class="divide-y divide-slate-100"></tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modale d'Affichage / Téléchargement Reçu & Attestation CSE (Point 20) -->
+<div id="document-preview-modal" data-testid="document-preview-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl p-6 md:p-8 space-y-5">
+        <div class="flex items-start justify-between border-b border-slate-100 pb-3">
+            <div>
+                <span id="doc-modal-type-badge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 uppercase">Document Officiel</span>
+                <h3 id="doc-modal-title" class="text-lg font-black text-slate-900 mt-1">Reçu de Cotisation</h3>
+            </div>
+            <button type="button" id="btn-close-doc-modal" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+        </div>
+        <div id="doc-modal-body" class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto"></div>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+            <button type="button" id="btn-print-doc" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition">
+                🖨️ Imprimer / Sauvegarder
+            </button>
+            <button type="button" id="btn-dismiss-doc-modal" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">
+                Fermer
+            </button>
         </div>
     </div>
 </div>

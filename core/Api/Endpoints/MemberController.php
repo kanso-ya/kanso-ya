@@ -619,4 +619,133 @@ final class MemberController
             'data'    => ['member_id' => $memberId, 'protected' => true]
         ];
     }
+
+    /**
+     * Exporte les adhérents au format CSV en respectant scrupuleusement le RGPD (Point 21).
+     *
+     * @param int           $userId      Identifiant de l'utilisateur.
+     * @param string        $role        Rôle de l'utilisateur.
+     * @param array<string> $permissions Permissions.
+     * @param array<string, string> $filters Filtres (status, age_group, health_status).
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function exportMembers(int $userId, string $role, array $permissions, array $filters = []): array
+    {
+        $listRes = $this->listMembers($userId, $role, $permissions);
+        if ($listRes['status'] !== 'success' || !is_array($listRes['data'])) {
+            return $listRes;
+        }
+
+        $isTeacher = ($role === 'Entraîneur');
+        $members = $listRes['data'];
+        $now = new DateTimeImmutable();
+
+        // Filtrage en mémoire
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $members = array_filter($members, fn($m) => ($m['status'] ?? '') === $filters['status']);
+        }
+        if (!empty($filters['age_group'])) {
+            $members = array_filter($members, function($m) use ($now, $filters) {
+                try {
+                    $age = $now->diff(new DateTimeImmutable((string) ($m['birth_date'] ?? '')))->y;
+                    return $filters['age_group'] === 'minor' ? $age < 18 : $age >= 18;
+                } catch (Throwable) {
+                    return true;
+                }
+            });
+        }
+        if (!empty($filters['health_status'])) {
+            $members = array_filter($members, function($m) use ($filters) {
+                $signed = !empty($m['health_attestation_signed']);
+                return $filters['health_status'] === 'signed' ? $signed : !$signed;
+            });
+        }
+
+        $output = fopen('php://temp', 'r+');
+        if ($output === false) {
+            return ['status' => 'error', 'code' => 500, 'message' => 'Erreur de génération CSV.', 'data' => null];
+        }
+
+        // BOM UTF-8 pour Excel
+        fwrite($output, "\xEF\xBB\xBF");
+
+        if ($isTeacher) {
+            fputcsv($output, ['ID', 'Nom', 'Prénom', 'Date de Naissance', 'Contact Urgence', 'Téléphone Urgence', 'Statut'], ';');
+            foreach ($members as $m) {
+                fputcsv($output, [
+                    $m['id'] ?? '',
+                    $m['last_name'] ?? '',
+                    $m['first_name'] ?? '',
+                    $m['birth_date'] ?? '',
+                    $m['emergency_contact_name'] ?? '',
+                    $m['emergency_contact_phone'] ?? '',
+                    $m['status'] ?? ''
+                ], ';');
+            }
+        } else {
+            fputcsv($output, ['ID', 'Nom', 'Prénom', 'Date de Naissance', 'Email', 'Téléphone', 'Adresse', 'Contact Urgence', 'Attestation Santé', 'Statut'], ';');
+            foreach ($members as $m) {
+                fputcsv($output, [
+                    $m['id'] ?? '',
+                    $m['last_name'] ?? '',
+                    $m['first_name'] ?? '',
+                    $m['birth_date'] ?? '',
+                    $m['email'] ?? '',
+                    $m['phone'] ?? '',
+                    $m['address'] ?? '',
+                    ($m['emergency_contact_name'] ?? '') . ' (' . ($m['emergency_contact_phone'] ?? '') . ')',
+                    !empty($m['health_attestation_signed']) ? 'Oui (Cerfa)' : 'Non',
+                    $m['status'] ?? ''
+                ], ';');
+            }
+        }
+
+        rewind($output);
+        $csvContent = stream_get_contents($output);
+        fclose($output);
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Export CSV généré avec succès.',
+            'data'    => [
+                'csv'   => $csvContent !== false ? $csvContent : '',
+                'count' => count($members)
+            ]
+        ];
+    }
+
+    /**
+     * Relance en masse les accès OTP pour une liste d'adhérents (Point 24).
+     *
+     * @param array<int> $memberIds Identifiants des adhérents.
+     * @param int        $currentUserId Identifiant de l'administrateur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function bulkResendOtp(array $memberIds, int $currentUserId): array
+    {
+        if (empty($memberIds)) {
+            return ['status' => 'error', 'code' => 422, 'message' => 'Aucun adhérent sélectionné.', 'data' => null];
+        }
+
+        $sentCount = 0;
+        foreach ($memberIds as $id) {
+            $res = $this->resendMemberOtp((int) $id, $currentUserId);
+            if ($res['status'] === 'success') {
+                $sentCount++;
+            }
+        }
+
+        $this->db->prepare("
+            INSERT INTO app_logs (user_id, action, target_type, target_id)
+            VALUES (:uid, 'BULK_OTP_RESENT', 'members_batch', :count)
+        ")->execute(['uid' => $currentUserId, 'count' => $sentCount]);
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => "{$sentCount} invitation(s) OTP renvoyée(s) avec succès.",
+            'data'    => ['sent_count' => $sentCount]
+        ];
+    }
 }

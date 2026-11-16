@@ -52,9 +52,13 @@ final class CmsController
         $statusClause = $canSeeDrafts ? "" : " AND a.status = 'published'";
 
         $sql = "
-            SELECT a.*, c.name AS category_name, c.badge_color
+            SELECT a.*, c.name AS category_name, c.badge_color,
+                   u1.first_name AS author_first_name, u1.last_name AS author_last_name,
+                   u2.first_name AS editor_first_name, u2.last_name AS editor_last_name
             FROM articles a
             INNER JOIN article_categories c ON a.category_id = c.id
+            LEFT JOIN users u1 ON COALESCE(a.created_by, a.author_id) = u1.id
+            LEFT JOIN users u2 ON a.updated_by = u2.id
             WHERE a.visibility IN ($placeholders) $statusClause
             ORDER BY a.id DESC
         ";
@@ -81,9 +85,13 @@ final class CmsController
     public function getArticle(int $articleId, ?string $userRole, array $permissions): array
     {
         $stmt = $this->db->prepare("
-            SELECT a.*, c.name AS category_name, c.badge_color
+            SELECT a.*, c.name AS category_name, c.badge_color,
+                   u1.first_name AS author_first_name, u1.last_name AS author_last_name,
+                   u2.first_name AS editor_first_name, u2.last_name AS editor_last_name
             FROM articles a
             INNER JOIN article_categories c ON a.category_id = c.id
+            LEFT JOIN users u1 ON COALESCE(a.created_by, a.author_id) = u1.id
+            LEFT JOIN users u2 ON a.updated_by = u2.id
             WHERE a.id = :id
         ");
         $stmt->execute(['id' => $articleId]);
@@ -189,16 +197,18 @@ final class CmsController
         $cleanContent = $this->sanitizeHtml($rawContent);
 
         $stmt = $this->db->prepare("
-            INSERT INTO articles (title, content, category_id, author_id, visibility, status)
-            VALUES (:title, :content, :cat, :author, :vis, :status)
+            INSERT INTO articles (title, content, category_id, author_id, created_by, updated_by, visibility, status)
+            VALUES (:title, :content, :cat, :author, :created_by, :updated_by, :vis, :status)
         ");
         $stmt->execute([
-            'title'   => $cleanTitle,
-            'content' => $cleanContent,
-            'cat'     => $categoryId,
-            'author'  => $authorId,
-            'vis'     => $visibility,
-            'status'  => $finalStatus
+            'title'      => $cleanTitle,
+            'content'    => $cleanContent,
+            'cat'        => $categoryId,
+            'author'     => $authorId,
+            'created_by' => $authorId,
+            'updated_by' => $authorId,
+            'vis'        => $visibility,
+            'status'     => $finalStatus
         ]);
 
         $articleId = (int) $this->db->lastInsertId();
@@ -238,7 +248,7 @@ final class CmsController
      * @param array<string>        $permissions Permissions de l'utilisateur.
      * @return array<string, mixed> Réponse JSend.
      */
-    public function updateArticle(int $articleId, array $payload, array $permissions): array
+    public function updateArticle(int $articleId, array $payload, array $permissions, int $userId = 1): array
     {
         $title = trim((string) ($payload['title'] ?? ''));
         $rawContent = trim((string) ($payload['content'] ?? ''));
@@ -264,6 +274,7 @@ final class CmsController
             'content' => $cleanContent,
             'cat'     => $categoryId,
             'vis'     => $visibility,
+            'uid'     => $userId,
             'id'      => $articleId
         ];
 
@@ -274,7 +285,7 @@ final class CmsController
 
         $stmt = $this->db->prepare("
             UPDATE articles
-            SET title = :title, content = :content, category_id = :cat, visibility = :vis $statusClause, updated_at = CURRENT_TIMESTAMP
+            SET title = :title, content = :content, category_id = :cat, visibility = :vis, updated_by = :uid $statusClause, updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
         ");
         $stmt->execute($params);
@@ -366,17 +377,17 @@ final class CmsController
         if ($visibility !== null) {
             $stmt = $this->db->prepare("
                 UPDATE articles
-                SET status = :status, visibility = :vis, updated_at = CURRENT_TIMESTAMP
+                SET status = :status, visibility = :vis, updated_by = :uid, updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
             ");
-            $stmt->execute(['status' => $status, 'vis' => $visibility, 'id' => $articleId]);
+            $stmt->execute(['status' => $status, 'vis' => $visibility, 'uid' => $userId, 'id' => $articleId]);
         } else {
             $stmt = $this->db->prepare("
                 UPDATE articles
-                SET status = :status, updated_at = CURRENT_TIMESTAMP
+                SET status = :status, updated_by = :uid, updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
             ");
-            $stmt->execute(['status' => $status, 'id' => $articleId]);
+            $stmt->execute(['status' => $status, 'uid' => $userId, 'id' => $articleId]);
         }
 
         $stmtLog = $this->db->prepare("
@@ -582,6 +593,45 @@ final class CmsController
                 'title'  => $title,
                 'status' => $status
             ]
+        ];
+    }
+
+    /**
+     * Supprime les médias uploadés orphelins (Point 25).
+     *
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function cleanupOrphanMedia(): array
+    {
+        $uploadDir = __DIR__ . '/../../../public/uploads/';
+        if (!is_dir($uploadDir)) {
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Aucun dossier de médias.',
+                'data'    => ['deleted_count' => 0]
+            ];
+        }
+
+        $articlesContent = $this->db->query("SELECT content FROM articles")->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $pagesContent = $this->db->query("SELECT content FROM pages")->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $allText = implode(' ', array_merge($articlesContent, $pagesContent));
+
+        $files = scandir($uploadDir) ?: [];
+        $deletedCount = 0;
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..' || $file === '.gitignore') continue;
+            if (strpos($allText, $file) === false) {
+                @unlink($uploadDir . $file);
+                $deletedCount++;
+            }
+        }
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => "Nettoyage terminé : {$deletedCount} fichier(s) orphelin(s) supprimé(s).",
+            'data'    => ['deleted_count' => $deletedCount]
         ];
     }
 

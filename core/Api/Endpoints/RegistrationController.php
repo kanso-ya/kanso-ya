@@ -810,6 +810,143 @@ final class RegistrationController
         return $id ? (int) $id : null;
     }
 
+    /**
+     * Génère les données officielles du reçu de cotisation (Point 20).
+     *
+     * @param int           $registrationId Identifiant du dossier.
+     * @param int           $userId         Identifiant de l'utilisateur demandeur.
+     * @param array<string> $permissions    Permissions du demandeur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function getReceipt(int $registrationId, int $userId, array $permissions): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT r.*, u.email AS payer_email, u.first_name AS payer_first_name, u.last_name AS payer_last_name
+            FROM registrations r
+            LEFT JOIN users u ON r.payer_user_id = u.id
+            WHERE r.id = :id
+        ");
+        $stmt->execute(['id' => $registrationId]);
+        $reg = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$reg) {
+            return ['status' => 'error', 'code' => 404, 'message' => 'Dossier introuvable.', 'data' => null];
+        }
+
+        $canView = in_array('finances.manage', $permissions, true)
+            || in_array('system.admin', $permissions, true)
+            || ((int) $reg['payer_user_id'] === $userId);
+
+        if (!$canView) {
+            return ['status' => 'error', 'code' => 403, 'message' => 'Accès refusé au reçu de cette cotisation.', 'data' => null];
+        }
+
+        $members = $this->db->prepare("
+            SELECT DISTINCT m.id, m.first_name, m.last_name, m.birth_date
+            FROM member_practices mp
+            INNER JOIN members m ON mp.member_id = m.id
+            WHERE mp.registration_id = :rid
+        ");
+        $members->execute(['rid' => $registrationId]);
+        $membersList = $members->fetchAll(PDO::FETCH_ASSOC);
+
+        $payerName = trim(($reg['payer_first_name'] ?? '') . ' ' . ($reg['payer_last_name'] ?? ''));
+        if ($payerName === '') {
+            $payerName = (string) ($reg['payer_email'] ?? 'Adhérent');
+        }
+
+        $receiptText = "========================================================\n";
+        $receiptText .= "              REÇU DE COTISATION OFFICIEL\n";
+        $receiptText .= "========================================================\n\n";
+        $receiptText .= "Numéro : REC-" . str_pad((string) $registrationId, 6, '0', STR_PAD_LEFT) . "\n";
+        $receiptText .= "Date d'émission : " . date('d/m/Y') . "\n";
+        $receiptText .= "Payeur / Tuteur : " . $payerName . " (" . ($reg['payer_email'] ?? '') . ")\n";
+        $receiptText .= "Total Réglé : " . number_format((float) $reg['total_amount'], 2, ',', ' ') . " €\n";
+        $receiptText .= "Mode de règlement : " . strtoupper((string) $reg['payment_method']) . " (" . $reg['installments'] . "x)\n";
+        $receiptText .= "Statut : Validé et encaissé\n\n";
+        $receiptText .= "Pratiquants inscrits :\n";
+        foreach ($membersList as $m) {
+            $receiptText .= " - " . ($m['first_name'] ?? '') . " " . ($m['last_name'] ?? '') . " (Né(e) le " . ($m['birth_date'] ?? '') . ")\n";
+        }
+        $receiptText .= "\nDocument certifié conforme par le Trésorier de l'association.";
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Reçu de cotisation généré.',
+            'data'    => [
+                'receipt_number'       => 'REC-' . str_pad((string) $registrationId, 6, '0', STR_PAD_LEFT),
+                'registration_id'      => (int) $registrationId,
+                'status'               => (string) $reg['status'],
+                'receipt_text'         => $receiptText,
+                'payer'                => [
+                    'email'      => (string) ($reg['payer_email'] ?? ''),
+                    'first_name' => (string) ($reg['payer_first_name'] ?? ''),
+                    'last_name'  => (string) ($reg['payer_last_name'] ?? '')
+                ],
+                'total_amount'         => (float) $reg['total_amount'],
+                'discount_amount'      => (float) ($reg['discount_amount'] ?? 0.0),
+                'discount_description' => (string) ($reg['discount_description'] ?? ''),
+                'payment_method'       => (string) $reg['payment_method'],
+                'installments'         => (int) $reg['installments'],
+                'created_at'           => (string) $reg['created_at'],
+                'validated_at'         => (string) ($reg['validated_at'] ?? $reg['created_at']),
+                'members'              => $membersList
+            ]
+        ];
+    }
+
+    /**
+     * Génère l'attestation destinée au Comité Social et Économique / Employeur (Point 20).
+     *
+     * @param int           $registrationId Identifiant du dossier.
+     * @param int           $userId         Identifiant de l'utilisateur demandeur.
+     * @param array<string> $permissions    Permissions du demandeur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function getCseAttestation(int $registrationId, int $userId, array $permissions): array
+    {
+        $receipt = $this->getReceipt($registrationId, $userId, $permissions);
+        if ($receipt['status'] !== 'success' || empty($receipt['data'])) {
+            return $receipt;
+        }
+
+        $data = $receipt['data'];
+        $data['attestation_type'] = 'CSE / Employeur';
+        $data['purpose'] = 'Attestation de participation aux activités sportives et associatives pour prise en charge CSE/CE.';
+
+        $payer = $data['payer'] ?? [];
+        $payerName = trim(($payer['first_name'] ?? '') . ' ' . ($payer['last_name'] ?? ''));
+        if ($payerName === '') {
+            $payerName = (string) ($payer['email'] ?? 'Adhérent');
+        }
+
+        $cseText = "========================================================\n";
+        $cseText .= "     ATTESTATION DE PRISE EN CHARGE CE / CSE\n";
+        $cseText .= "========================================================\n\n";
+        $cseText .= "À l'attention du Comité Social et Économique (CSE) / Employeur,\n\n";
+        $cseText .= "L'association sportive Kanso-ya certifie par la présente que :\n";
+        $cseText .= "M. / Mme " . $payerName . "\n";
+        $cseText .= "a acquitté l'intégralité de la cotisation d'adhésion pour la saison sportive en cours.\n";
+        $cseText .= "Montant total acquitté : " . number_format((float) ($data['total_amount'] ?? 0.0), 2, ',', ' ') . " €\n\n";
+        $cseText .= "Bénéficiaire(s) / Ayant(s) droit :\n";
+        if (is_array($data['members'])) {
+            foreach ($data['members'] as $m) {
+                $cseText .= " - " . ($m['first_name'] ?? '') . " " . ($m['last_name'] ?? '') . " (Né(e) le " . ($m['birth_date'] ?? '') . ")\n";
+            }
+        }
+        $cseText .= "\nAttestation délivrée pour servir et valoir ce que de droit auprès du CSE ou de la direction des ressources humaines.";
+
+        $data['attestation_text'] = $cseText;
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Attestation CSE générée avec succès.',
+            'data'    => $data
+        ];
+    }
+
     private function calculateAge(string $birthDate): int
     {
         try {

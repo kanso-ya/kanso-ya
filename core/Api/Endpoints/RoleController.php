@@ -63,26 +63,28 @@ final class RoleController
             : ['members.view'];
 
         try {
-            $stmt = $this->db->prepare("
-                INSERT INTO roles (name, is_system, permissions)
-                VALUES (:name, 0, :perms)
-            ");
-            $stmt->execute([
-                'name'  => $name,
-                'perms' => json_encode($perms)
-            ]);
+            return $this->executeImmediateTransaction(function () use ($name, $perms): array {
+                $stmt = $this->db->prepare("
+                    INSERT INTO roles (name, is_system, permissions)
+                    VALUES (:name, 0, :perms)
+                ");
+                $stmt->execute([
+                    'name'  => $name,
+                    'perms' => json_encode($perms)
+                ]);
 
-            return [
-                'status'  => 'success',
-                'code'    => 201,
-                'message' => "Colonne \"{$name}\" ajoutée à la matrice.",
-                'data'    => [
-                    'id'          => (int) $this->db->lastInsertId(),
-                    'name'        => $name,
-                    'is_system'   => false,
-                    'permissions' => $perms
-                ]
-            ];
+                return [
+                    'status'  => 'success',
+                    'code'    => 201,
+                    'message' => "Colonne \"{$name}\" ajoutée à la matrice.",
+                    'data'    => [
+                        'id'          => (int) $this->db->lastInsertId(),
+                        'name'        => $name,
+                        'is_system'   => false,
+                        'permissions' => $perms
+                    ]
+                ];
+            });
         } catch (Throwable) {
             return [
                 'status'  => 'error',
@@ -122,27 +124,29 @@ final class RoleController
             ? htmlspecialchars(trim($newName), ENT_QUOTES, 'UTF-8')
             : (string) $role['name'];
 
-        $stmtUpdate = $this->db->prepare("
-            UPDATE roles
-            SET name = :name, permissions = :perms
-            WHERE id = :id
-        ");
-        $stmtUpdate->execute([
-            'name'  => $finalName,
-            'perms' => json_encode($cleanPerms),
-            'id'    => $roleId
-        ]);
+        return $this->executeImmediateTransaction(function () use ($roleId, $finalName, $cleanPerms): array {
+            $stmtUpdate = $this->db->prepare("
+                UPDATE roles
+                SET name = :name, permissions = :perms
+                WHERE id = :id
+            ");
+            $stmtUpdate->execute([
+                'name'  => $finalName,
+                'perms' => json_encode($cleanPerms),
+                'id'    => $roleId
+            ]);
 
-        return [
-            'status'  => 'success',
-            'code'    => 200,
-            'message' => 'Permissions mises à jour avec succès.',
-            'data'    => [
-                'id'          => $roleId,
-                'name'        => $finalName,
-                'permissions' => $cleanPerms
-            ]
-        ];
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Permissions mises à jour avec succès.',
+                'data'    => [
+                    'id'          => $roleId,
+                    'name'        => $finalName,
+                    'permissions' => $cleanPerms
+                ]
+            ];
+        });
     }
 
     public function deleteRole(int $roleId): array
@@ -169,14 +173,52 @@ final class RoleController
             ];
         }
 
-        $this->db->prepare("UPDATE users SET role_id = 1 WHERE role_id = :id")->execute(['id' => $roleId]);
-        $this->db->prepare("DELETE FROM roles WHERE id = :id")->execute(['id' => $roleId]);
+        return $this->executeImmediateTransaction(function () use ($roleId): array {
+            $this->db->prepare("UPDATE users SET role_id = 1 WHERE role_id = :id")->execute(['id' => $roleId]);
+            $this->db->prepare("DELETE FROM roles WHERE id = :id")->execute(['id' => $roleId]);
 
-        return [
-            'status'  => 'success',
-            'code'    => 200,
-            'message' => 'Rôle supprimé avec succès.',
-            'data'    => ['deleted_id' => $roleId]
-        ];
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Rôle supprimé avec succès.',
+                'data'    => ['deleted_id' => $roleId]
+            ];
+        });
+    }
+
+    /**
+     * @template T
+     * @param callable(): T $operation
+     * @return T
+     */
+    private function executeImmediateTransaction(callable $operation): mixed
+    {
+        $maxAttempts = 20;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                if ($this->db->inTransaction()) {
+                    $this->db->exec('ROLLBACK');
+                }
+                $this->db->exec('BEGIN IMMEDIATE');
+                $result = $operation();
+                $this->db->exec('COMMIT');
+                return $result;
+            } catch (Throwable $e) {
+                try {
+                    if ($this->db->inTransaction()) {
+                        $this->db->exec('ROLLBACK');
+                    }
+                } catch (Throwable) {
+                }
+                $isLocked = str_contains(strtolower($e->getMessage()), 'locked')
+                    || str_contains(strtolower($e->getMessage()), 'busy');
+                if ($isLocked && $attempt < $maxAttempts) {
+                    usleep(random_int(10000, 50000));
+                    continue;
+                }
+                throw $e;
+            }
+        }
+        throw new \RuntimeException('Échec de la transaction après plusieurs tentatives de verrouillage.');
     }
 }
