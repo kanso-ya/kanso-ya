@@ -4,6 +4,8 @@
 
 # Configuration et Sécurité[cite: 5]
 .env
+/docs/sources-v2/
+AGENTS.md
 
 # Données persistantes et Fichiers Sensibles[cite: 5]
 /storage/db/*.sqlite
