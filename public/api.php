@@ -147,8 +147,8 @@ try {
     }
 
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
-    $currentUserId = (int) ($_SESSION['user_id'] ?? 1);
-    $currentRole = (string) ($_SESSION['role_name'] ?? 'Président');
+    $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+    $currentRole = (string) ($_SESSION['role_name'] ?? 'Visiteur');
     $isSuperadmin = (bool) ($_SESSION['is_superadmin'] ?? isset($_SESSION['sys_admin_id']));
     $isAuthenticated = ($currentRole !== 'Visiteur' && $currentRole !== '' && $currentUserId > 0);
 
@@ -225,12 +225,32 @@ try {
     }
 
     if ($method === 'GET' && $uri === '/api/v1/auth/me') {
+        $userName = '';
+        if ($isAuthenticated) {
+            if ($isSuperadmin) {
+                $userName = 'Superadmin';
+            } else {
+                try {
+                    $db = \Core\Api\Database\Database::getInstance();
+                    $stmtU = $db->prepare("SELECT first_name, last_name, email FROM users WHERE id = :id");
+                    $stmtU->execute(['id' => $currentUserId]);
+                    $u = $stmtU->fetch(PDO::FETCH_ASSOC);
+                    if ($u) {
+                        $fn = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? ''));
+                        $userName = $fn !== '' ? $fn : (string) ($u['email'] ?? '');
+                    }
+                } catch (Throwable) {
+                }
+            }
+        }
+
         sendJson([
             'status'  => 'success',
             'code'    => 200,
             'message' => 'Contexte utilisateur récupéré',
             'data'    => [
                 'user_id'     => $currentUserId,
+                'name'        => $userName,
                 'role'        => $isAuthenticated ? $currentRole : 'Visiteur',
                 'permissions' => $permissions
             ]
@@ -549,6 +569,22 @@ try {
         $controller = new \Core\Api\Endpoints\SystemController();
         $type = (string) ($_POST['type'] ?? 'logo');
         sendJson($controller->uploadBrandingAsset($type, $_FILES['file'] ?? []));
+    }
+
+    if ($method === 'GET' && $uri === '/api/v1/sys/superadmins') {
+        if (!$isSuperadmin) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Réservé au Superadmin.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->getSuperadmins());
+    }
+
+    if ($method === 'POST' && $uri === '/api/v1/sys/superadmins') {
+        if (!$isSuperadmin) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Réservé au Superadmin.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->createSuperadmin($payload, $currentUserId));
     }
 
     if ($method === 'GET' && in_array($uri, ['/api/v1/app-logs', '/api/v1/app_logs'], true)) {

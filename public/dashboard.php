@@ -13,7 +13,7 @@ $currentRole  = (string) ($_SESSION['role_name'] ?? 'Président');
 $isSuperadmin = (bool) ($_SESSION['is_superadmin'] ?? isset($_SESSION['sys_admin_id']));
 
 if ($isSuperadmin) {
-    header('Location: /sys-console.php');
+    header('Location: /sys-console');
     exit;
 }
 
@@ -127,16 +127,33 @@ ob_start();
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                    <span class="font-bold uppercase text-slate-500 block">Clé secrète TOTP associée à votre compte :</span>
-                    <code id="totp-secret-display" class="block p-2.5 bg-slate-900 text-emerald-400 font-mono text-sm rounded-lg tracking-widest text-center">KANSO2FA...</code>
-                    <p class="text-slate-500">Scannez ou saisissez cette clé dans votre application mobile puis entrez le code à 6 chiffres ci-contre.</p>
+                <!-- Zone QR Code SVG & Clé secrète -->
+                <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 flex flex-col items-center text-center">
+                    <span class="font-bold uppercase text-[11px] text-slate-500 tracking-wider">Scannez ce QR Code avec votre application :</span>
+                    
+                    <div id="totp-qrcode-container" class="my-1 flex items-center justify-center">
+                        <div class="w-44 h-44 bg-slate-200 animate-pulse rounded-xl flex items-center justify-center text-xs text-slate-400 font-mono">Génération...</div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 text-xs text-slate-600">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Créneau renouvelé dans <strong id="totp-timer" class="font-mono text-slate-800">30s</strong></span>
+                    </div>
+
+                    <button type="button" id="btn-toggle-secret" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline transition pt-1">
+                        Afficher la clé secrète textuelle
+                    </button>
+
+                    <div id="totp-secret-wrapper" class="hidden w-full pt-1">
+                        <code id="totp-secret-display" class="block p-2.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded-lg tracking-widest text-center select-all">KANSO2FA...</code>
+                        <span class="text-[10px] text-slate-400 mt-1 block">À saisir manuellement si vous ne pouvez pas scanner le QR Code.</span>
+                    </div>
                 </div>
 
                 <form id="form-toggle-2fa" class="space-y-4">
                     <div>
                         <label for="totp-code-input" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Code de vérification à 6 chiffres *</label>
-                        <input type="text" id="totp-code-input" maxlength="6" pattern="\d{6}" placeholder="Ex: 123456" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono tracking-widest">
+                        <input type="text" id="totp-code-input" maxlength="6" pattern="\d{6}" placeholder="Ex: 123456" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono tracking-widest focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
                     <div class="flex gap-3">
                         <button type="button" id="btn-enable-2fa" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition">
@@ -150,17 +167,30 @@ ob_start();
             </div>
         </div>
 
-        <!-- B. Changement du mot de passe personnel -->
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200">
-            <h2 class="text-lg font-bold text-slate-900 mb-1">Modifier mon mot de passe</h2>
-            <p class="text-xs text-slate-500 mb-4">Pour votre sécurité, votre mot de passe actuel est exigé avant toute modification.</p>
+        <!-- B. Changement du mot de passe personnel avec Règles Explicites et Confirmation -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900 mb-1">Modifier mon mot de passe</h2>
+                <p class="text-xs text-slate-500">Pour votre sécurité, votre mot de passe actuel est exigé avant toute modification.</p>
+            </div>
+
+            <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                <span class="font-bold block">Règles de complexité requises pour le mot de passe :</span>
+                <ul class="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
+                    <li>Minimum 8 caractères</li>
+                    <li>Au moins une lettre majuscule (A-Z) et une minuscule (a-z)</li>
+                    <li>Au moins un chiffre (0-9)</li>
+                    <li>Au moins un caractère spécial (!@#$%^&*...)</li>
+                </ul>
+            </div>
+
             <form id="form-change-password" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Ancien mot de passe *</label>
                     <input type="password" name="current_password" required class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Nouveau mot de passe (min. 8 car.) *</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Nouveau mot de passe *</label>
                     <input type="password" name="new_password" required minlength="8" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
                 </div>
                 <button type="submit" id="btn-submit-password" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition">

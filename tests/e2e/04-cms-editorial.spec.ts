@@ -7,8 +7,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('DOMAINE 4 — Studio CMS, Builder Multi-Colonnes, Workflow Éditorial & Sécurité XSS', () => {
 
-    test.beforeEach(async ({ request }) => {
+    test.beforeEach(async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', {
+            data: { persona: 'president' }
+        });
+        await page.request.post('/api/v1/auth/switch-persona', {
             data: { persona: 'president' }
         });
     });

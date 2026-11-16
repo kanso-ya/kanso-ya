@@ -272,6 +272,55 @@ ob_start();
             </table>
         </div>
     </section>
+
+    <!-- 6. Comptes Superadmins Secondaires (Point 5 / US 1.1) -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div>
+            <h2 class="text-lg font-bold text-white">6. Administrateurs Techniques (Superadmins Secondaires)</h2>
+            <p class="text-xs text-slate-400">
+                Gérez les accès Superadmin de maintenance. Les comptes sont strictement isolés dans <code>sys_superadmins</code> et peuvent utiliser la même adresse email qu'un compte club sans collision.
+            </p>
+        </div>
+
+        <!-- Formulaire de création d'un superadmin -->
+        <form id="form-create-superadmin" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Identifiant technique *</label>
+                <input type="text" name="username" required placeholder="Ex: superadmin_ops" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Adresse email *</label>
+                <input type="email" name="email" required placeholder="Ex: ops@kanso-ya.local" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Mot de passe (min. 8 car.) *</label>
+                <input type="password" name="password" required minlength="8" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+            </div>
+            <button type="submit" id="btn-submit-superadmin" class="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition shadow-sm">
+                + Créer le Superadmin
+            </button>
+        </form>
+
+        <!-- Liste des superadmins -->
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-950 text-slate-400 uppercase border-b border-slate-800">
+                    <tr>
+                        <th class="p-3">ID</th>
+                        <th class="p-3">Identifiant</th>
+                        <th class="p-3">Email Technique</th>
+                        <th class="p-3">Échecs / Verrouillage</th>
+                        <th class="p-3">Date de création</th>
+                    </tr>
+                </thead>
+                <tbody id="superadmins-tbody" class="divide-y divide-slate-800/80 font-mono">
+                    <tr>
+                        <td colspan="5" class="p-4 text-center text-slate-500">Chargement des comptes Superadmin...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 <?php
 $pageContent = ob_get_clean();

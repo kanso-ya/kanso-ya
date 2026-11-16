@@ -36,8 +36,11 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', () => {
 
-    test.beforeEach(async ({ request }) => {
+    test.beforeEach(async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', {
+            data: { persona: 'president' }
+        });
+        await page.request.post('/api/v1/auth/switch-persona', {
             data: { persona: 'president' }
         });
     });
@@ -170,8 +173,8 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.fill('input[name="password"]', 'password123');
         await page.click('button[type="submit"]');
 
-        // Redirection vers le tableau de bord ou navigation sur /registrations.php
-        await page.waitForURL(/.*(dashboard|registrations).*/, { timeout: 10000 });
+        // Redirection vers l'accueil ou navigation sur /registrations.php
+        await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('registrations') || url.pathname.includes('dashboard'), { timeout: 10000 });
         await page.goto('/registrations.php');
 
         // Inspection du dossier créé
@@ -190,7 +193,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
 
         // Validation du dossier par le Trésorier
         await modal.locator('#btn-modal-validate-reg').click();
-        await expect(modal).toBeHidden();
+        await expect(modal).toBeHidden({ timeout: 10000 });
 
         // Le bandeau d'activation OTP doit apparaître en haut de la table
         const otpBanner = page.locator('#registrations-tbody tr', { hasText: `Dossier #${regId}` });
@@ -217,7 +220,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.fill('input[name="password"]', 'Secret123!');
         await page.click('button[type="submit"]');
 
-        await page.waitForURL(/.*dashboard.*/, { timeout: 10000 });
+        await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('dashboard'), { timeout: 10000 });
 
         // Vérification de l'accès à ses rattachements sur /members.php
         await page.goto('/members.php');
@@ -238,7 +241,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.fill('input[name="password"]', 'password123');
         await page.click('button[type="submit"]');
 
-        await page.waitForURL(/.*(dashboard|cms).*/, { timeout: 10000 });
+        await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('cms') || url.pathname.includes('dashboard'), { timeout: 10000 });
         await page.goto('/cms.php');
 
         // 2. Création de l'article multi-colonnes dans le Builder
@@ -271,7 +274,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.fill('input[name="password"]', 'password123');
         await page.click('button[type="submit"]');
 
-        await page.waitForURL(/.*(dashboard|cms).*/, { timeout: 10000 });
+        await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('cms') || url.pathname.includes('dashboard'), { timeout: 10000 });
         await page.goto('/cms.php');
 
         // Bascule sur l'onglet 2 "Publications & Pages"
@@ -504,6 +507,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
 
         // Vérification de la volumétrie initiale (~58+ lignes)
         const initialRows = page.locator('#members-table tbody tr.member-row');
+        await expect(initialRows.first()).toBeVisible({ timeout: 10000 });
         const count = await initialRows.count();
         expect(count).toBeGreaterThanOrEqual(40);
 

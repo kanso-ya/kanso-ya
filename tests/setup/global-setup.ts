@@ -10,8 +10,8 @@ import { execSync } from 'child_process';
 
 export default async function globalSetup(): Promise<void> {
     const rootDir = process.cwd();
-    const dbPath = path.join(rootDir, 'storage', 'db', 'kanso_ya.sqlite');
-    const backupPath = path.join(rootDir, 'storage', 'db', 'kanso_ya.sqlite.bak');
+    const dbPath = path.join(rootDir, 'storage', 'db', 'kanso-ya.sqlite');
+    const backupPath = path.join(rootDir, 'storage', 'db', 'kanso-ya.sqlite.bak');
 
     if (fs.existsSync(dbPath)) {
         fs.copyFileSync(dbPath, backupPath);

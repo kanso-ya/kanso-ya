@@ -13,8 +13,11 @@ import { test, expect } from '@playwright/test';
 test.describe('SPRINT 6 — Moteur de Modules & SDK Kanso-ya (Lot 3)', () => {
     test.describe.configure({ mode: 'serial' });
 
-    test.beforeEach(async ({ request }) => {
+    test.beforeEach(async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', {
+            data: { persona: 'president' }
+        });
+        await page.request.post('/api/v1/auth/switch-persona', {
             data: { persona: 'president' }
         });
     });

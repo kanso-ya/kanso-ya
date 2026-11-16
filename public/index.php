@@ -24,10 +24,10 @@ ob_start();
             </p>
         </div>
         <div class="flex flex-wrap gap-3 shrink-0">
-            <a href="/register.php" class="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-sm transition">
+            <a href="/register" class="px-5 py-3 brand-primary-bg hover:opacity-95 text-white text-sm font-bold rounded-xl shadow-sm transition">
                 S'inscrire au Club →
             </a>
-            <a href="/legal.php?slug=horaires" class="px-5 py-3 bg-slate-700/80 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl border border-slate-600 transition">
+            <a href="/horaires" class="px-5 py-3 bg-slate-700/80 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl border border-slate-600 transition">
                 Horaires & Tarifs
             </a>
         </div>

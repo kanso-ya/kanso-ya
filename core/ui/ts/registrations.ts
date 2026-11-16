@@ -340,7 +340,7 @@ async function triggerValidation(
                 banner.innerHTML = `
                     <td colspan="6" class="p-3 text-xs text-emerald-900 flex items-center justify-between">
                         <span>📧 <strong>Lien d'activation OTP généré (Dossier #${regId}) :</strong> <code>${otp}</code></span>
-                        <a href="/activate-otp.php?otp=${otp}" class="px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition">
+                        <a href="/activate-otp?otp=${otp}" class="px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition">
                             Tester l'activation du compte →
                         </a>
                     </td>

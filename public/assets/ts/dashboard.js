@@ -4,7 +4,11 @@
  * et des paramètres métier du Président / Trésorier / Secrétaire (Points 1 & 3).
  */
 import { fetchApi } from './api.js';
-import { setButtonLoading, showToast } from './main.js';
+import { openConfirmModal, setButtonLoading, showToast } from './main.js';
+import { generateQrCodeSvg } from './qrcode.js';
+let activeTotpSecret = '';
+let activeUserEmail = '';
+let totpIntervalId = null;
 document.addEventListener('DOMContentLoaded', () => {
     initProfileTabs();
     loadMyProfile();
@@ -45,6 +49,8 @@ async function loadMyProfile() {
     if (res.status !== 'success' || !res.data)
         return;
     const p = res.data;
+    activeUserEmail = p.email || 'user@kanso-ya.local';
+    activeTotpSecret = p.two_factor_secret || 'KANSO2FA79100';
     document.getElementById('prof-first-name').value = p.first_name || '';
     document.getElementById('prof-last-name').value = p.last_name || '';
     document.getElementById('prof-email').value = p.email || '';
@@ -57,8 +63,34 @@ async function loadMyProfile() {
     }
     const secretEl = document.getElementById('totp-secret-display');
     if (secretEl)
-        secretEl.textContent = p.two_factor_secret || 'KANSO2FA79100';
+        secretEl.textContent = activeTotpSecret;
+    refreshTotpQrCode();
+    startTotpTimer();
     update2faUiState(p.two_factor_enabled);
+}
+function refreshTotpQrCode() {
+    const qrContainer = document.getElementById('totp-qrcode-container');
+    if (!qrContainer || !activeTotpSecret)
+        return;
+    // Format URI OTP standard
+    const epochStep = Math.floor(Date.now() / 30000);
+    const otpUri = `otpauth://totp/Kanso-ya:${encodeURIComponent(activeUserEmail)}?secret=${encodeURIComponent(activeTotpSecret)}&issuer=Kanso-ya&period=30&epoch=${epochStep}`;
+    qrContainer.innerHTML = generateQrCodeSvg(otpUri, 176);
+}
+function startTotpTimer() {
+    if (totpIntervalId !== null) {
+        window.clearInterval(totpIntervalId);
+    }
+    const timerEl = document.getElementById('totp-timer');
+    totpIntervalId = window.setInterval(() => {
+        const remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
+        if (timerEl) {
+            timerEl.textContent = `${remaining}s`;
+        }
+        if (remaining === 30) {
+            refreshTotpQrCode();
+        }
+    }, 1000);
 }
 function appendCustomFieldRow(label = '', value = '') {
     const container = document.getElementById('custom-fields-container');
@@ -128,6 +160,21 @@ function initTwoFactorControls() {
     const btnEnable = document.getElementById('btn-enable-2fa');
     const btnDisable = document.getElementById('btn-disable-2fa');
     const codeInput = document.getElementById('totp-code-input');
+    const btnToggleSecret = document.getElementById('btn-toggle-secret');
+    const secretWrapper = document.getElementById('totp-secret-wrapper');
+    btnToggleSecret?.addEventListener('click', () => {
+        if (!secretWrapper)
+            return;
+        const isHidden = secretWrapper.classList.contains('hidden');
+        if (isHidden) {
+            secretWrapper.classList.remove('hidden');
+            btnToggleSecret.textContent = 'Masquer la clé secrète textuelle';
+        }
+        else {
+            secretWrapper.classList.add('hidden');
+            btnToggleSecret.textContent = 'Afficher la clé secrète textuelle';
+        }
+    });
     btnEnable?.addEventListener('click', async () => {
         const code = codeInput?.value.trim() || '';
         const res = await fetchApi('/api/v1/users/me/2fa', {
@@ -157,23 +204,39 @@ function initPasswordForm() {
     const btn = document.getElementById('btn-submit-password');
     if (!form)
         return;
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
         e.preventDefault();
-        setButtonLoading(btn, true, 'Mettre à jour mon mot de passe');
-        try {
-            const payload = Object.fromEntries(new FormData(form).entries());
-            const res = await fetchApi('/api/v1/users/me/password', {
-                method: 'PATCH',
-                body: JSON.stringify(payload)
-            });
-            if (res.status === 'success') {
-                showToast('Mot de passe modifié avec succès !', 'success');
-                form.reset();
+        const formData = new FormData(form);
+        const currentPassword = (formData.get('current_password') || '').trim();
+        const newPassword = (formData.get('new_password') || '').trim();
+        if (currentPassword === '') {
+            showToast('Veuillez renseigner votre mot de passe actuel.', 'error');
+            return;
+        }
+        if (newPassword.length < 8) {
+            showToast('Le mot de passe doit comporter au moins 8 caractères.', 'error');
+            return;
+        }
+        // Modale de confirmation avant modification du mot de passe
+        openConfirmModal('Modifier le mot de passe ?', 'Êtes-vous sûr de vouloir mettre à jour votre mot de passe de connexion ? Vous devrez utiliser ce nouveau mot de passe lors de vos prochaines visites.', async () => {
+            setButtonLoading(btn, true, 'Mettre à jour mon mot de passe');
+            try {
+                const res = await fetchApi('/api/v1/users/me/password', {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+                if (res.status === 'success') {
+                    showToast('Mot de passe modifié avec succès !', 'success');
+                    form.reset();
+                }
             }
-        }
-        finally {
-            setButtonLoading(btn, false, 'Mettre à jour mon mot de passe');
-        }
+            finally {
+                setButtonLoading(btn, false, 'Mettre à jour mon mot de passe');
+            }
+        });
     });
 }
 function initClubBusinessSettingsForm() {

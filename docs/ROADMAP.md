@@ -14,17 +14,19 @@ Le projet Kanso-ya est développé selon la méthodologie **Scrum** avec des spr
 ```mermaid
 flowchart LR
     L1["Lot 1 : Socle & CRM Core\n(Sprints 1 & 2)\n✅ 100% VALIDÉ EN RECETTE"] --> L2["Lot 2 : Inscriptions & CMS\n(Sprints 3 & 4)\n✅ 100% VALIDÉ EN RECETTE"]
-    L2 --> L3["Lot 3 : Automatisation & SDK Modules\n(Sprints 5 & 6)\n🚀 PRÊT À L'EXÉCUTION"]
+    L2 --> L3["Lot 3 : Automatisation & SDK Modules\n(Sprints 5 & 6)\n✅ 100% VALIDÉ EN RECETTE"]
+    L3 --> L4["Sprint 7 : Socle, Navigation, Auth,\nThème & Backup BDD\n✅ 100% VALIDÉ EN RECETTE"]
 ```
 
 ### Tableau de Bord d'Avancement par Lot
 
 | Phase / Lot | Sprints | Objectifs Clés | Story Points | Statut Réel | Tests E2E |
 | :--- | :---: | :--- | :---: | :---: | :---: |
-| **Lot 1 : Socle & CRM** | Sprint 1 & 2 | BDD SQLite WAL, Shadow Login, 2FA, RBAC Multi-colonnes, CRM & Fiches | **44 SP** | **Terminé & Recetté** | 38/38 Pass ✅ |
+| **Lot 1 : Socle & CRM** | Sprint 1 & 2 | BDD SQLite WAL, Shadow Login, 2FA, RBAC Multi-colonnes, CRM & Fiches | **44 SP** | **Terminé & Recetté** | 28/28 Pass ✅ |
 | **Lot 2 : Inscriptions & CMS** | Sprint 3 & 4 | Wizard Public, Panier Familial, Trésorerie réversible, OTP, Studio CMS 2 onglets | **47 SP** | **Terminé & Recetté** | 32/32 Pass ✅ |
-| **Lot 3 : Évolutivité & SDK** | Sprint 5 & 6 | Rollover de saison, Stats avancées, Scanner de modules, EventManager & Safe Mode | **34 SP** | **Prêt à démarrer** | Spécifié 📋 |
-| **TOTAL GÉNÉRAL** | **6 Sprints** | **Core Associatif Complet & Modulaire (v1.0.0)** | **125 SP** | **72.8% Finalisé** | **70/70 Pass** |
+| **Lot 3 : Évolutivité & SDK** | Sprint 5 & 6 | Rollover de saison, Stats avancées, Scanner de modules, EventManager & Safe Mode | **34 SP** | **Terminé & Recetté** | 38/38 Pass ✅ |
+| **Sprint 7 : Socle & Navigation** | Sprint 7 | URLs propres, Header sans fioritures, Visiteur par défaut, 2FA SVG 30s, Multi-Superadmin, Backup BDD | **21 SP** | **Terminé & Recetté** | 52/52 Pass ✅ |
+| **TOTAL GÉNÉRAL** | **7 Sprints** | **Core Associatif Complet, Extensible & Durci (v1.1.0)** | **146 SP** | **100% Finalisé** | **150/150 Pass** |
 
 ---
 
@@ -295,3 +297,29 @@ npm run test:e2e
 * **Revue & Recette Sprint 5 :** 30 novembre 2026
 * **Lancement Sprint 6 :** 01 décembre 2026
 * **Revue & Recette Finale Core v1.0.0 (Lot 3) :** 15 décembre 2026
+* **Sprint 7 (Socle, Navigation, Auth, Thème & Backup BDD) :** 16 novembre 2026 — ✅ **100% VALIDÉ (150/150 Pass)**
+
+---
+
+## 6. Détail du Sprint 7 (Socle, Navigation, Auth, Thème & Backup BDD)
+
+### 6.1. Objectifs & User Stories Réalisées
+
+1. **Header & Session Visiteur par défaut :**
+   - Révocation de toute session par défaut : tout nouvel arrivant démarre en `Visiteur` non authentifié (`user_id = 0`, `role_name = 'Visiteur'`).
+   - Épuration du Header : suppression du badge de rôle et du bouton Espace Membre ; affichage strict de `Prénom Nom` si connecté, vide si visiteur.
+2. **URLs Propres sans `.php` :**
+   - Mise en œuvre des réécritures `.htaccess` (`/login`, `/register`, `/dashboard`, `/stats`, `/members`, `/registrations`, `/cms`, `/roles`, etc.).
+   - Remplacement de tous les hyperliens dans `layout.php`, les templates et les scripts TypeScript.
+3. **Refonte de `/login` & Redirection Unifiée :**
+   - Formulaire stylisé avec carte épurée, intégration du logo club et des variables de thème.
+   - Redirection post-connexion unifiée vers `/` pour tous les membres club, et `/sys-console` pour le Superadmin.
+4. **Thème Dynamique Intégral :**
+   - Application des variables CSS `--brand-primary` et `--brand-accent` sur tous les boutons, onglets et éléments d'accentuation.
+5. **Sécurité d'Authentification (2FA 30s, MDP & Multi-Superadmin) :**
+   - Générateur QR Code SVG natif vectoriel (TS pur, zéro dépendance) renouvelé toutes les 30 secondes avec compte à rebours et bouton pour afficher/masquer la clé secrète.
+   - Bloc pédagogique des règles de mot de passe, modale de confirmation avant modification et affichage explicite dans les Toasts.
+   - Gestion multi-superadmin dans `sys_superadmins` avec création via l'interface `/sys-console` et API dédiée.
+6. **Sauvegarde & Restauration SQLite Playwright :**
+   - `global-setup.ts` et `global-teardown.ts` assurant la sauvegarde et la restauration exacte du fichier `kanso-ya.sqlite` (avec ses fichiers `-wal` et `-shm`).
+   - Exécution globale des 150 tests Playwright (Chromium Desktop + Mobile Chrome Pixel 5) validée à 100%.

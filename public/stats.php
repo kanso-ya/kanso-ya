@@ -153,7 +153,7 @@ ob_start();
             </p>
         </div>
         <div class="flex items-center gap-2">
-            <a href="/members.php" class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shrink-0">
+            <a href="/members" class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shrink-0">
                 Consulter la liste des adhérents →
             </a>
         </div>

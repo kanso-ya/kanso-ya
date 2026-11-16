@@ -402,3 +402,33 @@ Pour garantir la pérennité du projet lors de l'intégration du Lot 3 (Moteur d
 2. **Concurrence SQLite sous Tests E2E :** Toute écriture SQL doit être protégée contre les blocages par des transactions `BEGIN IMMEDIATE` et respecter le `busy_timeout` de 15 secondes.
 3. **Préfixes de Tables Modulaires :** Les tables créées par les futurs modules du Lot 3 devront obligatoirement porter le préfixe `mod_<nom_module>_` afin de ne jamais entrer en collision avec le schéma du Core.
 4. **Conservation des Stubs QA :** Les mécanismes `/api/v1/auth/switch-persona` et les tokens stubs ne doivent en aucun cas être altérés ou supprimés en environnement de test.
+
+---
+
+## 9. Socle, Navigation, Auth, Thème & Robustesse BDD (Sprint 7)
+
+Le Sprint 7 a consolidé les fondations ergonomiques, visuelles et sécuritaires du Core :
+
+### 9.1. Header Épuré & Session Visiteur par Défaut
+- **Session Visiteur Initiale :** Suppression totale de toute session Président injectée par défaut dans `core/ui/templates/layout.php` et `public/api.php`. Tout visiteur anonyme dispose strictement d'une session non authentifiée (`user_id = 0`, `role_name = 'Visiteur'`, `isLoggedIn = false`).
+- **Header Débarrassé des Fioritures :** Suppression définitive du badge de rôle (`#active-role-pill`) et de l'ancien bouton redondant "Espace Membre" dans le bandeau supérieur (`#app-header`). Le bandeau n'affiche désormais que le nom complet (`Prénom Nom`) de l'utilisateur lorsqu'il est connecté (avec lien vers son profil), et reste totalement vide en haut à droite pour un visiteur anonyme (la connexion s'opère via la sidebar).
+
+### 9.2. Routage Propre & URLs sans `.php`
+- Configuration des règles de réécriture dans `public/.htaccess` masquant les extensions `.php` pour toutes les vues applicatives :
+  `/login`, `/register`, `/dashboard`, `/settings`, `/stats`, `/members`, `/registrations`, `/cms`, `/disciplines`, `/roles`, `/sys-console`, `/rgpd`, `/cgv`, `/mentions-legales`, `/horaires`, etc.
+- Alignement de tous les liens de navigation (menu latéral, pied de page) et redirections client/serveur vers ces URLs canoniques.
+
+### 9.3. Page de Connexion `/login` & Redirection Post-Connexion
+- Refonte visuelle de `/login` avec carte centrée moderne, intégration du logo club et des variables CSS dynamiques (`--brand-primary`, `--brand-sidebar`).
+- Redirection post-authentification unifiée : tout utilisateur standard (Président, Trésorier, Entraîneur, Adhérent) est redirigé vers l'accueil public `/` (et exclusivement le Superadmin vers `/sys-console`).
+
+### 9.4. Thème Dynamique Complet
+- Application globale des variables CSS `--brand-primary` et `--brand-accent` sur l'ensemble des boutons d'action (`btn-primary`), onglets actifs, badges d'accentuation et liens "Inscription en ligne" du site, garantissant l'alignement immédiat avec les préférences graphiques configurées dans la console Superadmin.
+
+### 9.5. Sécurité Renforcée (2FA TOTP 30s, Complexité MDP & Multi-Superadmin)
+- **QR Code TOTP SVG Natif 30s :** Générateur QR Code 100% TypeScript (`core/ui/ts/qrcode.ts`, zéro dépendance externe, ISO/IEC 18004, GF(256), Reed-Solomon) sur la page profil, avec compteur décrémental 30 secondes, renouvellement automatique du QR Code et bouton bascule `#btn-toggle-secret` pour afficher ou masquer la clé secrète textuelle.
+- **Exigences Explicites de Mot de Passe :** Bloc pédagogique affichant les critères (8+ caractères, majuscule, minuscule, chiffre, caractère spécial) au-dessus des champs sur `/activate-otp` et dans l'onglet Sécurité du profil, modale de confirmation avant modification et affichage clair des messages d'erreur dans les Toasts.
+- **Multi-Superadmin :** Capacité pour le Superadmin principal de créer des comptes Superadmin secondaires via l'API (`POST /api/v1/sys/superadmins`) et l'interface de `/sys-console`. Les comptes système sont isolés dans `sys_superadmins` et étanches vis-à-vis des comptes de la table `users`.
+
+### 9.6. Sauvegarde & Restauration SQLite sous Playwright
+- Automatisation stricte dans `tests/setup/global-setup.ts` et `tests/setup/global-teardown.ts` : snapshot initial du fichier SQLite (`storage/db/kanso-ya.sqlite` ainsi que ses fichiers `-wal` et `-shm`) avant le démarrage des tests, et restauration bit-à-bit à la fin de la campagne pour garantir une base saine et zéro pollution entre runs de tests.

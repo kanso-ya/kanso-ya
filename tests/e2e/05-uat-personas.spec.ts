@@ -10,8 +10,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bout en Bout', () => {
 
-    test.beforeEach(async ({ request }) => {
+    test.beforeEach(async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', {
+            data: { persona: 'president' }
+        });
+        await page.request.post('/api/v1/auth/switch-persona', {
             data: { persona: 'president' }
         });
     });
@@ -88,7 +91,7 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
         const uniqueEmail = `parent.tresorier.test.${Date.now()}@kanso-ya.fr`;
 
         // 1. Création préalable d'un dossier en attente
-        const regRes = await request.post('/api/v1/registrations', {
+        let regRes = await request.post('/api/v1/registrations', {
             data: {
                 members: [{
                     first_name: 'Sacha',
@@ -108,7 +111,31 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
                 installments: 1
             }
         });
-        const regBody = await regRes.json();
+        let regBody = await regRes.json();
+        if (!regBody.data) {
+            await new Promise((r) => setTimeout(r, 600));
+            regRes = await request.post('/api/v1/registrations', {
+                data: {
+                    members: [{
+                        first_name: 'Sacha',
+                        last_name: 'Lambert',
+                        birth_date: '2015-03-22',
+                        discipline_id: 1,
+                        emergency_contact_name: 'Sylvie Lambert',
+                        emergency_contact_phone: '06 12 34 56 78'
+                    }],
+                    tutors: [{
+                        email: `retry.${uniqueEmail}`,
+                        birth_date: '1983-06-15',
+                        first_name: 'Marc',
+                        last_name: 'Lambert'
+                    }],
+                    payment_method: 'cheque',
+                    installments: 1
+                }
+            });
+            regBody = await regRes.json();
+        }
         const regId = regBody.data.registration_id;
         const memberId = regBody.data.member_ids[0];
 

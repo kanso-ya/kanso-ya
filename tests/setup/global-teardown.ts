@@ -9,8 +9,8 @@ import { execSync } from 'child_process';
 
 export default async function globalTeardown(): Promise<void> {
     const rootDir = process.cwd();
-    const dbPath = path.join(rootDir, 'storage', 'db', 'kanso_ya.sqlite');
-    const backupPath = path.join(rootDir, 'storage', 'db', 'kanso_ya.sqlite.bak');
+    const dbPath = path.join(rootDir, 'storage', 'db', 'kanso-ya.sqlite');
+    const backupPath = path.join(rootDir, 'storage', 'db', 'kanso-ya.sqlite.bak');
 
     if (fs.existsSync(backupPath)) {
         if (fs.existsSync(`${dbPath}-wal`)) fs.unlinkSync(`${dbPath}-wal`);

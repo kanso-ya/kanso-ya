@@ -604,7 +604,7 @@ function initLegalPagesEditor(): void {
 
     const loadSelectedPage = async (): Promise<void> => {
         const slug = slugSelect.value;
-        if (previewLink) previewLink.href = `/legal.php?slug=${slug}`;
+        if (previewLink) previewLink.href = `/${slug}`;
 
         const res = await fetchApi<PageItem>(`/api/v1/pages/${slug}`);
         if (res.status === 'success' && res.data) {

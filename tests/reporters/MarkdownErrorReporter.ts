@@ -31,13 +31,16 @@ export default class MarkdownErrorReporter implements Reporter {
      * @param {TestResult} result - Le résultat de l'exécution.
      */
     public onTestEnd(test: TestCase, result: TestResult): void {
-        if (result.status === 'failed' || result.status === 'timedOut') {
-            this.failedTests.push({
-                title: test.title,
-                location: `${test.location.file}:${test.location.line}`,
-                duration: result.duration,
-                error: result.error?.message || 'Erreur inconnue',
-            });
+        const key = `${test.location.file}:${test.location.line}`;
+        if (test.outcome() === 'unexpected') {
+            if (!this.failedTests.some(f => f.location === key)) {
+                this.failedTests.push({
+                    title: test.title,
+                    location: key,
+                    duration: result.duration,
+                    error: result.error?.message || 'Erreur inconnue',
+                });
+            }
         }
     }
 

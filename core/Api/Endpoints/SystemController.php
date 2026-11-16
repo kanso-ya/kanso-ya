@@ -536,4 +536,103 @@ final class SystemController
             ]
         ];
     }
+
+    /**
+     * Récupère la liste des comptes Superadmins techniques (Point 5).
+     *
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function getSuperadmins(): array
+    {
+        $stmt = $this->db->query("
+            SELECT id, username, email, failed_login_attempts, locked_until, created_at
+            FROM sys_superadmins
+            ORDER BY id ASC
+        ");
+        $admins = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Comptes Superadmin récupérés.',
+            'data'    => $admins
+        ];
+    }
+
+    /**
+     * Crée un compte Superadmin technique secondaire (Point 5 / US 1.1).
+     * Les identifiants sont strictement isolés dans sys_superadmins.
+     * Un superadmin peut utiliser la même adresse email qu'un compte club sans conflit.
+     *
+     * @param array<string, mixed> $payload Contient 'username', 'email', 'password'.
+     * @param int|null             $actorId Id du Superadmin créateur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function createSuperadmin(array $payload, ?int $actorId = 1): array
+    {
+        $username = trim((string) ($payload['username'] ?? ''));
+        $email    = strtolower(trim((string) ($payload['email'] ?? '')));
+        $password = (string) ($payload['password'] ?? '');
+
+        if ($username === '' || $email === '' || strlen($password) < 8) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Identifiant, adresse email valide et mot de passe de 8 caractères minimum requis.',
+                'data'    => null
+            ];
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Format de l\'adresse email invalide.',
+                'data'    => null
+            ];
+        }
+
+        // Vérification de l'unicité stricte au sein de sys_superadmins
+        $checkStmt = $this->db->prepare("SELECT id FROM sys_superadmins WHERE username = :u OR email = :e LIMIT 1");
+        $checkStmt->execute(['u' => $username, 'e' => $email]);
+        if ($checkStmt->fetch()) {
+            return [
+                'status'  => 'error',
+                'code'    => 409,
+                'message' => 'Cet identifiant ou cet email est déjà utilisé par un autre Superadmin.',
+                'data'    => null
+            ];
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+
+        $insertStmt = $this->db->prepare("
+            INSERT INTO sys_superadmins (username, email, password_hash, created_at)
+            VALUES (:u, :e, :h, CURRENT_TIMESTAMP)
+        ");
+        $insertStmt->execute(['u' => $username, 'e' => $email, 'h' => $hash]);
+        $newId = (int) $this->db->lastInsertId();
+
+        // Traçabilité dans sys_logs
+        $logStmt = $this->db->prepare("
+            INSERT INTO sys_logs (superadmin_id, action, details, ip_address)
+            VALUES (:actor, 'CREATE_SUPERADMIN_ACCOUNT', :det, :ip)
+        ");
+        $logStmt->execute([
+            'actor' => $actorId,
+            'det'   => "Création du Superadmin secondaire #{$newId} : {$username} ({$email})",
+            'ip'    => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
+        ]);
+
+        return [
+            'status'  => 'success',
+            'code'    => 201,
+            'message' => "Compte Superadmin '{$username}' créé avec succès.",
+            'data'    => [
+                'id'       => $newId,
+                'username' => $username,
+                'email'    => $email
+            ]
+        ];
+    }
 }

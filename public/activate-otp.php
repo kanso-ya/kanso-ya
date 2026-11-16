@@ -21,6 +21,16 @@ ob_start();
         </p>
     </div>
 
+    <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1 text-left">
+        <span class="font-bold block">Règles de complexité requises pour le mot de passe :</span>
+        <ul class="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
+            <li>Minimum 8 caractères</li>
+            <li>Au moins une lettre majuscule (A-Z) et une minuscule (a-z)</li>
+            <li>Au moins un chiffre (0-9)</li>
+            <li>Au moins un caractère spécial (!@#$%^&*...)</li>
+        </ul>
+    </div>
+
     <form id="otp-activation-form" class="space-y-4">
         <div>
             <label for="otp-code-input" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Jeton d'activation (OTP) *</label>
@@ -28,7 +38,7 @@ ob_start();
         </div>
 
         <div>
-            <label for="otp-new-password" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Votre nouveau mot de passe (min. 8 car.) *</label>
+            <label for="otp-new-password" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Votre nouveau mot de passe *</label>
             <input type="password" id="otp-new-password" name="new_password" required minlength="8" placeholder="••••••••" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
         </div>
 
@@ -48,6 +58,11 @@ document.getElementById('otp-activation-form')?.addEventListener('submit', async
     const otp_code = document.getElementById('otp-code-input').value.trim();
     const new_password = document.getElementById('otp-new-password').value;
 
+    if (new_password.length < 8) {
+        showToast('Le mot de passe doit comporter au moins 8 caractères.', 'error');
+        return;
+    }
+
     setButtonLoading(btn, true, 'Activer mon compte');
     try {
         const res = await fetchApi('/api/v1/auth/activate-otp', {
@@ -57,7 +72,7 @@ document.getElementById('otp-activation-form')?.addEventListener('submit', async
         if (res.status === 'success') {
             showToast('Compte activé avec succès ! Redirection vers la page de connexion...', 'success');
             setTimeout(() => {
-                window.location.href = '/login.php';
+                window.location.href = '/login';
             }, 1200);
         }
     } finally {

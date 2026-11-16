@@ -9,8 +9,11 @@ import * as path from 'path';
 
 test.describe('DOMAINE 2 — CRM Adhérents, Rattachements Familiaux, RGPD & Santé', () => {
 
-    test.beforeEach(async ({ request }) => {
+    test.beforeEach(async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', {
+            data: { persona: 'president' }
+        });
+        await page.request.post('/api/v1/auth/switch-persona', {
             data: { persona: 'president' }
         });
     });

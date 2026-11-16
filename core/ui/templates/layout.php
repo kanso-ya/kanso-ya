@@ -37,8 +37,8 @@ $requireAuth   = $requireAuth ?? false;
 $requiredPerms = $requiredPerms ?? [];
 
 // En production : si aucune session n'est ouverte, l'utilisateur est Visiteur (0)
-$currentUserId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 1;
-$currentRole   = isset($_SESSION['role_name']) ? (string) $_SESSION['role_name'] : 'Président';
+$currentUserId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+$currentRole   = isset($_SESSION['role_name']) ? (string) $_SESSION['role_name'] : 'Visiteur';
 $isSuperadmin  = (bool) ($_SESSION['is_superadmin'] ?? isset($_SESSION['sys_admin_id']));
 $isLoggedIn    = ($currentRole !== 'Visiteur' && $currentRole !== '' && $currentUserId > 0);
 
@@ -140,10 +140,15 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
             --brand-primary: <?= htmlspecialchars($primaryColor, ENT_QUOTES, 'UTF-8') ?>;
             --brand-sidebar: <?= htmlspecialchars($sidebarColor, ENT_QUOTES, 'UTF-8') ?>;
             --brand-header: <?= htmlspecialchars($headerColor, ENT_QUOTES, 'UTF-8') ?>;
+            --brand-accent: <?= htmlspecialchars((string) ($sysConfig['theme_accent_color'] ?: '#10b981'), ENT_QUOTES, 'UTF-8') ?>;
         }
         .brand-sidebar-bg { background-color: var(--brand-sidebar); }
         .brand-header-bg { background-color: var(--brand-header); }
         .brand-primary-bg { background-color: var(--brand-primary); }
+        .brand-primary-text { color: var(--brand-primary); }
+        .brand-accent-bg { background-color: var(--brand-accent); }
+        .brand-accent-text { color: var(--brand-accent); }
+        .brand-primary-border { border-color: var(--brand-primary); }
     </style>
     <script type="module" src="/assets/ts/main.js" defer></script>
     <?php if ($accessDeniedReason === null): ?>
@@ -186,21 +191,15 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
             </span>
         </div>
 
-        <!-- DROITE : STATUT DU COMPTE CONNECTÉ (SANS SÉLECTEUR DE TRICHE QA) -->
-        <div class="flex items-center gap-3">
+        <!-- DROITE : STATUT DU COMPTE CONNECTÉ (SANS BADGE DE RÔLE NI BOUTON ESPACE MEMBRE) -->
+        <div id="header-user-zone" class="flex items-center gap-3">
             <?php if ($isLoggedIn): ?>
-                <a href="/dashboard.php" class="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border <?= $isSuperadmin ? 'bg-slate-900 border-red-800 text-red-300' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100' ?> transition">
+                <a href="/dashboard" id="header-user-profile" class="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border <?= $isSuperadmin ? 'bg-slate-900 border-red-800 text-red-300' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100' ?> transition">
                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span class="text-xs font-bold"><?= htmlspecialchars($currentUserLabel, ENT_QUOTES, 'UTF-8') ?></span>
-                    <span id="active-role-pill" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold <?= $isSuperadmin ? 'bg-red-950 text-red-300' : 'bg-emerald-100 text-emerald-800' ?>">
-                        <?= htmlspecialchars($currentRole, ENT_QUOTES, 'UTF-8') ?>
-                    </span>
+                    <span id="header-user-name" class="text-xs font-bold"><?= htmlspecialchars($currentUserLabel, ENT_QUOTES, 'UTF-8') ?></span>
                 </a>
             <?php else: ?>
                 <span id="active-role-pill" class="hidden">Visiteur Public</span>
-                <a href="/login.php" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-2xs">
-                    Espace Membre
-                </a>
             <?php endif; ?>
         </div>
     </header>
@@ -219,7 +218,7 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                             <span>Déconnexion</span>
                         </button>
                     <?php else: ?>
-                        <a id="btn-sidebar-login" href="/login.php" class="w-full py-2.5 px-4 brand-primary-bg hover:opacity-95 text-white font-semibold text-xs uppercase tracking-wider rounded-xl shadow-sm transition text-center block">
+                        <a id="btn-sidebar-login" href="/login" class="w-full py-2.5 px-4 brand-primary-bg hover:opacity-95 text-white font-semibold text-xs uppercase tracking-wider rounded-xl shadow-sm transition text-center block">
                             Se connecter
                         </a>
                     <?php endif; ?>
@@ -231,29 +230,29 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                 <a href="/" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'home' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                     Accueil & Actualités
                 </a>
-                <a href="/register.php" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'register' ? 'brand-primary-bg text-white font-semibold' : 'text-emerald-400 hover:bg-slate-800' ?>">
+                <a href="/register" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'register' ? 'brand-primary-bg text-white font-semibold' : 'text-emerald-400 hover:bg-slate-800' ?>">
                     Inscription en ligne
                 </a>
 
                 <?php if ($isSuperadmin): ?>
                     <div class="pt-4 space-y-1">
                         <div class="text-[11px] font-bold uppercase tracking-wider text-red-400 px-3 pb-1">Console Technique</div>
-                        <a href="/sys-console.php" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'sys-console' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-red-300' ?>">
+                        <a href="/sys-console" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'sys-console' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-red-300' ?>">
                             Configuration & SMTP
                         </a>
-                        <a href="/cms.php" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'cms' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-slate-300' ?>">
+                        <a href="/cms" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'cms' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-slate-300' ?>">
                             Articles & Pages
                         </a>
                     </div>
                 <?php elseif ($isLoggedIn): ?>
                     <div class="pt-4 space-y-1">
                         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pb-1">Espace Personnel</div>
-                        <a href="/dashboard.php" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'dashboard' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                        <a href="/dashboard" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'dashboard' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                             Mon profil
                         </a>
 
                         <?php if ($currentRole === 'Adhérent'): ?>
-                            <a href="/members.php" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'members' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                            <a href="/members" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'members' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                                 Mes rattachements
                             </a>
                         <?php endif; ?>
@@ -262,34 +261,34 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                             <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pt-3 pb-1">Gestion Associative</div>
 
                             <?php if (in_array('stats.view', $userPerms, true)): ?>
-                                <a href="/stats.php" data-perm="stats.view" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'stats' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                                <a href="/stats" data-perm="stats.view" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'stats' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                                     Statistiques
                                 </a>
                             <?php endif; ?>
 
                             <?php if (in_array('members.view', $userPerms, true)): ?>
-                                <a href="/members.php" data-perm="members.view" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'members' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                                <a href="/members" data-perm="members.view" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'members' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                                     Adhérents
                                 </a>
                             <?php endif; ?>
 
                             <?php if (in_array('finances.manage', $userPerms, true)): ?>
-                                <a href="/registrations.php" data-perm="finances.manage" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'registrations' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                                <a href="/registrations" data-perm="finances.manage" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'registrations' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                                     Cotisations & Dossiers
                                 </a>
                             <?php endif; ?>
 
                             <?php if (in_array('articles.write', $userPerms, true) || in_array('articles.publish', $userPerms, true) || in_array('pages.manage', $userPerms, true)): ?>
-                                <a href="/cms.php" data-perm="articles.write" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'cms' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                                <a href="/cms" data-perm="articles.write" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'cms' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                                     Articles & Pages
                                 </a>
                             <?php endif; ?>
 
                             <?php if (in_array('roles.manage', $userPerms, true)): ?>
-                                <a href="/disciplines.php" data-perm="roles.manage" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'disciplines' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                                <a href="/disciplines" data-perm="roles.manage" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'disciplines' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                                     Disciplines & Grades
                                 </a>
-                                <a href="/roles.php" data-perm="roles.manage" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'roles' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                                <a href="/roles" data-perm="roles.manage" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'roles' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                                     Rôles & Permissions
                                 </a>
                             <?php endif; ?>
@@ -324,10 +323,10 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
 
             <footer class="p-4 border-t border-slate-800 bg-slate-950/50 text-xs text-slate-400 space-y-2 shrink-0">
                 <div class="grid grid-cols-2 gap-1.5 font-medium">
-                    <a href="/legal.php?slug=horaires" class="hover:text-emerald-400 transition">Horaires & Tarifs</a>
-                    <a href="/legal.php?slug=mentions-legales" class="hover:text-emerald-400 transition">Mentions légales</a>
-                    <a href="/legal.php?slug=rgpd" class="hover:text-emerald-400 transition">Politique RGPD</a>
-                    <a href="/legal.php?slug=cgv" class="hover:text-emerald-400 transition">CGV</a>
+                    <a href="/horaires" class="hover:text-emerald-400 transition">Horaires & Tarifs</a>
+                    <a href="/mentions-legales" class="hover:text-emerald-400 transition">Mentions légales</a>
+                    <a href="/rgpd" class="hover:text-emerald-400 transition">Politique RGPD</a>
+                    <a href="/cgv" class="hover:text-emerald-400 transition">CGV</a>
                 </div>
                 <div class="text-[11px] text-slate-600 pt-1 border-t border-slate-800/80 flex justify-between">
                     <span><?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></span>
@@ -350,7 +349,7 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                                 Retour à l'accueil
                             </a>
                             <?php if (!$isLoggedIn): ?>
-                                <a href="/login.php" class="px-5 py-2.5 rounded-xl brand-primary-bg text-white text-xs font-bold shadow-xs transition">
+                                <a href="/login" class="px-5 py-2.5 rounded-xl brand-primary-bg text-white text-xs font-bold shadow-xs transition">
                                     Se connecter
                                 </a>
                             <?php endif; ?>

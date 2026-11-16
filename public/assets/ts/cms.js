@@ -531,7 +531,7 @@ function initLegalPagesEditor() {
     const loadSelectedPage = async () => {
         const slug = slugSelect.value;
         if (previewLink)
-            previewLink.href = `/legal.php?slug=${slug}`;
+            previewLink.href = `/${slug}`;
         const res = await fetchApi(`/api/v1/pages/${slug}`);
         if (res.status === 'success' && res.data) {
             titleInput.value = res.data.title;

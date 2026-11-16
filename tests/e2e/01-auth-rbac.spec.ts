@@ -143,6 +143,7 @@ test.describe('DOMAINE 1 — Authentification, Shadow Login, Sécurité, Profil 
     });
 
     test('TC-PROF-01 : Page "Mon profil" à 2 onglets, champs dynamiques et 2FA TOTP', async ({ page, request }) => {
+        await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'president' } });
         await page.goto('/dashboard.php');
         await expect(page.locator('h1')).toContainText('Mon profil');
 
@@ -215,10 +216,10 @@ test.describe('DOMAINE 1 — Authentification, Shadow Login, Sécurité, Profil 
             });
 
             await page.goto('/');
-            await expect(page.locator('#sidebar a[href*="members.php"]')).toHaveCount(0);
-            await expect(page.locator('#sidebar a[href*="roles.php"]')).toHaveCount(0);
-            await expect(page.locator('#sidebar a[href*="registrations.php"]')).toHaveCount(0);
-            await expect(page.locator('#sidebar a[href*="cms.php"]')).toBeVisible();
+            await expect(page.locator('#sidebar a[href*="members"]')).toHaveCount(0);
+            await expect(page.locator('#sidebar a[href*="roles"]')).toHaveCount(0);
+            await expect(page.locator('#sidebar a[href*="registrations"]')).toHaveCount(0);
+            await expect(page.locator('#sidebar a[href*="cms"]')).toBeVisible();
         } finally {
             await page.evaluate(async () => {
                 await fetch('/api/v1/auth/switch-persona', {
@@ -231,6 +232,7 @@ test.describe('DOMAINE 1 — Authentification, Shadow Login, Sécurité, Profil 
     });
 
     test('TC-RBAC-04 : Tableau Unique Multi-Colonnes — Ajout d\'un rôle, renommage, mise à jour des droits et suppression', async ({ page, request }) => {
+        await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'president' } });
         await page.goto('/roles.php');
         await expect(page.locator('#rbac-matrix-table')).toBeVisible();
 

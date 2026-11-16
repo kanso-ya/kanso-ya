@@ -230,7 +230,7 @@ ob_start();
                     <textarea id="page-content" rows="4" required class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm"></textarea>
                 </div>
                 <div class="flex items-center justify-between">
-                    <a id="link-preview-page" href="/legal.php?slug=rgpd" target="_blank" class="text-xs font-semibold text-emerald-700 hover:underline">
+                    <a id="link-preview-page" href="/rgpd" target="_blank" class="text-xs font-semibold text-emerald-700 hover:underline">
                         Ouvrir la page publique dans un nouvel onglet ↗
                     </a>
                     <button type="submit" id="btn-save-legal-page" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">

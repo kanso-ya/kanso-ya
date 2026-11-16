@@ -9,11 +9,14 @@ import { fetchApi } from './api.js';
 import { setButtonLoading, showToast } from './main.js';
 let allSysLogs = [];
 let allModules = [];
+let allSuperadmins = [];
 document.addEventListener('DOMContentLoaded', () => {
     loadSystemSettings();
     loadEmailLogs();
     loadSystemLogs();
     loadModules();
+    loadSuperadmins();
+    initSuperadminForm();
     initBrandingForm();
     initSmtpForm();
     initSysLogsFilter();
@@ -417,6 +420,88 @@ function initModuleControls() {
             finally {
                 setButtonLoading(target, false, 'Désinstaller');
             }
+        }
+    });
+}
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, (m) => {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        return map[m] || m;
+    });
+}
+async function loadSuperadmins() {
+    const tbody = document.getElementById('superadmins-tbody');
+    if (!tbody)
+        return;
+    try {
+        const res = await fetchApi('/api/v1/sys/superadmins');
+        if (res.status === 'success' && Array.isArray(res.data)) {
+            allSuperadmins = res.data;
+            renderSuperadminsTable(allSuperadmins);
+        }
+        else {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Aucun compte Superadmin technique trouvé.</td></tr>`;
+        }
+    }
+    catch {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-400">Erreur lors de la récupération des Superadmins.</td></tr>`;
+    }
+}
+function renderSuperadminsTable(admins) {
+    const tbody = document.getElementById('superadmins-tbody');
+    if (!tbody)
+        return;
+    if (admins.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Aucun Superadmin enregistré.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = admins.map(a => {
+        const isLocked = a.locked_until && new Date(a.locked_until).getTime() > Date.now();
+        const statusBadge = isLocked
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-400 border border-red-800">🔒 Verrouillé jusqu'à ${a.locked_until}</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">✓ Actif (${a.failed_login_attempts} échec(s))</span>`;
+        return `
+            <tr class="hover:bg-slate-800/40 transition">
+                <td class="p-3 font-mono text-slate-400">#${a.id}</td>
+                <td class="p-3 font-bold text-white">${escapeHtml(a.username)}</td>
+                <td class="p-3 text-slate-300">${escapeHtml(a.email)}</td>
+                <td class="p-3">${statusBadge}</td>
+                <td class="p-3 text-slate-400 text-[11px]">${escapeHtml(a.created_at)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+function initSuperadminForm() {
+    const form = document.getElementById('form-create-superadmin');
+    const btn = document.getElementById('btn-submit-superadmin');
+    if (!form)
+        return;
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setButtonLoading(btn, true, '+ Créer le Superadmin');
+        try {
+            const formData = new FormData(form);
+            const payload = {
+                username: (formData.get('username') || '').trim(),
+                email: (formData.get('email') || '').trim(),
+                password: (formData.get('password') || '')
+            };
+            const res = await fetchApi('/api/v1/sys/superadmins', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            if (res.status === 'success') {
+                showToast(res.message || 'Superadmin créé avec succès !', 'success');
+                form.reset();
+                await loadSuperadmins();
+                await loadSystemLogs();
+            }
+            else {
+                showToast(res.message || 'Erreur lors de la création du compte', 'error');
+            }
+        }
+        finally {
+            setButtonLoading(btn, false, '+ Créer le Superadmin');
         }
     });
 }

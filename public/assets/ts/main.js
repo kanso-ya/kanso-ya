@@ -11,8 +11,9 @@
  */
 /** Contexte utilisateur courant accessible par tous les scripts TS */
 export let currentAuthContext = {
-    user_id: 1,
-    role: 'Président',
+    user_id: 0,
+    name: '',
+    role: 'Visiteur',
     permissions: []
 };
 document.addEventListener('DOMContentLoaded', async () => {
@@ -43,13 +44,28 @@ export async function syncUserContextAndPermissions() {
     const { role, permissions, user_id } = currentAuthContext;
     const isVisitor = !role || role === 'Visiteur' || user_id === 0;
     const isSuperadmin = role === 'Superadmin';
-    // 1. Mise à jour du badge de rôle dans le Header
+    // 1. Mise à jour de l'affichage utilisateur dans le Header (Prénom Nom uniquement si connecté)
+    const userProfile = document.getElementById('header-user-profile');
+    const userName = document.getElementById('header-user-name');
     const rolePill = document.getElementById('active-role-pill');
-    if (rolePill) {
-        rolePill.textContent = isVisitor ? 'Visiteur Public' : `Rôle : ${role}`;
-        rolePill.classList.remove('hidden');
-        if (isSuperadmin) {
-            rolePill.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-950 text-red-400 border border-red-700';
+    if (isVisitor) {
+        if (userProfile)
+            userProfile.classList.add('hidden');
+        if (rolePill) {
+            rolePill.textContent = 'Visiteur Public';
+            rolePill.classList.add('hidden');
+        }
+    }
+    else {
+        if (userProfile) {
+            userProfile.classList.remove('hidden');
+            if (userName && currentAuthContext.name) {
+                userName.textContent = currentAuthContext.name;
+            }
+        }
+        if (rolePill) {
+            rolePill.textContent = role;
+            rolePill.classList.add('hidden'); // Suppression du badge de rôle dans le header (Point 1)
         }
     }
     // 2. Synchronisation du sélecteur de compte

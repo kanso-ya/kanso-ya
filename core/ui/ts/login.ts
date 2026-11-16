@@ -23,8 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (res.status === 'success') {
             showToast('Connexion réussie ! Redirection...', 'success');
+            const role = (res.data as { role?: string } | undefined)?.role;
+            const targetUrl = role === 'Superadmin' ? '/sys-console' : '/';
             setTimeout(() => {
-                window.location.href = '/dashboard.php';
+                window.location.href = targetUrl;
             }, 500);
         }
     });

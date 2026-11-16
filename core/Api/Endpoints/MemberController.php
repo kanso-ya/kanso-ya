@@ -25,6 +25,37 @@ final class MemberController
         $this->db = Database::getInstance();
     }
 
+    private function executeImmediateTransaction(callable $operation): mixed
+    {
+        $maxAttempts = 20;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                if ($this->db->inTransaction()) {
+                    $this->db->exec('ROLLBACK');
+                }
+                $this->db->exec('BEGIN IMMEDIATE');
+                $result = $operation();
+                $this->db->exec('COMMIT');
+                return $result;
+            } catch (\Throwable $e) {
+                try {
+                    if ($this->db->inTransaction()) {
+                        $this->db->exec('ROLLBACK');
+                    }
+                } catch (\Throwable) {
+                }
+
+                $msg = strtolower($e->getMessage());
+                if ((str_contains($msg, 'locked') || str_contains($msg, 'busy')) && $attempt < $maxAttempts) {
+                    usleep(random_int(50000, 150000) * $attempt);
+                    continue;
+                }
+                throw $e;
+            }
+        }
+        throw new \RuntimeException('Échec après plusieurs tentatives SQLite.');
+    }
+
     /**
      * Liste les adhérents en adaptant la visibilité des données personnelles selon le rôle (RGPD).
      *
@@ -406,53 +437,48 @@ final class MemberController
         $recipientEmail = (string) ($targetUser['email'] ?? $member['email'] ?? ('adherent' . $memberId . '@kanso-ya.fr'));
 
         try {
-            $this->db->exec('BEGIN IMMEDIATE');
+            return $this->executeImmediateTransaction(function () use ($targetUser, $otpCode, $expiresAt, $recipientEmail, $adminUserId, $memberId): array {
+                if ($targetUser) {
+                    $this->db->prepare("
+                        UPDATE users
+                        SET otp_code = :otp, otp_expires_at = :exp, is_active = 1
+                        WHERE id = :uid
+                    ")->execute([
+                        'otp' => $otpCode,
+                        'exp' => $expiresAt,
+                        'uid' => (int) $targetUser['id']
+                    ]);
+                }
 
-            if ($targetUser) {
+                // Trace dans email_logs (Point 1 & Point 8)
                 $this->db->prepare("
-                    UPDATE users
-                    SET otp_code = :otp, otp_expires_at = :exp, is_active = 1
-                    WHERE id = :uid
+                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
+                    VALUES (:email, 'Nouveau lien d''activation OTP (48h) - Kanso-ya', 'OTP_RESEND', 'sent', '250 2.0.0 OK: Relayed')
+                ")->execute(['email' => $recipientEmail]);
+
+                // Trace dans app_logs
+                $this->db->prepare("
+                    INSERT INTO app_logs (user_id, action, target_type, target_id, details)
+                    VALUES (:uid, 'OTP_RESENT', 'member', :mid, :det)
                 ")->execute([
-                    'otp' => $otpCode,
-                    'exp' => $expiresAt,
-                    'uid' => (int) $targetUser['id']
+                    'uid' => $adminUserId,
+                    'mid' => $memberId,
+                    'det' => 'Lien OTP renvoyé à ' . $recipientEmail
                 ]);
-            }
 
-            // Trace dans email_logs (Point 1 & Point 8)
-            $this->db->prepare("
-                INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
-                VALUES (:email, 'Nouveau lien d''activation OTP (48h) - Kanso-ya', 'OTP_RESEND', 'sent', '250 2.0.0 OK: Relayed')
-            ")->execute(['email' => $recipientEmail]);
-
-            // Trace dans app_logs
-            $this->db->prepare("
-                INSERT INTO app_logs (user_id, action, target_type, target_id, details)
-                VALUES (:uid, 'OTP_RESENT', 'member', :mid, :det)
-            ")->execute([
-                'uid' => $adminUserId,
-                'mid' => $memberId,
-                'det' => 'Lien OTP renvoyé à ' . $recipientEmail
-            ]);
-
-            $this->db->exec('COMMIT');
-
-            return [
-                'status'  => 'success',
-                'code'    => 200,
-                'message' => "Nouveau lien OTP (valable 48h) envoyé à {$recipientEmail}.",
-                'data'    => [
-                    'member_id'       => $memberId,
-                    'recipient_email' => $recipientEmail,
-                    'otp_code'        => $otpCode
-                ]
-            ];
-        } catch (Throwable $e) {
-            try {
-                $this->db->exec('ROLLBACK');
-            } catch (Throwable) {
-            }
+                return [
+                    'status'  => 'success',
+                    'code'    => 200,
+                    'message' => "Nouveau lien OTP (valable 48h) envoyé à {$recipientEmail}.",
+                    'data'    => [
+                        'otp_code'        => $otpCode,
+                        'otp_expires_at'  => $expiresAt,
+                        'recipient_email' => $recipientEmail,
+                        'member_id'       => $memberId
+                    ]
+                ];
+            });
+        } catch (\Throwable $e) {
             return [
                 'status'  => 'error',
                 'code'    => 500,

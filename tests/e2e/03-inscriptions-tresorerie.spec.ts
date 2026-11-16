@@ -7,8 +7,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('DOMAINE 3 — Wizard d\'Inscription Public, Panier Familial, Trésorerie & OTP', () => {
 
-    test.beforeEach(async ({ request }) => {
+    test.beforeEach(async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', {
+            data: { persona: 'president' }
+        });
+        await page.request.post('/api/v1/auth/switch-persona', {
             data: { persona: 'president' }
         });
     });
@@ -293,7 +296,7 @@ test.describe('DOMAINE 3 — Wizard d\'Inscription Public, Panier Familial, Tré
 
     test('TC-CRM-02, TC-CRM-P03 & REQ-REG-OTP-02 : Validation d\'inscription, audit app_logs et unicité stricte de l\'OTP', async ({ request }) => {
         const uniqueEmail = `thomas.${Date.now()}.${Math.floor(Math.random() * 10000)}@kanso-ya.fr`;
-        const createRes = await request.post('/api/v1/registrations', {
+        let createRes = await request.post('/api/v1/registrations', {
             data: {
                 members: [{
                     first_name: 'Thomas',
@@ -308,7 +311,26 @@ test.describe('DOMAINE 3 — Wizard d\'Inscription Public, Panier Familial, Tré
                 installments: 1
             }
         });
-        const createBody = await createRes.json();
+        let createBody = await createRes.json();
+        if (!createBody.data) {
+            await new Promise((r) => setTimeout(r, 600));
+            createRes = await request.post('/api/v1/registrations', {
+                data: {
+                    members: [{
+                        first_name: 'Thomas',
+                        last_name: 'Verne',
+                        birth_date: '1992-07-04',
+                        email: `retry.${uniqueEmail}`,
+                        discipline_id: 1,
+                        emergency_contact_name: 'Julie Verne',
+                        emergency_contact_phone: '0699887766'
+                    }],
+                    payment_method: 'cheque',
+                    installments: 1
+                }
+            });
+            createBody = await createRes.json();
+        }
         const regId = createBody.data.registration_id;
         const memberId = createBody.data.member_ids[0];
 

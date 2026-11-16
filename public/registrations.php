@@ -24,7 +24,7 @@ ob_start();
                 <option value="validated">Dossiers validés</option>
                 <option value="radiated">Dossiers radiés (Archivés)</option>
             </select>
-            <a href="/register.php" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition shrink-0">
+            <a href="/register" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition shrink-0">
                 + Saisir un dossier
             </a>
         </div>

@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.textContent = 'Connexion Console';
             if (res.status === 'success') {
                 showToast('Accès technique autorisé', 'success');
-                setTimeout(() => window.location.href = '/dashboard.php', 800);
+                setTimeout(() => window.location.href = '/sys-console', 800);
             }
         });
     }

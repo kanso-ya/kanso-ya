@@ -11,8 +11,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord Analytiques', () => {
 
-    test.beforeEach(async ({ request }) => {
+    test.beforeEach(async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', {
+            data: { persona: 'president' }
+        });
+        await page.request.post('/api/v1/auth/switch-persona', {
             data: { persona: 'president' }
         });
     });
