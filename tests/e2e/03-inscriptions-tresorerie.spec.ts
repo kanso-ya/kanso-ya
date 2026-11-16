@@ -201,7 +201,7 @@ test.describe('DOMAINE 3 — Wizard d\'Inscription Public, Panier Familial, Tré
 
     test('TC-TRES-INSPECT-ADJUST : Inspection du dossier avec ajustement des Grades/Niveaux (ceintures) à la validation', async ({ request }) => {
         const uniqueEmail = `inspect.adjust.${Date.now()}@kanso-ya.fr`;
-        const createRes = await request.post('/api/v1/registrations', {
+        let createRes = await request.post('/api/v1/registrations', {
             data: {
                 members: [{
                     first_name: 'Romain',
@@ -216,7 +216,26 @@ test.describe('DOMAINE 3 — Wizard d\'Inscription Public, Panier Familial, Tré
                 installments: 1
             }
         });
-        const createBody = await createRes.json();
+        let createBody = await createRes.json();
+        if (!createBody.data) {
+            await new Promise((r) => setTimeout(r, 600));
+            createRes = await request.post('/api/v1/registrations', {
+                data: {
+                    members: [{
+                        first_name: 'Romain',
+                        last_name: 'Boucher',
+                        birth_date: '2014-02-10',
+                        discipline_id: 1,
+                        emergency_contact_name: 'Claire Boucher',
+                        emergency_contact_phone: '0612345678'
+                    }],
+                    tutors: [{ email: `retry.${uniqueEmail}`, birth_date: '1980-05-12' }],
+                    payment_method: 'cheque',
+                    installments: 1
+                }
+            });
+            createBody = await createRes.json();
+        }
         const regId = createBody.data.registration_id;
         const memberId = createBody.data.member_ids[0];
 

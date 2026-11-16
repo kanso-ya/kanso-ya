@@ -273,14 +273,21 @@ ob_start();
                                 Taux d'occupation : <?= (float) $ds['occupancy_pct'] ?>%
                             </span>
                         </div>
-                        <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-extrabold font-mono">
-                            <?= (int) $ds['total'] ?> / <?= (int) $ds['capacity'] ?> inscrits
-                        </span>
+                        <?php if ($ds['occupancy_pct'] >= 100): ?>
+                            <span class="px-3 py-1 rounded-full bg-red-100 text-red-800 border border-red-200 text-xs font-extrabold font-mono flex items-center gap-1.5" data-testid="capacity-alert-<?= $ds['id'] ?>">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                <span>⚠️ COMPLET (<?= (int) $ds['total'] ?> / <?= (int) $ds['capacity'] ?>)</span>
+                            </span>
+                        <?php else: ?>
+                            <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-extrabold font-mono">
+                                <?= (int) $ds['total'] ?> / <?= (int) $ds['capacity'] ?> inscrits
+                            </span>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Barre de progression de capacité -->
                     <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                        <div class="bg-emerald-600 h-2.5 rounded-full transition-all duration-500" style="width: <?= min(100.0, (float) $ds['occupancy_pct']) ?>%"></div>
+                        <div class="<?= $ds['occupancy_pct'] >= 100 ? 'bg-red-600' : 'bg-emerald-600' ?> h-2.5 rounded-full transition-all duration-500" style="width: <?= min(100.0, (float) $ds['occupancy_pct']) ?>%"></div>
                     </div>
 
                     <!-- A. Grades (Catégories d'âge : Poussin, Benjamin, Minime...) -->

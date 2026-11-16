@@ -13,8 +13,8 @@ let disciplinesCatalog = [];
 let isMinorFlow = false;
 let connectedUserProfile = null;
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadDisciplinesCatalog();
     initPublicRegistrationWizard();
+    await loadDisciplinesCatalog();
     checkConnectedUserForReEnrollment();
     window.addEventListener('kanso:auth-ready', () => {
         checkConnectedUserForReEnrollment();

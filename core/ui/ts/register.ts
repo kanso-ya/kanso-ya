@@ -60,8 +60,8 @@ let isMinorFlow = false;
 let connectedUserProfile: any = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadDisciplinesCatalog();
     initPublicRegistrationWizard();
+    await loadDisciplinesCatalog();
     checkConnectedUserForReEnrollment();
     window.addEventListener('kanso:auth-ready', () => {
         checkConnectedUserForReEnrollment();

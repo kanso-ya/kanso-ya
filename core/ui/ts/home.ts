@@ -112,7 +112,7 @@ function openArticleReader(art: ArticleCard): void {
 
     badge.className = `text-xs font-semibold px-2.5 py-0.5 rounded ${art.badge_color}`;
     badge.textContent = art.category_name;
-    title.textContent = art.title;
+    title.innerHTML = art.title;
     content.innerHTML = art.content;
 
     modal.classList.remove('hidden');
