@@ -13,20 +13,23 @@ Le projet Kanso-ya est développé selon la méthodologie **Scrum** avec des spr
 
 ```mermaid
 flowchart LR
-    L1["Lot 1 : Socle & CRM Core\n(Sprints 1 & 2)\n✅ 100% VALIDÉ EN RECETTE"] --> L2["Lot 2 : Inscriptions & CMS\n(Sprints 3 & 4)\n✅ 100% VALIDÉ EN RECETTE"]
-    L2 --> L3["Lot 3 : Automatisation & SDK Modules\n(Sprints 5 & 6)\n✅ 100% VALIDÉ EN RECETTE"]
-    L3 --> L4["Sprint 7 : Socle, Navigation, Auth,\nThème & Backup BDD\n✅ 100% VALIDÉ EN RECETTE"]
+    L1["Lot 1 : Socle & CRM Core\n(Sprints 1 & 2)\n✅ 100% VALIDÉ"] --> L2["Lot 2 : Inscriptions & CMS\n(Sprints 3 & 4)\n✅ 100% VALIDÉ"]
+    L2 --> L3["Lot 3 : Évolutivité & SDK\n(Sprints 5 & 6)\n✅ 100% VALIDÉ"]
+    L3 --> L4["Phase de Finition & Production\n(Sprints 7, 8, 9 & 10)\n🚀 35 POINTS DE RECETTE"]
 ```
 
-### Tableau de Bord d'Avancement par Lot
+### Tableau de Bord d'Avancement par Lot & Sprint
 
-| Phase / Lot | Sprints | Objectifs Clés | Story Points | Statut Réel | Tests E2E |
+| Phase / Lot | Sprints | Objectifs Clés (35 Points de Recette) | Story Points | Statut Réel | Tests E2E |
 | :--- | :---: | :--- | :---: | :---: | :---: |
 | **Lot 1 : Socle & CRM** | Sprint 1 & 2 | BDD SQLite WAL, Shadow Login, 2FA, RBAC Multi-colonnes, CRM & Fiches | **44 SP** | **Terminé & Recetté** | 28/28 Pass ✅ |
 | **Lot 2 : Inscriptions & CMS** | Sprint 3 & 4 | Wizard Public, Panier Familial, Trésorerie réversible, OTP, Studio CMS 2 onglets | **47 SP** | **Terminé & Recetté** | 32/32 Pass ✅ |
 | **Lot 3 : Évolutivité & SDK** | Sprint 5 & 6 | Rollover de saison, Stats avancées, Scanner de modules, EventManager & Safe Mode | **34 SP** | **Terminé & Recetté** | 38/38 Pass ✅ |
-| **Sprint 7 : Socle & Navigation** | Sprint 7 | URLs propres, Header sans fioritures, Visiteur par défaut, 2FA SVG 30s, Multi-Superadmin, Backup BDD | **21 SP** | **Terminé & Recetté** | 52/52 Pass ✅ |
-| **TOTAL GÉNÉRAL** | **7 Sprints** | **Core Associatif Complet, Extensible & Durci (v1.1.0)** | **146 SP** | **100% Finalisé** | **150/150 Pass** |
+| **Sprint 7 (Finition 1)** | Sprint 7 | URLs propres, Header épuré, Visiteur strict, 2FA SVG 30s, Multi-Superadmin, Backup BDD (Pts 1-6, 10, 11, 15, 29, 30, 35) | **21 SP** | **Terminé & Recetté** | 52/52 Pass ✅ |
+| **Sprint 8 (Finition 2)** | Sprint 8 | Remises paramétrables (%/fixe), Mode certificat/questionnaire santé Cerfa, Brouillon localStorage (Pts 7-9, 12-14, 16-17) | **24 SP** | **Prêt à l'exécution** | Prévu (Sprint 8) |
+| **Sprint 9 (Finition 3)** | Sprint 9 | Traçabilité CMS (`created_by`/`updated_by`), Reçus & Attestations CE, Exports CRM, Tris & Filtres (Pts 18-26) | **26 SP** | **Planifié** | Prévu (Sprint 9) |
+| **Sprint 10 (Finition 4)** | Sprint 10 | Console Superadmin découpée, Hook SDK `stats_tabs`, Templates emails, a11y WCAG & SEO (Pts 27, 28, 31-34) | **20 SP** | **Planifié** | Prévu (Sprint 10) |
+| **TOTAL GÉNÉRAL** | **10 Sprints** | **CMS & CRM Associatif Kanso-ya Production Ready (v1.2.0)** | **216 SP** | **78.7% Réalisé** | **150/150 Pass** |
 
 ---
 
@@ -297,29 +300,113 @@ npm run test:e2e
 * **Revue & Recette Sprint 5 :** 30 novembre 2026
 * **Lancement Sprint 6 :** 01 décembre 2026
 * **Revue & Recette Finale Core v1.0.0 (Lot 3) :** 15 décembre 2026
-* **Sprint 7 (Socle, Navigation, Auth, Thème & Backup BDD) :** 16 novembre 2026 — ✅ **100% VALIDÉ (150/150 Pass)**
+* **Sprint 7 (Socle, Navigation, Auth, Thème & Backup BDD) :** ✅ **100% VALIDÉ (150/150 Pass)**
+* **Lancement Sprint 8 (Inscriptions Avancées, Remises & Santé) :** Immédiat
+* **Lancement Sprint 9 (CRM, Studio CMS Traçable, Exports & Reçus) :** Fin Sprint 8
+* **Lancement Sprint 10 (Console Découpée, Extensibilité SDK & a11y) :** Fin Sprint 9
 
 ---
 
-## 6. Détail du Sprint 7 (Socle, Navigation, Auth, Thème & Backup BDD)
+## 6. Phase de Finition & Clôture Production (Sprints 7 à 10) — Les 35 Points de Recette
 
-### 6.1. Objectifs & User Stories Réalisées
+La phase de finition intègre les **35 retours de recette manuelle** répartis rigoureusement en 4 sprints opérationnels :
 
-1. **Header & Session Visiteur par défaut :**
-   - Révocation de toute session par défaut : tout nouvel arrivant démarre en `Visiteur` non authentifié (`user_id = 0`, `role_name = 'Visiteur'`).
-   - Épuration du Header : suppression du badge de rôle et du bouton Espace Membre ; affichage strict de `Prénom Nom` si connecté, vide si visiteur.
-2. **URLs Propres sans `.php` :**
-   - Mise en œuvre des réécritures `.htaccess` (`/login`, `/register`, `/dashboard`, `/stats`, `/members`, `/registrations`, `/cms`, `/roles`, etc.).
-   - Remplacement de tous les hyperliens dans `layout.php`, les templates et les scripts TypeScript.
-3. **Refonte de `/login` & Redirection Unifiée :**
-   - Formulaire stylisé avec carte épurée, intégration du logo club et des variables de thème.
-   - Redirection post-connexion unifiée vers `/` pour tous les membres club, et `/sys-console` pour le Superadmin.
-4. **Thème Dynamique Intégral :**
-   - Application des variables CSS `--brand-primary` et `--brand-accent` sur tous les boutons, onglets et éléments d'accentuation.
-5. **Sécurité d'Authentification (2FA 30s, MDP & Multi-Superadmin) :**
-   - Générateur QR Code SVG natif vectoriel (TS pur, zéro dépendance) renouvelé toutes les 30 secondes avec compte à rebours et bouton pour afficher/masquer la clé secrète.
-   - Bloc pédagogique des règles de mot de passe, modale de confirmation avant modification et affichage explicite dans les Toasts.
-   - Gestion multi-superadmin dans `sys_superadmins` avec création via l'interface `/sys-console` et API dédiée.
-6. **Sauvegarde & Restauration SQLite Playwright :**
-   - `global-setup.ts` et `global-teardown.ts` assurant la sauvegarde et la restauration exacte du fichier `kanso-ya.sqlite` (avec ses fichiers `-wal` et `-shm`).
-   - Exécution globale des 150 tests Playwright (Chromium Desktop + Mobile Chrome Pixel 5) validée à 100%.
+```mermaid
+flowchart TD
+    subgraph S7["Sprint 7 : Socle, Auth & Navigation (Points 1-6, 10, 11, 15, 29, 30, 35) ✅ VALIDÉ"]
+        P1["Points 1 & 2 : Header épuré & Visiteur strict"]
+        P2["Point 3 : Backup/Restore SQLite Playwright"]
+        P3["Point 4 : URLs propres sans .php"]
+        P4["Points 5 & 6 : Login refondu & Redirection post-connexion /"]
+        P5["Points 10, 11, 15 & 35 : 2FA SVG 30s, Toggle Secret, Règles MDP & Multi-Superadmin"]
+        P6["Points 29 & 30 : Thème dynamique CSS --brand-primary / --brand-accent"]
+    end
+
+    subgraph S8["Sprint 8 : Inscriptions Avancées, Remises & Santé (Points 7-9, 12-14, 16-17) 🚀"]
+        P7["Points 7 & 8 : Remises de cotisation paramétrables (% ou montant fixe) & calcul panier"]
+        P8["Points 9, 12 & 13 : Mode certificat vs Questionnaire santé (/questionnaire-sante) & RGPD santé"]
+        P9["Point 14 : Contacts d'urgence enrichis (téléphone secondaire, lien parenté)"]
+        P10["Points 16 & 17 : Brouillon localStorage & Modale récapitulative pré-soumission"]
+    end
+
+    subgraph S9["Sprint 9 : CRM, Studio CMS Traçable, Exports & Reçus (Points 18-26) 📋"]
+        P11["Points 18 & 19 : Traçabilité auteur/éditeur (created_by, updated_by) sur articles CMS"]
+        P12["Point 20 : Reçus de cotisation & Attestations CE/CSE téléchargeables"]
+        P13["Point 21 : Export CSV/Excel filtré des adhérents selon permissions"]
+        P14["Points 22 & 23 : Filtres avancés CRM (tranches d'âge, mode paiement) & Historique saisons"]
+        P15["Points 24-26 : Actions groupées CRM, gestion des médias CMS & Tri multi-colonnes trésorerie"]
+    end
+
+    subgraph S10["Sprint 10 : Console Découpée, SDK & Clôture Production (Points 27, 28, 31-34) 📋"]
+        P16["Point 27 : Console Superadmin découpée (/sys-branding, /sys-smtp, /sys-modules, /sys-logs)"]
+        P17["Point 28 : Hook EventManager stats_tabs pour personnalisation analytique modulaire"]
+        P18["Points 31 & 32 : Templates d'e-mails transactionnels personnalisables & page dynamique /horaires"]
+        P19["Points 33 & 34 : Accessibilité WCAG AA, Focus traps, SEO OpenGraph, Favicon & Clôture v1.2.0"]
+    end
+
+    S7 --> S8 --> S9 --> S10
+```
+
+---
+
+### 6.1. Sprint 7 (Achevé & Validé) : Socle, Navigation, Auth, Thème & Backup BDD
+* **Story Points :** 21 SP | **Statut :** ✅ **100% VALIDÉ EN RECETTE (150/150 Pass)**
+* **Points de Recette Couverts :**
+  - **Point 1 :** Révocation de toute session par défaut : tout nouvel arrivant est strictement `Visiteur` (`user_id = 0`, `role_name = 'Visiteur'`).
+  - **Point 2 :** Épuration du Header : suppression du badge de rôle et du bouton Espace Membre ; affichage de `Prénom Nom` uniquement si connecté.
+  - **Point 3 :** Sauvegarde et restauration SQLite Playwright bit-à-bit (`global-setup.ts` et `global-teardown.ts`).
+  - **Point 4 :** URLs propres sans `.php` (`/login`, `/register`, `/dashboard`, `/stats`, `/members`, `/registrations`, `/cms`, etc.).
+  - **Point 5 :** Refonte visuelle de `/login` avec branding club dynamique.
+  - **Point 6 :** Redirection post-connexion vers `/` pour les adhérents/bureau (et `/sys-console` pour le Superadmin).
+  - **Point 10 :** QR Code 2FA TOTP généré en SVG natif vectoriel renouvelé toutes les 30s.
+  - **Point 11 :** Bouton bascule `#btn-toggle-secret` pour afficher/masquer la clé secrète textuelle.
+  - **Point 15 :** Bloc explicite des règles de mot de passe, Toasts explicites et modale de confirmation.
+  - **Point 29 :** Application intégrale de `--brand-primary` sur tous les boutons principaux et éléments interactifs.
+  - **Point 30 :** Application intégrale de `--brand-accent` sur les badges et highlights.
+  - **Point 35 :** Multi-Superadmin (`sys_superadmins`, `POST /api/v1/sys/superadmins`, interface console).
+
+---
+
+### 6.2. Sprint 8 (Prêt à l'Exécution) : Inscriptions Avancées, Remises Paramétrables & Santé
+* **Story Points :** 24 SP | **Statut :** 🚀 **Spécifié & Prêt au Démarrage**
+* **Points de Recette Couverts :**
+  - **Point 7 :** Paramétrage des remises de cotisation dans `sys_settings` : seuil d'adhérents déclencheur (`discount_threshold`), type de remise (`discount_type` : `'percent'` ou `'fixed'`), valeur de la remise (`discount_value`).
+  - **Point 8 :** Calcul dynamique de la remise dans le tunnel d'inscription public (`register.ts`) avec affichage transparent de la ligne de déduction dans le récapitulatif du panier.
+  - **Point 9 :** Paramétrage dans `sys_settings` de l'option médicale (`medical_cert_mode` : `'mandatory'`, `'optional'`, `'health_questionnaire'`).
+  - **Point 12 :** Création de la page publique dédiée [`/questionnaire-sante`](file:///c:/laragon/www/kanso-ya/public/health-check.php) intégrant l'auto-évaluation Cerfa réglementaire (questions différenciées mineurs / majeurs).
+  - **Point 13 :** Cloisonnement RGPD santé : le CMS ne persiste aucune réponse médicale individuelle, seule l'attestation sur l'honneur positive ("Toutes les réponses sont NON") est enregistrée sous forme de drapeau booléen daté.
+  - **Point 14 :** Contact d'urgence enrichi dans le formulaire d'inscription (numéro secondaire alternatif, lien de parenté explicite).
+  - **Point 16 :** Sauvegarde temps réel du brouillon d'inscription dans le LocalStorage du navigateur (reprise sur rechargement de page accidentel).
+  - **Point 17 :** Écran de pré-soumission avec modale de confirmation des engagements tarifaires et des consentements légaux.
+
+---
+
+### 6.3. Sprint 9 (Planifié) : CRM, Studio CMS Traçable, Exports & Reçus
+* **Story Points :** 26 SP | **Statut :** 📋 **Planifié**
+* **Points de Recette Couverts :**
+  - **Point 18 :** Traçabilité éditoriale dans la table `articles` : colonnes `created_by` (auteur initial) et `updated_by` (dernier modificateur/publieur) associées à `created_at` et `updated_at`.
+  - **Point 19 :** Affichage dans la liste des publications du Studio CMS du créateur de l'article et du dernier éditeur/relecteur.
+  - **Point 20 :** Module de génération et téléchargement de reçus d'adhésion et d'attestations CE/CSE (format PDF / impression web stylisée) pour les dossiers validés.
+  - **Point 21 :** Export CSV / Excel des effectifs CRM avec filtrage automatique selon les autorisations du rôle connecté (anonymisation stricte pour l'Entraîneur).
+  - **Point 22 :** Filtres combinés avancés sur l'annuaire CRM (filtrage par tranche d'âge, statut d'attestation médicale, mode de paiement).
+  - **Point 23 :** Historique des cotisations et saisons précédentes affiché sur la fiche détaillée de l'adhérent.
+  - **Point 24 :** Barre d'actions groupées sur le CRM (sélection multiple pour relance OTP ou export ciblé).
+  - **Point 25 :** Nettoyeur de médiathèque CMS (détection et suppression sécurisée des images orphelines non référencées dans les articles).
+  - **Point 26 :** Tri multi-colonnes interactif et persistant sur le tableau des cotisations et dossiers financiers.
+
+---
+
+### 6.4. Sprint 10 (Planifié) : Console Superadmin Découpée, Extensibilité SDK & Clôture Production
+* **Story Points :** 20 SP | **Statut :** 📋 **Planifié**
+* **Points de Recette Couverts :**
+  - **Point 27 :** Découpage de la console Superadmin en sous-routes dédiées pour une maintenance optimale :
+    - `/sys-branding` : Logo, filigrane, couleurs et typographie.
+    - `/sys-smtp` : Configuration du serveur mail et tests d'envoi.
+    - `/sys-modules` : Gestionnaire de modules SDK et alertes Safe Mode.
+    - `/sys-logs` : Journaux d'audit système et logs de messagerie.
+  - **Point 28 :** Branchement du hook `stats_tabs` dans l'`EventManager` et `stats.php`, permettant aux modules (ex: module Boutique, Événements) d'injecter des onglets analytiques sur-mesure.
+  - **Point 31 :** Gestionnaire de templates d'e-mails transactionnels (Création de compte, Validation dossier, Relance) avec éditeur WYSIWYG et balises dynamiques (`{{prenom}}`, `{{nom}}`, `{{lien_otp}}`).
+  - **Point 32 :** Page dynamique institutionnelle [`/horaires`](file:///c:/laragon/www/kanso-ya/public/schedule.php) administrable depuis le Studio CMS avec grille des cours et tarifs.
+  - **Point 33 :** Audit d'accessibilité (a11y) WCAG 2.1 niveau AA : contrastes de couleurs Tailwind validés, navigation intégrale au clavier (`tabindex`, focus rings visibles), attributs ARIA exhaustifs et focus traps sur toutes les modales.
+  - **Point 34 :** Préparation du pack de mise en production : Favicon dynamique synchronisé avec le logo club, balises OpenGraph / Twitter Cards pour le partage social, `robots.txt` et générateur de `sitemap.xml`.
+

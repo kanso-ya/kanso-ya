@@ -144,7 +144,7 @@ Le schéma réel de la base est matérialisé dans la migration [`core/Api/Datab
 | **12** | `levels`             | Niveaux sportifs : Grades (Âge) & Niveaux (Ceintures)    | `id` (AUTOINCREMENT)    | `discipline_id` -> `disciplines(id)`                                  |
 | **13** | `member_practices`   | Pivot Adhérent <-> Pratique sportive & Saison            | `id` (AUTOINCREMENT)    | `member_id` -> `members(id)`, `discipline_id` -> `disciplines(id)`    |
 | **14** | `article_categories` | Catégories du blog/actualités avec badge Tailwind        | `id` (AUTOINCREMENT)    | Aucune                                                                |
-| **15** | `articles`           | Moteur éditorial CMS (Articles publics, membres, bureau) | `id` (AUTOINCREMENT)    | `category_id` -> `article_categories(id)`, `author_id` -> `users(id)` |
+| **15** | `articles`           | Moteur éditorial CMS (Articles publics, membres, bureau) | `id` (AUTOINCREMENT)    | `category_id` -> `article_categories(id)`, `author_id` -> `users(id)`, `created_by` -> `users(id)`, `updated_by` -> `users(id)` |
 | **16** | `pages`              | Pages institutionnelles fixes (`/rgpd`, `/cgv`)          | `id` (AUTOINCREMENT)    | Aucune (`slug` UNIQUE)                                                |
 
 ---
@@ -226,6 +226,7 @@ Dans [`public/api.php`](file:///c:/laragon/www/kanso-ya/public/api.php), deux m�
 
 ### 4.3. Sécurité CSRF & Gestion des Sessions
 
+- **Session Visiteur Initiale Stricte :** Toute nouvelle connexion non authentifiée est traitée rigoureusement comme `Visiteur` (`user_id = 0`, `role_name = 'Visiteur'`, `isLoggedIn = false`). Aucune session Président n'est instanciée par défaut ni côté serveur (`api.php`, `layout.php`), ni côté client.
 - **CSRF Token :** Tout utilisateur disposant d'une session reçoit un jeton cryptographique généré dans `$_SESSION['csrf_token']`. Ce jeton est exposé dans le DOM via `<meta name="csrf-token" content="...">`.
 - **Injection Client :** Le wrapper [`core/ui/ts/api.ts`](file:///c:/laragon/www/kanso-ya/core/ui/ts/api.ts) intercepte chaque requête mutative (`POST`, `PUT`, `PATCH`, `DELETE`) et injecte automatiquement l'en-tête HTTP `X-CSRF-Token`.
 - **Rétention Utilisateur (Soft Errors) :** Si l'API retourne une réponse `status: "error"`, le frontend TypeScript n'effectue jamais de redirection brutale. Il affiche une notification non intrusive (Toast) et laisse l'utilisateur sur son écran avec son contexte intact.
@@ -247,6 +248,8 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 | :------ | :-------------------------- | :------------------------ | :------------------------------------------------------- | :------------------------------------------------------------ |
 | `POST`  | `/api/v1/auth/login`        | Public (Anonyme)          | `{ "email": string, "password": string }`                | Infos utilisateur & redirection                               |
 | `POST`  | `/api/v1/sys/auth/login`    | Furtif (Superadmin)       | `{ "username": string, "password": string }`             | Session Superadmin activée                                    |
+| `POST`  | `/api/v1/sys/superadmins`   | Superadmin uniquement     | `{ "username": string, "password": string, "email"?: string }` | `{ "id": int, "username": string, "email": string }` (Superadmin secondaire créé) |
+| `GET`   | `/api/v1/sys/superadmins`   | Superadmin uniquement     | Aucun                                                    | Liste des comptes Superadmin enregistrés                      |
 | `POST`  | `/api/v1/auth/logout`       | Connecté                  | Aucun                                                    | Déconnexion confirmée                                         |
 | `GET`   | `/api/v1/auth/me`           | Tous (y compris Visiteur) | Aucun                                                    | `{ "user_id": int, "role": string, "permissions": string[] }` |
 | `GET`   | `/api/v1/users/me/profile`  | Connecté                  | Aucun                                                    | Profil complet avec `custom_fields`                           |
@@ -291,8 +294,8 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 | :------- | :---------------------------- | :-------------------------------------------------------- | :-------------------------------------------------------------- | :-------------------------------- |
 | `GET`    | `/api/v1/articles`            | Public (filtré selon rôle)                                | Aucun                                                           | Liste des articles visibles       |
 | `GET`    | `/api/v1/articles/:id`        | Public (404 si brouillon ou restreint)                    | Aucun                                                           | Fiche détaillée de l'article      |
-| `POST`   | `/api/v1/articles`            | `articles.write` (forcé en `draft`) ou `articles.publish` | `{ "title", "content", "category_id", "visibility", "status" }` | Article créé + assainissement XSS |
-| `PUT`    | `/api/v1/articles/:id`        | `articles.write` ou `articles.publish`                    | Données de l'article                                            | Article mis à jour                |
+| `POST`   | `/api/v1/articles`            | `articles.write` (forcé en `draft`) ou `articles.publish` | `{ "title", "content", "category_id", "visibility", "status" }` | Article créé + assainissement XSS + assignation automatique `created_by` / `updated_by` |
+| `PUT`    | `/api/v1/articles/:id`        | `articles.write` ou `articles.publish`                    | Données de l'article                                            | Article mis à jour + mise à jour `updated_by` et timestamp `updated_at` |
 | `DELETE` | `/api/v1/articles/:id`        | `articles.publish`                                        | Aucun                                                           | Article supprimé                  |
 | `PATCH`  | `/api/v1/articles/:id/status` | `articles.publish`                                        | `{ "status": "draft" \| "published" }`                          | Statut éditorial modifié          |
 | `POST`   | `/api/v1/articles/media`      | `articles.write`                                          | `multipart/form-data`                                           | URL de l'image insérée            |
@@ -320,7 +323,7 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 | `POST`      | `/api/v1/sys/branding-upload` | Superadmin uniquement                    | `multipart/form-data` (logo ou filigrane)       | URL publique de l'actif uploadé            |
 | `GET`       | `/api/v1/app-logs`            | `roles.manage` ou `logs.view`            | Aucun                                           | Entrées d'audit de la vie du club          |
 | `GET`       | `/api/v1/settings`            | Connecté                                 | Aucun                                           | Paires clé-valeur de `sys_settings`        |
-| `PATCH`     | `/api/v1/settings`            | `settings.manage` ou Superadmin          | `{ "settings": { "key": "value" } }`            | Configuration mise à jour                  |
+| `PATCH`     | `/api/v1/settings`            | `settings.manage` ou Superadmin          | `{ "settings": { "key": "value" } }`            | Configuration mise à jour (incluant remises: `discount_threshold`, `discount_type`, `discount_value` et santé: `medical_cert_mode`) |
 
 ---
 
@@ -383,7 +386,9 @@ Le Moteur de Modules Kanso-ya permet d'étendre dynamiquement le CMS sans altér
 3. **Bus d'Événements Central (`Core\Sdk\EventManager`) :**
    - Singleton fournissant un système de Hooks (Actions et Filtres) calqué sur le standard WordPress.
    - **Actions (`addAction` / `dispatch`) :** Événements déclenchés aux points stratégiques du cycle de vie (`on_member_created`, `on_member_deleted`, `on_registration_validated`, `on_article_published`).
-   - **Filtres (`addFilter` / `applyFilters`) :** Altération des structures de données, notamment `admin_sidebar_menu` pour injecter des liens dans la sidebar `#module-hooks-zone` de `layout.php`.
+   - **Filtres (`addFilter` / `applyFilters`) :** Altération des structures de données :
+     - `admin_sidebar_menu` : injection dynamique de liens dans la sidebar (`#module-hooks-zone`) de `layout.php`.
+     - `stats_tabs` : injection ou personnalisation des onglets d'indicateurs sur la page `/stats` (`$tabs = $eventManager->applyFilters('stats_tabs', $tabs, ['user_id' => $uid, 'role' => $role])`). Permet aux modules (ex: module Boutique, Événements) d'ajouter leurs propres tableaux de bord analytiques.
 4. **Gestionnaire de Cycle de Vie & Safe Mode (`Core\Api\Services\ModuleManager`) :**
    - Cycle d'état complet : `install` (création des tables `mod_*`), `activate` (`is_active = 1`), `deactivate` (`is_active = 0`), `uninstall` (purge `DROP TABLE mod_*`).
    - **Safe Mode Automatique (CA3) :** Capture systématique de toute exception levée lors du `boot()` d'un module. Le CMS continue son exécution (HTTP 200 garanti), le module défaillant est basculé en `status = 'crashed'`, le détail de l'erreur est stocké dans `last_error`, et une alerte indélébile `MODULE_SAFE_MODE_TRIGGERED` est consignée dans `sys_logs`.
@@ -414,8 +419,10 @@ Le Sprint 7 a consolidé les fondations ergonomiques, visuelles et sécuritaires
 - **Header Débarrassé des Fioritures :** Suppression définitive du badge de rôle (`#active-role-pill`) et de l'ancien bouton redondant "Espace Membre" dans le bandeau supérieur (`#app-header`). Le bandeau n'affiche désormais que le nom complet (`Prénom Nom`) de l'utilisateur lorsqu'il est connecté (avec lien vers son profil), et reste totalement vide en haut à droite pour un visiteur anonyme (la connexion s'opère via la sidebar).
 
 ### 9.2. Routage Propre & URLs sans `.php`
-- Configuration des règles de réécriture dans `public/.htaccess` masquant les extensions `.php` pour toutes les vues applicatives :
-  `/login`, `/register`, `/dashboard`, `/settings`, `/stats`, `/members`, `/registrations`, `/cms`, `/disciplines`, `/roles`, `/sys-console`, `/rgpd`, `/cgv`, `/mentions-legales`, `/horaires`, etc.
+- Configuration des règles de réécriture dans `public/.htaccess` masquant les extensions `.php` pour toutes les vues applicatives et consoles d'administration :
+  - **Espace Public & Institutionnel :** `/`, `/login`, `/register`, `/horaires`, `/questionnaire-sante`, `/rgpd`, `/cgv`, `/mentions-legales`.
+  - **Espace Membre & Bureau :** `/dashboard`, `/settings`, `/stats`, `/members`, `/registrations`, `/cms`, `/disciplines`, `/roles`.
+  - **Console Superadmin Découpée :** `/sys-console`, `/sys-branding`, `/sys-smtp`, `/sys-modules`, `/sys-logs`.
 - Alignement de tous les liens de navigation (menu latéral, pied de page) et redirections client/serveur vers ces URLs canoniques.
 
 ### 9.3. Page de Connexion `/login` & Redirection Post-Connexion
