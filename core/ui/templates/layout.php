@@ -292,6 +292,12 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                                     Rôles & Permissions
                                 </a>
                             <?php endif; ?>
+
+                            <?php if (in_array('settings.manage', $userPerms, true)): ?>
+                                <a href="/settings" data-perm="settings.manage" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'settings' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
+                                    Paramètres du Club
+                                </a>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>

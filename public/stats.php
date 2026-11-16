@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../core/Api/Database/Database.php';
+require_once __DIR__ . '/../core/Sdk/EventManager.php';
 use Core\Api\Database\Database;
+use Core\Sdk\EventManager;
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -134,6 +136,15 @@ foreach ($disciplines as $d) {
     ];
 }
 
+// 5. Onglets modulaires extensibles via hook stats_tabs (Point 28)
+$defaultTabs = [
+    ['id' => 'kpis', 'label' => '📊 Indicateurs Généraux', 'active' => true],
+    ['id' => 'occupancy', 'label' => '🥋 Ratios d\'Occupation', 'active' => false],
+    ['id' => 'attendance', 'label' => '📋 Liste d\'Appel Tatami', 'active' => false],
+];
+/** @var array<int, array{id: string, label: string, active?: bool}> $tabs */
+$tabs = EventManager::getInstance()->applyFilters('stats_tabs', $defaultTabs, ['role' => $currentRole]);
+
 ob_start();
 ?>
 <div class="space-y-8">
@@ -157,6 +168,18 @@ ob_start();
                 Consulter la liste des adhérents →
             </a>
         </div>
+    </div>
+
+    <!-- Barre d'Onglets Statistiques (Point 28 - Hook stats_tabs) -->
+    <div id="stats-tabs-bar" data-testid="stats-tabs-bar" class="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+        <?php foreach ($tabs as $t): ?>
+            <button type="button" 
+                    class="stats-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition <?= !empty($t['active']) ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50' ?>"
+                    data-tab-target="<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>"
+                    data-testid="stats-tab-<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>">
+                <?= htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8') ?>
+            </button>
+        <?php endforeach; ?>
     </div>
 
     <!-- 1. Cartes KPIs Globales & Démographiques (US 5.2 - CA2) -->

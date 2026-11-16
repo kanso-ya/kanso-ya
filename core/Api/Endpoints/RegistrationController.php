@@ -267,11 +267,36 @@ final class RegistrationController
             }
         }
 
-        $basePrice = 150.0;
+        // Récupération des paramètres de remise et prix de base
+        $settingsStmt = $this->db->query("SELECT setting_key, setting_value FROM sys_settings WHERE setting_key IN ('membership_base_price', 'discount_threshold', 'discount_type', 'discount_value', 'medical_cert_mode')");
+        $settingsMap = [];
+        if ($settingsStmt) {
+            while ($row = $settingsStmt->fetch(PDO::FETCH_ASSOC)) {
+                $settingsMap[$row['setting_key']] = $row['setting_value'];
+            }
+        }
+
+        $basePrice = isset($settingsMap['membership_base_price']) ? (float) $settingsMap['membership_base_price'] : 150.0;
+        $discThreshold = isset($settingsMap['discount_threshold']) ? (int) $settingsMap['discount_threshold'] : 2;
+        $discType = isset($settingsMap['discount_type']) ? (string) $settingsMap['discount_type'] : 'percent';
+        $discVal = isset($settingsMap['discount_value']) ? (float) $settingsMap['discount_value'] : 10.0;
+
         $memberCount = count($members);
-        $totalAmount = $memberCount === 1
-            ? $basePrice
-            : round(($basePrice * $memberCount) * 0.90, 2);
+        $subtotal = $basePrice * $memberCount;
+        $discountAmount = 0.0;
+        $discountDesc = null;
+
+        if ($memberCount >= $discThreshold && $discVal > 0) {
+            if ($discType === 'fixed') {
+                $eligibleCount = ($memberCount - $discThreshold + 1);
+                $discountAmount = round($eligibleCount * $discVal, 2);
+                $discountDesc = "-{$discVal}€ dès {$discThreshold} adhérents";
+            } else {
+                $discountAmount = round(($subtotal * $discVal) / 100.0, 2);
+                $discountDesc = "-{$discVal}% dès {$discThreshold} adhérents";
+            }
+        }
+        $totalAmount = max(0.0, round($subtotal - $discountAmount, 2));
 
         if (isset($payload['total_amount']) && (float) $payload['total_amount'] < 0) {
             return [
@@ -286,7 +311,7 @@ final class RegistrationController
             $precomputedHash = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
             $season = (string) ($payload['season'] ?? '2026-2027');
 
-            $result = $this->executeImmediateTransaction(function () use ($tutorsPayload, $members, $precomputedHash, $season, $totalAmount, $paymentMethod, $installments): array {
+            $result = $this->executeImmediateTransaction(function () use ($tutorsPayload, $members, $precomputedHash, $season, $totalAmount, $discountAmount, $discountDesc, $paymentMethod, $installments): array {
                 $tutorIds = [];
                 foreach ($tutorsPayload as $t) {
                     $email = strtolower(trim((string) $t['email']));
@@ -340,13 +365,15 @@ final class RegistrationController
                 }
 
                 $stmtReg = $this->db->prepare("
-                    INSERT INTO registrations (payer_user_id, season, total_amount, payment_method, installments, status)
-                    VALUES (:payer, :season, :amount, :method, :installments, 'pending')
+                    INSERT INTO registrations (payer_user_id, season, total_amount, discount_amount, discount_description, payment_method, installments, status)
+                    VALUES (:payer, :season, :amount, :disc_amount, :disc_desc, :method, :installments, 'pending')
                 ");
                 $stmtReg->execute([
                     'payer'        => $payerUserId,
                     'season'       => $season,
                     'amount'       => $totalAmount,
+                    'disc_amount'  => $discountAmount,
+                    'disc_desc'    => $discountDesc,
                     'method'       => $paymentMethod,
                     'installments' => $installments
                 ]);
@@ -357,9 +384,14 @@ final class RegistrationController
                     $bdate = trim((string) $m['birth_date']);
                     $age   = $this->calculateAge($bdate);
 
+                    $emergRel = htmlspecialchars(trim((string) ($m['emergency_contact_relation'] ?? '')), ENT_QUOTES, 'UTF-8');
+                    $emergSec = htmlspecialchars(trim((string) ($m['emergency_contact_secondary_phone'] ?? '')), ENT_QUOTES, 'UTF-8');
+                    $healthSigned = !empty($m['health_attestation_signed']) ? 1 : 0;
+                    $healthDate = $healthSigned ? (new DateTimeImmutable())->format('Y-m-d H:i:s') : null;
+
                     $stmtMem = $this->db->prepare("
-                        INSERT INTO members (first_name, last_name, birth_date, email, status, emergency_contact_name, emergency_contact_phone)
-                        VALUES (:fname, :lname, :bdate, :email, 'pending', :ename, :ephone)
+                        INSERT INTO members (first_name, last_name, birth_date, email, status, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, emergency_contact_secondary_phone, health_attestation_signed, health_attestation_date)
+                        VALUES (:fname, :lname, :bdate, :email, 'pending', :ename, :ephone, :erel, :esec, :hsigned, :hdate)
                     ");
                     $stmtMem->execute([
                         'fname'  => htmlspecialchars(trim((string) $m['first_name']), ENT_QUOTES, 'UTF-8'),
@@ -367,7 +399,11 @@ final class RegistrationController
                         'bdate'  => $bdate,
                         'email'  => !empty($m['email']) ? strtolower(trim((string) $m['email'])) : null,
                         'ename'  => htmlspecialchars(trim((string) ($m['emergency_contact_name'] ?? '')), ENT_QUOTES, 'UTF-8'),
-                        'ephone' => htmlspecialchars(trim((string) ($m['emergency_contact_phone'] ?? '')), ENT_QUOTES, 'UTF-8')
+                        'ephone' => htmlspecialchars(trim((string) ($m['emergency_contact_phone'] ?? '')), ENT_QUOTES, 'UTF-8'),
+                        'erel'   => $emergRel !== '' ? $emergRel : null,
+                        'esec'   => $emergSec !== '' ? $emergSec : null,
+                        'hsigned'=> $healthSigned,
+                        'hdate'  => $healthDate
                     ]);
                     $memberId = (int) $this->db->lastInsertId();
                     $createdMemberIds[] = $memberId;
@@ -413,11 +449,13 @@ final class RegistrationController
                 }
 
                 return [
-                    'registration_id' => $registrationId,
-                    'member_ids'      => $createdMemberIds,
-                    'total_amount'    => $totalAmount,
-                    'installments'    => $installments,
-                    'status'          => 'pending'
+                    'registration_id'      => $registrationId,
+                    'member_ids'           => $createdMemberIds,
+                    'total_amount'         => $totalAmount,
+                    'discount_amount'      => $discountAmount,
+                    'discount_description' => $discountDesc,
+                    'installments'         => $installments,
+                    'status'               => 'pending'
                 ];
             });
 

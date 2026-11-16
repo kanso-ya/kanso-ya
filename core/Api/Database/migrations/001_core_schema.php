@@ -116,6 +116,10 @@ function runCoreSchemaMigration(): void
         status VARCHAR(30) NOT NULL DEFAULT 'pending',
         emergency_contact_name VARCHAR(255) NULL,
         emergency_contact_phone VARCHAR(50) NULL,
+        emergency_contact_relation VARCHAR(100) NULL,
+        emergency_contact_secondary_phone VARCHAR(50) NULL,
+        health_attestation_signed INTEGER NOT NULL DEFAULT 0,
+        health_attestation_date DATETIME NULL,
         medical_file_path VARCHAR(255) NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -135,6 +139,8 @@ function runCoreSchemaMigration(): void
         payer_user_id INTEGER NULL,
         season VARCHAR(20) NOT NULL DEFAULT '2026-2027',
         total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        discount_description VARCHAR(255) NULL,
         payment_method VARCHAR(50) NOT NULL DEFAULT 'cheque',
         installments INTEGER NOT NULL DEFAULT 1,
         status VARCHAR(30) NOT NULL DEFAULT 'pending',
@@ -227,7 +233,13 @@ SQL;
         "ALTER TABLE member_tutor ADD COLUMN relationship VARCHAR(50) NOT NULL DEFAULT 'Parent / Tuteur légal'",
         "ALTER TABLE disciplines ADD COLUMN teacher_user_id INTEGER NULL",
         "ALTER TABLE levels ADD COLUMN level_type VARCHAR(30) NOT NULL DEFAULT 'grade'",
-        "ALTER TABLE levels ADD COLUMN color_hex VARCHAR(20) NULL DEFAULT '#10b981'"
+        "ALTER TABLE levels ADD COLUMN color_hex VARCHAR(20) NULL DEFAULT '#10b981'",
+        "ALTER TABLE members ADD COLUMN emergency_contact_relation VARCHAR(100) NULL",
+        "ALTER TABLE members ADD COLUMN emergency_contact_secondary_phone VARCHAR(50) NULL",
+        "ALTER TABLE members ADD COLUMN health_attestation_signed INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE members ADD COLUMN health_attestation_date DATETIME NULL",
+        "ALTER TABLE registrations ADD COLUMN discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00",
+        "ALTER TABLE registrations ADD COLUMN discount_description VARCHAR(255) NULL"
     ];
     foreach ($alters as $q) {
         try {

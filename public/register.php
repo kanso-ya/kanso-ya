@@ -23,6 +23,22 @@ ob_start();
 ?>
 <div class="max-w-4xl mx-auto space-y-6">
 
+    <!-- Bandeau Restauration de Brouillon Local (Sprint 8 - Point 16) -->
+    <div id="draft-restore-banner" class="hidden p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs" data-testid="draft-restore-banner">
+        <div>
+            <span class="font-bold block">Brouillon d'inscription détecté</span>
+            <span>Vous avez un dossier d'adhésion en cours de saisie sur cet appareil. Souhaitez-vous reprendre là où vous en étiez ?</span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button type="button" id="btn-restore-draft" data-testid="btn-restore-draft" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition">
+                Restaurer le dossier
+            </button>
+            <button type="button" id="btn-clear-draft" data-testid="btn-clear-draft" class="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-800 font-bold hover:bg-amber-50 transition">
+                Effacer
+            </button>
+        </div>
+    </div>
+
     <!-- Bandeau Mode Connecté : Réinscription en 1 clic ou Nouvel Adhérent -->
     <div id="connected-re-enrollment-banner" class="hidden bg-emerald-900 text-white p-5 rounded-2xl shadow-sm border border-emerald-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -38,7 +54,11 @@ ob_start();
     </div>
 
     <!-- Conteneur Principal du Wizard -->
-    <div id="registration-wizard-card" class="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8" data-base-price="<?= $basePrice ?>">
+    <div id="registration-wizard-card" class="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8" 
+         data-base-price="<?= $basePrice ?>"
+         data-discount-threshold="<?= (int) ($settings['discount_threshold'] ?? 2) ?>"
+         data-discount-type="<?= htmlspecialchars((string) ($settings['discount_type'] ?? 'percent'), ENT_QUOTES, 'UTF-8') ?>"
+         data-discount-value="<?= (float) ($settings['discount_value'] ?? 10) ?>">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
             <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">Saison Sportive 2026-2027</span>
@@ -47,7 +67,7 @@ ob_start();
             </div>
             <div class="bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl text-right shrink-0">
                 <span class="text-[11px] font-semibold uppercase text-emerald-700 block">Total Dossier</span>
-                <span class="text-xl font-black text-emerald-800"><span id="reg-total-price"><?= number_format($basePrice, 2, '.', '') ?></span> €</span>
+                <span class="text-xl font-black text-emerald-800"><span id="reg-header-total-price"><?= number_format($basePrice, 2, '.', '') ?></span> €</span>
             </div>
         </div>
 
@@ -245,12 +265,52 @@ ob_start();
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label for="reg-emerg-name" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Nom complet & Lien de parenté *</label>
-                        <input type="text" id="reg-emerg-name" name="emergency_contact_name" required placeholder="Ex: Thomas Martin (Père)" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
+                        <label for="reg-emerg-name" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Nom complet du contact *</label>
+                        <input type="text" id="reg-emerg-name" name="emergency_contact_name" required placeholder="Ex: Thomas Martin" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
                     </div>
                     <div>
-                        <label for="reg-emerg-phone" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Téléphone d'urgence *</label>
+                        <label for="reg-emerg-phone" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Téléphone d'urgence principal *</label>
                         <input type="tel" id="reg-emerg-phone" name="emergency_contact_phone" required placeholder="06 11 22 33 44" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="reg-emerg-relation" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Lien de parenté / Relation</label>
+                        <input type="text" id="reg-emerg-relation" name="emergency_contact_relation" placeholder="Ex: Père, Mère, Conjoint, Grand-parent" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
+                    </div>
+                    <div>
+                        <label for="reg-emerg-phone-secondary" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Téléphone alternatif (Secondaire - Facultatif)</label>
+                        <input type="tel" id="reg-emerg-phone-secondary" data-testid="reg-emerg-phone-secondary" name="emergency_contact_secondary_phone" placeholder="06 99 88 77 66" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
+                    </div>
+                </div>
+
+                <!-- Bloc Option Médicale & Cerfa QS-Sport (Sprint 8 - Points 9, 12 & 13) -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3" id="health-mode-container">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            Santé & Aptitude Sportive
+                        </span>
+                        <a href="/questionnaire-sante" target="_blank" class="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline">
+                            Remplir le questionnaire Cerfa en ligne ↗
+                        </a>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <label class="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-400 cursor-pointer">
+                            <input type="radio" name="health_cert_choice" id="choice-health-attestation" value="attestation" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+                            <div>
+                                <span class="font-bold text-slate-900 block">Attestation Cerfa QS-Sport</span>
+                                <span class="text-slate-500 text-[11px]">J'atteste avoir répondu NON à toutes les rubriques de l'auto-évaluation médicale.</span>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-400 cursor-pointer">
+                            <input type="radio" name="health_cert_choice" id="choice-health-cert" value="medical_cert" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+                            <div>
+                                <span class="font-bold text-slate-900 block">Certificat Médical</span>
+                                <span class="text-slate-500 text-[11px]">Un certificat médical me sera demandé lors de mon premier cours.</span>
+                            </div>
+                        </label>
                     </div>
                 </div>
 
@@ -285,6 +345,22 @@ ob_start();
                     </div>
 
                     <ul id="family-cart-list" class="space-y-2 text-sm text-slate-700"></ul>
+
+                    <!-- Récapitulatif Tarifaire & Remises Paramétrables (Points 7 & 8) -->
+                    <div class="pt-3 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span id="reg-discount-badge" data-testid="reg-discount-badge" class="hidden px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                Remise Famille
+                            </span>
+                            <span id="reg-discount-amount" data-testid="reg-discount-amount" class="hidden text-xs font-bold text-amber-700">
+                                -0.00 €
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-slate-500 block">Total Cotisation TTC :</span>
+                            <span class="text-xl font-black text-slate-900"><span id="reg-total-price">150.00</span> €</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -309,15 +385,45 @@ ob_start();
                     </div>
                 </div>
 
-                <div class="flex justify-between items-center pt-4 border-t border-slate-100">
+                <div class="flex flex-wrap justify-between items-center gap-3 pt-4 border-t border-slate-100">
                     <button type="button" id="btn-prev-from-payment" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition">
                         ← Étape précédente
                     </button>
-                    <button type="submit" id="btn-submit-registration" class="bg-emerald-600 hover:bg-emerald-700 text-white px-7 py-3 rounded-xl font-bold shadow-md transition">
-                        Valider définitivement mon dossier d'inscription
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <button type="button" id="btn-open-confirm-modal" data-testid="btn-open-confirm-modal" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-5 py-3 rounded-xl font-bold shadow-xs transition">
+                            Vérifier le récapitulatif
+                        </button>
+                        <button type="submit" id="btn-submit-registration" data-testid="btn-submit-registration" class="bg-emerald-600 hover:bg-emerald-700 text-white px-7 py-3 rounded-xl font-bold shadow-md transition">
+                            Valider définitivement mon dossier d'inscription →
+                        </button>
+                    </div>
                 </div>
             </section>
+
+            <!-- Modale de Confirmation Récapitulative Pré-Soumission (Point 17) -->
+            <div id="pre-submit-modal" data-testid="pre-submit-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="text-base font-extrabold text-slate-900">Récapitulatif & Confirmation de votre Adhésion</h3>
+                        <button type="button" id="btn-close-pre-submit" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+                    </div>
+                    <div id="modal-summary-content" class="space-y-3 text-xs text-slate-700 max-h-60 overflow-y-auto"></div>
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="modal-accept-rules" required class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
+                            <span>J'atteste avoir pris connaissance du règlement intérieur et m'engage à régler la cotisation convenue.</span>
+                        </label>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" id="btn-cancel-confirm" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100">
+                            Modifier mon dossier
+                        </button>
+                        <button type="button" id="btn-confirm-registration" data-testid="btn-confirm-registration" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs">
+                            Confirmer définitivement
+                        </button>
+                    </div>
+                </div>
+            </div>
 
         </form>
     </div>

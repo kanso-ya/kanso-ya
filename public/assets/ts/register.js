@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initPublicRegistrationWizard();
     await loadDisciplinesCatalog();
     checkConnectedUserForReEnrollment();
+    checkAndRestoreDraft();
     window.addEventListener('kanso:auth-ready', () => {
         checkConnectedUserForReEnrollment();
     });
@@ -204,6 +205,7 @@ async function checkConnectedUserForReEnrollment() {
             bdInput.value = '1988-05-15';
             emInput.value = res.data.email || '';
             bdInput.dispatchEvent(new Event('change'));
+            saveDraftToStorage();
             showToast('Vos informations ont été pré-remplies.', 'info');
         }
         else if (val !== '') {
@@ -220,6 +222,7 @@ async function checkConnectedUserForReEnrollment() {
                 document.getElementById('tutor1-phone').value = res.data.phone || '';
                 document.getElementById('tutor1-address').value = res.data.address || '';
                 bdInput.dispatchEvent(new Event('change'));
+                saveDraftToStorage();
                 showToast(`Fiche de ${m.first_name} pré-remplie (Grade ajusté selon son âge) !`, 'success');
             }
         }
@@ -388,8 +391,98 @@ function initPublicRegistrationWizard() {
         familyCart.push(currentMember);
         resetMemberInputsForNextSibling();
         renderFamilyCart();
+        saveDraftToStorage();
         showToast(`${currentMember.first_name} a été ajouté au panier familial !`, 'success');
         goToStep('identity');
+    });
+    // Modale de pré-soumission et confirmation (Point 17)
+    const preSubmitModal = document.getElementById('pre-submit-modal');
+    const modalSummary = document.getElementById('modal-summary-content');
+    const acceptRulesCb = document.getElementById('modal-accept-rules');
+    document.getElementById('btn-open-confirm-modal')?.addEventListener('click', () => {
+        const currentMember = readCurrentMemberInputs();
+        const allMembers = [...familyCart];
+        if (currentMember) {
+            allMembers.push(currentMember);
+        }
+        if (allMembers.length === 0) {
+            showToast('Veuillez renseigner au moins un adhérent avant de valider.', 'error');
+            goToStep('identity');
+            return;
+        }
+        const hasMinor = allMembers.some((m) => calculateAgeFromInput(m.birth_date) < 18);
+        const tutors = readTutorsInputs();
+        if (hasMinor && tutors.length === 0) {
+            showToast('Un responsable légal est obligatoire pour inscrire un mineur.', 'error');
+            goToStep('tutors');
+            return;
+        }
+        // Construire le récapitulatif
+        if (modalSummary) {
+            const card = document.getElementById('registration-wizard-card');
+            const priceText = document.getElementById('reg-total-price')?.textContent || '0.00';
+            const methodSelect = document.getElementById('reg-payment-method');
+            const methodLabel = methodSelect?.options[methodSelect.selectedIndex]?.text || 'Chèque';
+            let membersHtml = allMembers.map((m, i) => {
+                const age = calculateAgeFromInput(m.birth_date);
+                const discNames = m.practices.map(p => `${p.discipline_name} (${p.grade_name || 'Cours'})`).join(', ');
+                const emerg = `${m.emergency_contact_name} (${m.emergency_contact_phone})`;
+                return `
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <div class="font-bold text-slate-900">#${i + 1} ${m.first_name} ${m.last_name} (${age} ans)</div>
+                        <div class="text-[11px] text-slate-600">Disciplines : ${discNames}</div>
+                        <div class="text-[11px] text-slate-500">Contact d'urgence : ${emerg}</div>
+                        ${m.health_attestation_signed ? '<div class="text-[11px] text-emerald-700 font-semibold">✓ Questionnaire de santé Cerfa validé</div>' : ''}
+                    </div>
+                `;
+            }).join('');
+            modalSummary.innerHTML = `
+                <div class="space-y-2">
+                    <div class="text-xs font-bold uppercase text-slate-500">Adhérents concernés (${allMembers.length}) :</div>
+                    ${membersHtml}
+                </div>
+                <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex justify-between items-center text-xs mt-3">
+                    <div>
+                        <span class="font-bold text-emerald-900 block">Règlement : ${methodLabel}</span>
+                        <span class="text-emerald-700">Cotisation annuelle totale</span>
+                    </div>
+                    <span class="text-base font-black text-emerald-800">${priceText} €</span>
+                </div>
+            `;
+        }
+        if (acceptRulesCb)
+            acceptRulesCb.checked = false;
+        preSubmitModal?.classList.remove('hidden');
+    });
+    document.getElementById('btn-close-pre-submit')?.addEventListener('click', () => {
+        preSubmitModal?.classList.add('hidden');
+    });
+    document.getElementById('btn-cancel-confirm')?.addEventListener('click', () => {
+        preSubmitModal?.classList.add('hidden');
+    });
+    document.getElementById('btn-confirm-registration')?.addEventListener('click', () => {
+        if (acceptRulesCb && !acceptRulesCb.checked) {
+            showToast('Veuillez cocher la case attestant avoir pris connaissance du règlement intérieur.', 'error');
+            return;
+        }
+        preSubmitModal?.classList.add('hidden');
+        document.getElementById('btn-submit-registration')?.click();
+    });
+    // Gestion du brouillon (Point 16)
+    form.addEventListener('input', () => saveDraftToStorage());
+    form.addEventListener('change', () => saveDraftToStorage());
+    document.getElementById('btn-restore-draft')?.addEventListener('click', () => {
+        restoreDraftFromStorage();
+        document.getElementById('draft-restore-banner')?.classList.add('hidden');
+        showToast('Votre brouillon d\'inscription a été restauré.', 'success');
+    });
+    document.getElementById('btn-clear-draft')?.addEventListener('click', () => {
+        localStorage.removeItem('kanso_reg_draft');
+        document.getElementById('draft-restore-banner')?.classList.add('hidden');
+        form.reset();
+        familyCart.length = 0;
+        renderFamilyCart();
+        showToast('Brouillon effacé.', 'info');
     });
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -425,6 +518,8 @@ function initPublicRegistrationWizard() {
             });
             if (response.status === 'success' && response.data) {
                 showToast('Dossier enregistré avec succès !', 'success');
+                localStorage.removeItem('kanso_reg_draft');
+                document.getElementById('draft-restore-banner')?.classList.add('hidden');
                 document.getElementById('registration-wizard-card')?.classList.add('hidden');
                 const successScreen = document.getElementById('registration-success-screen');
                 const regIdSpan = document.getElementById('confirm-screen-reg-id');
@@ -457,6 +552,9 @@ function readCurrentMemberInputs() {
     const email = document.getElementById('reg-email')?.value.trim() || '';
     const emergName = document.getElementById('reg-emerg-name')?.value.trim() || '';
     const emergPhone = document.getElementById('reg-emerg-phone')?.value.trim() || '';
+    const emergRelation = document.getElementById('reg-emerg-relation')?.value.trim() || '';
+    const emergPhoneSec = document.getElementById('reg-emerg-phone-secondary')?.value.trim() || '';
+    const healthSigned = document.getElementById('choice-health-attestation')?.checked ? 1 : 0;
     if (!firstName || !lastName || !birthDate || !emergName || !emergPhone) {
         return null;
     }
@@ -494,7 +592,10 @@ function readCurrentMemberInputs() {
         discipline_id: practices[0].discipline_id,
         practices,
         emergency_contact_name: emergName,
-        emergency_contact_phone: emergPhone
+        emergency_contact_phone: emergPhone,
+        emergency_contact_relation: emergRelation || undefined,
+        emergency_contact_secondary_phone: emergPhoneSec || undefined,
+        health_attestation_signed: healthSigned
     };
 }
 function readTutorsInputs() {
@@ -542,6 +643,9 @@ function renderFamilyCart() {
     const priceEl = document.getElementById('reg-total-price');
     const card = document.getElementById('registration-wizard-card');
     const basePrice = parseFloat(card?.getAttribute('data-base-price') || '150');
+    const discountThreshold = parseInt(card?.getAttribute('data-discount-threshold') || '2', 10);
+    const discountType = card?.getAttribute('data-discount-type') || 'percent';
+    const discountValue = parseFloat(card?.getAttribute('data-discount-value') || '10');
     const currentDraft = readCurrentMemberInputs();
     const displayMembers = [...familyCart];
     if (currentDraft) {
@@ -551,9 +655,42 @@ function renderFamilyCart() {
     if (countEl) {
         countEl.textContent = `Panier : ${totalCount} adhérent(s)`;
     }
-    const calculatedTotal = totalCount === 1 ? basePrice : (basePrice * totalCount) * 0.9;
+    const subTotal = basePrice * totalCount;
+    let discountAmount = 0;
+    let discountDesc = '';
+    if (totalCount >= discountThreshold) {
+        if (discountType === 'percent') {
+            discountAmount = subTotal * (discountValue / 100);
+            discountDesc = `-${discountValue}% dès ${discountThreshold} inscrits`;
+        }
+        else {
+            discountAmount = discountValue;
+            discountDesc = `-${discountValue.toFixed(2)} € dès ${discountThreshold} inscrits`;
+        }
+    }
+    const calculatedTotal = Math.max(0, subTotal - discountAmount);
     if (priceEl) {
         priceEl.textContent = calculatedTotal.toFixed(2);
+    }
+    const headerPriceEl = document.getElementById('reg-header-total-price');
+    if (headerPriceEl) {
+        headerPriceEl.textContent = calculatedTotal.toFixed(2);
+    }
+    const discountBadge = document.getElementById('reg-discount-badge');
+    const discountAmtEl = document.getElementById('reg-discount-amount');
+    if (discountAmount > 0) {
+        if (discountBadge) {
+            discountBadge.textContent = `Remise Famille (${discountDesc})`;
+            discountBadge.classList.remove('hidden');
+        }
+        if (discountAmtEl) {
+            discountAmtEl.textContent = `-${discountAmount.toFixed(2)} €`;
+            discountAmtEl.classList.remove('hidden');
+        }
+    }
+    else {
+        discountBadge?.classList.add('hidden');
+        discountAmtEl?.classList.add('hidden');
     }
     if (listEl) {
         listEl.innerHTML = '';
@@ -576,5 +713,90 @@ function renderFamilyCart() {
             `;
             listEl.appendChild(li);
         });
+    }
+}
+function saveDraftToStorage() {
+    try {
+        const formData = {
+            first_name: document.getElementById('reg-first-name')?.value || '',
+            last_name: document.getElementById('reg-last-name')?.value || '',
+            birth_date: document.getElementById('reg-birth-date')?.value || '',
+            email: document.getElementById('reg-email')?.value || '',
+            emerg_name: document.getElementById('reg-emerg-name')?.value || '',
+            emerg_phone: document.getElementById('reg-emerg-phone')?.value || '',
+            emerg_relation: document.getElementById('reg-emerg-relation')?.value || '',
+            emerg_phone_sec: document.getElementById('reg-emerg-phone-secondary')?.value || '',
+            t1_first_name: document.getElementById('tutor1-first-name')?.value || '',
+            t1_last_name: document.getElementById('tutor1-last-name')?.value || '',
+            t1_email: document.getElementById('tutor1-email')?.value || '',
+            t1_phone: document.getElementById('tutor1-phone')?.value || '',
+            t1_address: document.getElementById('tutor1-address')?.value || '',
+            t1_birth: document.getElementById('tutor1-birth')?.value || '',
+            t2_email: document.getElementById('tutor2-email')?.value || ''
+        };
+        if (formData.first_name || formData.last_name || familyCart.length > 0) {
+            localStorage.setItem('kanso_reg_draft', JSON.stringify({ form: formData, familyCart }));
+        }
+    }
+    catch {
+        // Ignorer les erreurs localStorage
+    }
+}
+function checkAndRestoreDraft() {
+    const banner = document.getElementById('draft-restore-banner');
+    const raw = localStorage.getItem('kanso_reg_draft');
+    if (!banner || !raw)
+        return;
+    try {
+        const data = JSON.parse(raw);
+        if (data && (data.form?.first_name || data.form?.last_name || (data.familyCart && data.familyCart.length > 0))) {
+            banner.classList.remove('hidden');
+        }
+    }
+    catch {
+        localStorage.removeItem('kanso_reg_draft');
+    }
+}
+function restoreDraftFromStorage() {
+    const raw = localStorage.getItem('kanso_reg_draft');
+    if (!raw)
+        return;
+    try {
+        const data = JSON.parse(raw);
+        if (data && data.form) {
+            const f = data.form;
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el && val !== undefined)
+                    el.value = val;
+            };
+            setVal('reg-first-name', f.first_name);
+            setVal('reg-last-name', f.last_name);
+            setVal('reg-birth-date', f.birth_date);
+            setVal('reg-email', f.email);
+            setVal('reg-emerg-name', f.emerg_name);
+            setVal('reg-emerg-phone', f.emerg_phone);
+            setVal('reg-emerg-relation', f.emerg_relation);
+            setVal('reg-emerg-phone-secondary', f.emerg_phone_sec);
+            setVal('tutor1-first-name', f.t1_first_name);
+            setVal('tutor1-last-name', f.t1_last_name);
+            setVal('tutor1-email', f.t1_email);
+            setVal('tutor1-phone', f.t1_phone);
+            setVal('tutor1-address', f.t1_address);
+            setVal('tutor1-birth', f.t1_birth);
+            setVal('tutor2-email', f.t2_email);
+            if (data.familyCart && Array.isArray(data.familyCart)) {
+                familyCart.length = 0;
+                familyCart.push(...data.familyCart);
+            }
+            const birthEl = document.getElementById('reg-birth-date');
+            if (birthEl && birthEl.value) {
+                birthEl.dispatchEvent(new Event('change'));
+            }
+            renderFamilyCart();
+        }
+    }
+    catch {
+        // En cas d'erreur de parse
     }
 }

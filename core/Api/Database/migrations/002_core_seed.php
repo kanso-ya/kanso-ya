@@ -60,6 +60,10 @@ function runCoreSeed(): void
             ('season_type', 'Sept-Juin'),
             ('public_registration_enabled', '1'),
             ('membership_base_price', '150'),
+            ('discount_threshold', '2'),
+            ('discount_type', 'percent'),
+            ('discount_value', '10.0'),
+            ('medical_cert_mode', 'health_questionnaire'),
             ('allowed_installment_methods', '[\"cheque\"]'),
             ('registration_confirmation_text', 'Votre dossier d''inscription a bien été transmis au bureau. Dès réception et validation de votre règlement par le Trésorier, vous recevrez un email contenant un lien d''activation sécurisé (OTP valable 48h) vous permettant de créer votre mot de passe et d''accéder à votre espace personnel.');
     ");

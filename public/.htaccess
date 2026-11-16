@@ -14,7 +14,7 @@
 
     # 3. Routes propres du Back-Office (incluant /stats, /settings et /boutique)
     RewriteRule ^dashboard/?$ dashboard.php [L,NC]
-    RewriteRule ^settings/?$ dashboard.php?tab=settings [L,QSA,NC]
+    RewriteRule ^settings/?$ settings.php [L,NC]
     RewriteRule ^stats/?$ stats.php [L,NC]
     RewriteRule ^members/?$ members.php [L,NC]
     RewriteRule ^registrations/?$ registrations.php [L,NC]
@@ -22,6 +22,7 @@
     RewriteRule ^disciplines/?$ disciplines.php [L,NC]
     RewriteRule ^roles/?$ roles.php [L,NC]
     RewriteRule ^boutique/?$ boutique.php [L,NC]
+    RewriteRule ^questionnaire-sante/?$ health-check.php [L,NC]
 
     # 4. Pages institutionnelles et légales fixes (US 4.1 - CA3)
     RewriteRule ^(rgpd|cgv|mentions-legales|horaires)/?$ legal.php?slug=$1 [L,QSA,NC]
