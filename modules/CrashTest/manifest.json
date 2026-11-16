@@ -1,0 +1,12 @@
+{
+  "id": "crashtest_module",
+  "name": "Module Crash Test (Safe Mode)",
+  "version": "1.0.0",
+  "author": "QA Team",
+  "description": "Module défaillant conçu pour valider le basculement automatique en Safe Mode sans panne du CMS.",
+  "compatibility": {
+    "core_min_version": "1.0.0",
+    "core_max_version": "3.0.0",
+    "php_min_version": "8.1"
+  }
+}

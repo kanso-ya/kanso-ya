@@ -11,7 +11,16 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/../../Api/Database/Database.php';
+require_once __DIR__ . '/../../Sdk/EventManager.php';
+require_once __DIR__ . '/../../Sdk/ModuleInterface.php';
+require_once __DIR__ . '/../../Api/Services/ModuleScanner.php';
+require_once __DIR__ . '/../../Api/Services/ModuleManager.php';
 use Core\Api\Database\Database;
+
+try {
+    \Core\Api\Services\ModuleManager::boot();
+} catch (Throwable) {
+}
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -83,6 +92,15 @@ if ($isSuperadmin) {
     $userPerms = ['members.view', 'articles.write', 'stats.view'];
 } elseif ($currentRole === 'Adhérent') {
     $userPerms = ['profile.view'];
+}
+
+$moduleMenuItems = [];
+try {
+    $filtered = \Core\Sdk\EventManager::getInstance()->applyFilters('admin_sidebar_menu', []);
+    if (is_array($filtered)) {
+        $moduleMenuItems = $filtered;
+    }
+} catch (Throwable) {
 }
 
 $accessDeniedReason = null;
@@ -279,7 +297,29 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                     </div>
                 <?php endif; ?>
 
-                <div id="module-hooks-zone" class="pt-2"></div>
+                <div id="module-hooks-zone" class="pt-2">
+                    <?php if (!empty($moduleMenuItems) && ($isLoggedIn || $isSuperadmin)): ?>
+                        <div class="pt-2 space-y-1">
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pb-1">Modules & Extensions</div>
+                            <?php foreach ($moduleMenuItems as $modItem): ?>
+                                <?php
+                                $modPerm = $modItem['permission'] ?? null;
+                                if ($modPerm !== null && !$isSuperadmin && !in_array($modPerm, $userPerms, true)) {
+                                    continue;
+                                }
+                                $itemUrl = htmlspecialchars((string)($modItem['url'] ?? '#'), ENT_QUOTES, 'UTF-8');
+                                $itemLabel = htmlspecialchars((string)($modItem['label'] ?? 'Module'), ENT_QUOTES, 'UTF-8');
+                                $itemIcon = htmlspecialchars((string)($modItem['icon'] ?? '🧩'), ENT_QUOTES, 'UTF-8');
+                                $itemActive = ($activeNav === ($modItem['id'] ?? '') || (isset($_SERVER['REQUEST_URI']) && str_contains($_SERVER['REQUEST_URI'], (string)($modItem['url'] ?? 'xxx'))));
+                                ?>
+                                <a href="<?= $itemUrl ?>" class="block px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 <?= $itemActive ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white text-slate-300' ?>">
+                                    <span class="text-base"><?= $itemIcon ?></span>
+                                    <span><?= $itemLabel ?></span>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </nav>
 
             <footer class="p-4 border-t border-slate-800 bg-slate-950/50 text-xs text-slate-400 space-y-2 shrink-0">

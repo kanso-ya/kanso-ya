@@ -1,0 +1,13 @@
+{
+  "id": "club_boutique",
+  "name": "Boutique Officielle du Club",
+  "version": "1.0.0",
+  "author": "AssoCMS Dev",
+  "description": "Gestion des stocks et commandes d'équipements sportifs et goodies du club.",
+  "compatibility": {
+    "core_min_version": "1.2.0",
+    "core_max_version": "2.0.0",
+    "php_min_version": "8.1"
+  },
+  "permissions_required": ["finances.manage"]
+}

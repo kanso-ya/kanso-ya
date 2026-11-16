@@ -536,6 +536,16 @@ final class RegistrationController
                 ]);
             });
 
+            try {
+                if (class_exists('\\Core\\Sdk\\EventManager')) {
+                    \Core\Sdk\EventManager::getInstance()->dispatch('on_registration_validated', [
+                        'registration_id' => $registrationId,
+                        'admin_user_id'   => $adminUserId
+                    ]);
+                }
+            } catch (Throwable) {
+            }
+
             return [
                 'status'  => 'success',
                 'code'    => 200,

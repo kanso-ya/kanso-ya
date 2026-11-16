@@ -217,6 +217,17 @@ final class MemberController
 
             $this->db->exec('COMMIT');
 
+            try {
+                if (class_exists('\\Core\\Sdk\\EventManager')) {
+                    \Core\Sdk\EventManager::getInstance()->dispatch('on_member_created', [
+                        'member_id'  => $memberId,
+                        'first_name' => $firstName,
+                        'last_name'  => $lastName
+                    ]);
+                }
+            } catch (Throwable) {
+            }
+
             return [
                 'status'  => 'success',
                 'code'    => 201,
@@ -485,6 +496,15 @@ final class MemberController
             $stmtLog->execute(['uid' => $adminUserId, 'tid' => $memberId]);
 
             $this->db->exec('COMMIT');
+
+            try {
+                if (class_exists('\\Core\\Sdk\\EventManager')) {
+                    \Core\Sdk\EventManager::getInstance()->dispatch('on_member_deleted', [
+                        'member_id' => $memberId
+                    ]);
+                }
+            } catch (Throwable) {
+            }
 
             return [
                 'status'  => 'success',

@@ -5,7 +5,7 @@ declare(strict_types=1);
 $pageTitle     = 'Administration Technique & Design';
 $activeNav     = 'sys-console';
 $requireAuth   = true;
-$requiredPerms = ['system.admin'];
+$requiredPerms = ['system.admin', 'settings.manage'];
 $pageScripts   = ['/assets/ts/sys-console.js'];
 
 ob_start();
@@ -237,6 +237,38 @@ ob_start();
                     </tr>
                 </thead>
                 <tbody id="sys-logs-tbody" class="divide-y divide-slate-800/80 font-mono"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 5. Moteur de Modules & Extensions SDK (US 6.1 - US 6.3) -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-bold text-white">5. Moteur de Modules & Extensions SDK (Lot 3)</h2>
+                <p class="text-xs text-slate-400">Détection automatique dans <code>/modules/</code>, cycle de vie complet (install/activate/deactivate/uninstall) et Safe Mode automatique.</p>
+            </div>
+            <button id="btn-scan-modules" type="button" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-2 self-start sm:self-auto">
+                <span>🔄 Scanner les modules</span>
+            </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-950 text-slate-400 uppercase border-b border-slate-800">
+                    <tr>
+                        <th class="p-3">Module</th>
+                        <th class="p-3">Version & Auteur</th>
+                        <th class="p-3">Compatibilité Core</th>
+                        <th class="p-3">Statut</th>
+                        <th class="p-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="modules-tbody" class="divide-y divide-slate-800/80">
+                    <tr>
+                        <td colspan="5" class="p-4 text-center text-slate-500">Chargement des modules...</td>
+                    </tr>
+                </tbody>
             </table>
         </div>
     </section>

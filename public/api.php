@@ -74,6 +74,13 @@ try {
     require_once __DIR__ . '/../core/Api/Endpoints/SystemController.php';
     require_once __DIR__ . '/../core/Api/Endpoints/RegistrationController.php';
     require_once __DIR__ . '/../core/Api/Endpoints/CmsController.php';
+    require_once __DIR__ . '/../core/Sdk/EventManager.php';
+    require_once __DIR__ . '/../core/Sdk/ModuleInterface.php';
+    require_once __DIR__ . '/../core/Api/Services/ModuleScanner.php';
+    require_once __DIR__ . '/../core/Api/Services/ModuleManager.php';
+
+    // Initialisation dynamique des modules actifs avec Safe Mode
+    \Core\Api\Services\ModuleManager::boot();
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -104,7 +111,7 @@ try {
         if ($persona === 'visitor') {
             $_SESSION['user_id'] = 0;
             $_SESSION['role_name'] = 'Visiteur';
-        } elseif ($persona === 'tutorA') {
+        } elseif ($persona === 'tutorA' || $persona === 'adherent') {
             $_SESSION['user_id'] = 10;
             $_SESSION['role_name'] = 'Adhérent';
         } elseif ($persona === 'tutorB') {
@@ -512,8 +519,8 @@ try {
     }
 
     if ($method === 'GET' && $uri === '/api/v1/sys/logs') {
-        if (!$isSuperadmin) {
-            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Réservé au Superadmin.', 'data' => null]);
+        if (!$isSuperadmin && !in_array('logs.view', $permissions, true)) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Réservé au Superadmin et Président.', 'data' => null]);
         }
         $controller = new \Core\Api\Endpoints\SystemController();
         sendJson($controller->getSysLogs());
@@ -608,6 +615,79 @@ try {
         }
         $controller = new \Core\Api\Endpoints\SystemController();
         sendJson($controller->getDemographics($currentUserId, $currentRole, $isSuperadmin));
+    }
+
+    // 8. MOTEUR DE MODULES & EXTENSIONS SDK (US 6.1 - US 6.3)
+    if ($method === 'GET' && $uri === '/api/v1/sys/modules') {
+        if (!$isSuperadmin && $currentRole !== 'Président' && !in_array('system.admin', $permissions, true)) {
+            $logUnauthorizedAttempt($uri);
+            sendJson([
+                'status'  => 'error',
+                'code'    => 403,
+                'message' => 'Accès restreint au Président ou Superadmin.',
+                'data'    => null
+            ]);
+        }
+        $manager = new \Core\Api\Services\ModuleManager();
+        $modules = $manager->scanAndList();
+        sendJson([
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Modules scannés et synchronisés.',
+            'data'    => $modules
+        ]);
+    }
+
+    if ($method === 'POST' && $uri === '/api/v1/sys/modules/scan') {
+        if (!$isSuperadmin && $currentRole !== 'Président' && !in_array('system.admin', $permissions, true)) {
+            $logUnauthorizedAttempt($uri);
+            sendJson([
+                'status'  => 'error',
+                'code'    => 403,
+                'message' => 'Accès restreint au Président ou Superadmin.',
+                'data'    => null
+            ]);
+        }
+        $manager = new \Core\Api\Services\ModuleManager();
+        $modules = $manager->scanAndList();
+        sendJson([
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Scan des modules actualisé avec succès.',
+            'data'    => $modules
+        ]);
+    }
+
+    if ($method === 'PATCH' && preg_match('#^/api/v1/sys/modules/([^/]+)/toggle$#', $uri, $matches)) {
+        if (!$isSuperadmin && $currentRole !== 'Président' && !in_array('system.admin', $permissions, true)) {
+            $logUnauthorizedAttempt($uri);
+            sendJson([
+                'status'  => 'error',
+                'code'    => 403,
+                'message' => 'Action sur les modules réservée au Président ou Superadmin.',
+                'data'    => null
+            ]);
+        }
+        $targetIdOrFolder = urldecode($matches[1]);
+        $enabled = (bool) ($payload['enabled'] ?? true);
+        $manager = new \Core\Api\Services\ModuleManager();
+        sendJson($manager->toggle($targetIdOrFolder, $enabled, $currentUserId, $isSuperadmin));
+    }
+
+    if (($method === 'POST' && preg_match('#^/api/v1/sys/modules/([^/]+)/uninstall$#', $uri, $matches))
+        || ($method === 'DELETE' && preg_match('#^/api/v1/sys/modules/([^/]+)$#', $uri, $matches))) {
+        if (!$isSuperadmin && $currentRole !== 'Président' && !in_array('system.admin', $permissions, true)) {
+            $logUnauthorizedAttempt($uri);
+            sendJson([
+                'status'  => 'error',
+                'code'    => 403,
+                'message' => 'Désinstallation des modules réservée au Président ou Superadmin.',
+                'data'    => null
+            ]);
+        }
+        $targetIdOrFolder = urldecode($matches[1]);
+        $manager = new \Core\Api\Services\ModuleManager();
+        sendJson($manager->uninstall($targetIdOrFolder, $currentUserId, $isSuperadmin));
     }
 
     sendJson([

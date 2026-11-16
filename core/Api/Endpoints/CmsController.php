@@ -7,6 +7,7 @@ namespace Core\Api\Endpoints;
 use Core\Api\Database\Database;
 use finfo;
 use PDO;
+use Throwable;
 
 /**
  * Contrôleur gérant le moteur éditorial complet (CRUD Articles, Catégories, Pages statiques/légales et Médias).
@@ -202,6 +203,19 @@ final class CmsController
 
         $articleId = (int) $this->db->lastInsertId();
 
+        if ($finalStatus === 'published') {
+            try {
+                if (class_exists('\\Core\\Sdk\\EventManager')) {
+                    \Core\Sdk\EventManager::getInstance()->dispatch('on_article_published', [
+                        'article_id' => $articleId,
+                        'title'      => $cleanTitle,
+                        'author_id'  => $authorId
+                    ]);
+                }
+            } catch (Throwable) {
+            }
+        }
+
         return [
             'status'  => 'success',
             'code'    => 201,
@@ -264,6 +278,18 @@ final class CmsController
             WHERE id = :id
         ");
         $stmt->execute($params);
+
+        if (($params['status'] ?? '') === 'published') {
+            try {
+                if (class_exists('\\Core\\Sdk\\EventManager')) {
+                    \Core\Sdk\EventManager::getInstance()->dispatch('on_article_published', [
+                        'article_id' => $articleId,
+                        'title'      => $cleanTitle
+                    ]);
+                }
+            } catch (Throwable) {
+            }
+        }
 
         return [
             'status'  => 'success',

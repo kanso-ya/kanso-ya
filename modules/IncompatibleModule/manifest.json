@@ -1,0 +1,12 @@
+{
+  "id": "incompatible_mod",
+  "name": "Module Futuriste Incompatible",
+  "version": "2.0.0",
+  "author": "Future Labs",
+  "description": "Module requérant une version de Core 3.0.0 indisponible.",
+  "compatibility": {
+    "core_min_version": "3.0.0",
+    "core_max_version": "4.0.0",
+    "php_min_version": "8.1"
+  }
+}

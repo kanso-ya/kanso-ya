@@ -12,6 +12,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/001_core_schema.php';
+require_once __DIR__ . '/003_modules_schema.php';
 
 use Core\Api\Database\Database;
 

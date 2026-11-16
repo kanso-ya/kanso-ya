@@ -8,14 +8,17 @@
 import { fetchApi } from './api.js';
 import { setButtonLoading, showToast } from './main.js';
 let allSysLogs = [];
+let allModules = [];
 document.addEventListener('DOMContentLoaded', () => {
     loadSystemSettings();
     loadEmailLogs();
     loadSystemLogs();
+    loadModules();
     initBrandingForm();
     initSmtpForm();
     initSysLogsFilter();
     initSysRolloverControls();
+    initModuleControls();
 });
 async function loadSystemSettings() {
     const res = await fetchApi('/api/v1/settings');
@@ -241,6 +244,179 @@ function initSysRolloverControls() {
         }
         finally {
             setButtonLoading(btnConfirm, false, 'Exécuter le Rollover');
+        }
+    });
+}
+async function loadModules() {
+    const tbody = document.getElementById('modules-tbody');
+    if (!tbody)
+        return;
+    try {
+        const res = await fetchApi('/api/v1/sys/modules');
+        if (res.status === 'success' && Array.isArray(res.data)) {
+            allModules = res.data;
+            renderModules(allModules);
+        }
+        else {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-400">Erreur lors de la récupération des modules.</td></tr>`;
+        }
+    }
+    catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-400">Échec de communication réseau.</td></tr>`;
+    }
+}
+function renderModules(modules) {
+    const tbody = document.getElementById('modules-tbody');
+    if (!tbody)
+        return;
+    if (modules.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">Aucun module détecté dans <code>/modules/</code>.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = '';
+    modules.forEach((mod) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/60 transition';
+        tr.id = `module-row-${mod.folder_name}`;
+        const isActive = Boolean(mod.is_active) || mod.status === 'active';
+        const isCrashed = mod.status === 'crashed';
+        const isIncompatible = mod.status === 'incompatible' || mod.is_compatible === false;
+        let statusBadge = '';
+        if (isCrashed) {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-950 text-red-400 border border-red-800 flex items-center gap-1 w-max">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                <span>Crashé (Safe Mode)</span>
+            </span>`;
+        }
+        else if (isIncompatible) {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-950 text-amber-400 border border-amber-800 w-max block">
+                Incompatible
+            </span>`;
+        }
+        else if (isActive) {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center gap-1 w-max">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>Actif</span>
+            </span>`;
+        }
+        else {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400 w-max block">
+                Inactif
+            </span>`;
+        }
+        const compatInfo = isIncompatible
+            ? `<span class="text-red-400 font-mono text-[11px]" title="${mod.compatibility_error || ''}">⚠️ ${mod.compatibility_error || 'Version non supportée'}</span>`
+            : `<span class="text-emerald-400 font-mono text-[11px]">✓ Compatible Core</span>`;
+        const errorBanner = (isCrashed && mod.last_error)
+            ? `<div class="mt-1 text-[11px] text-red-300 font-mono bg-red-900/40 p-1.5 rounded border border-red-800/60 max-w-md break-words">${mod.last_error}</div>`
+            : '';
+        tr.innerHTML = `
+            <td class="p-3">
+                <div class="font-bold text-white text-sm">${mod.name}</div>
+                <div class="text-[11px] text-slate-400 font-mono">Dossier: ${mod.folder_name}</div>
+                ${mod.description ? `<div class="text-slate-400 text-xs mt-0.5">${mod.description}</div>` : ''}
+                ${errorBanner}
+            </td>
+            <td class="p-3 text-slate-300">
+                <div class="font-mono text-xs">v${mod.version}</div>
+                <div class="text-[11px] text-slate-500">${mod.author || 'Auteur non précisé'}</div>
+            </td>
+            <td class="p-3">${compatInfo}</td>
+            <td class="p-3">${statusBadge}</td>
+            <td class="p-3 text-right">
+                <div class="flex items-center justify-end gap-2">
+                    ${!isIncompatible ? `
+                        <button type="button" data-action="toggle-module" data-folder="${mod.folder_name}" data-id="${mod.id}" data-active="${isActive ? '1' : '0'}"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isActive ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}">
+                            ${isActive ? 'Désactiver' : 'Activer'}
+                        </button>
+                    ` : `
+                        <button type="button" disabled class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-600 cursor-not-allowed">
+                            Incompatible
+                        </button>
+                    `}
+                    <button type="button" data-action="uninstall-module" data-folder="${mod.folder_name}" data-id="${mod.id}" data-name="${mod.name}"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 transition">
+                        Désinstaller
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+function initModuleControls() {
+    const btnScan = document.getElementById('btn-scan-modules');
+    btnScan?.addEventListener('click', async () => {
+        setButtonLoading(btnScan, true, '🔄 Scanner les modules');
+        try {
+            const res = await fetchApi('/api/v1/sys/modules/scan', { method: 'POST' });
+            if (res.status === 'success' && Array.isArray(res.data)) {
+                allModules = res.data;
+                renderModules(allModules);
+                showToast('Scan des modules terminé.', 'success');
+                await loadSystemLogs();
+            }
+            else {
+                showToast(res.message || 'Échec du scan des modules', 'error');
+            }
+        }
+        finally {
+            setButtonLoading(btnScan, false, '🔄 Scanner les modules');
+        }
+    });
+    const tbody = document.getElementById('modules-tbody');
+    tbody?.addEventListener('click', async (e) => {
+        const target = e.target.closest('button');
+        if (!target)
+            return;
+        const action = target.getAttribute('data-action');
+        const folder = target.getAttribute('data-folder');
+        const modId = target.getAttribute('data-id');
+        const modName = target.getAttribute('data-name') || folder;
+        if (action === 'toggle-module' && folder) {
+            const currentActive = target.getAttribute('data-active') === '1';
+            const willEnable = !currentActive;
+            setButtonLoading(target, true, willEnable ? 'Activer' : 'Désactiver');
+            try {
+                const res = await fetchApi(`/api/v1/sys/modules/${folder}/toggle`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ enabled: willEnable })
+                });
+                if (res.status === 'success') {
+                    showToast(res.message || (willEnable ? 'Module activé !' : 'Module désactivé.'), 'success');
+                }
+                else {
+                    showToast(res.message || 'Erreur lors de l\'activation/désactivation', 'error');
+                }
+                await loadModules();
+                await loadSystemLogs();
+            }
+            finally {
+                setButtonLoading(target, false, willEnable ? 'Activer' : 'Désactiver');
+            }
+        }
+        if (action === 'uninstall-module' && folder) {
+            if (!confirm(`Confirmez-vous la désinstallation complète du module « ${modName} » ? Ses tables de données seront supprimées.`)) {
+                return;
+            }
+            setButtonLoading(target, true, 'Désinstaller');
+            try {
+                const res = await fetchApi(`/api/v1/sys/modules/${folder}/uninstall`, {
+                    method: 'POST'
+                });
+                if (res.status === 'success') {
+                    showToast(res.message || 'Module désinstallé avec succès.', 'success');
+                }
+                else {
+                    showToast(res.message || 'Échec de la désinstallation', 'error');
+                }
+                await loadModules();
+                await loadSystemLogs();
+            }
+            finally {
+                setButtonLoading(target, false, 'Désinstaller');
+            }
         }
     });
 }

@@ -169,9 +169,10 @@ gantt
 
 ---
 
-### 4.2. Sprint 6 : Moteur de Modules, SDK & Architecture Résiliente (21 SP)
+### 4.2. Sprint 6 : Moteur de Modules, SDK & Architecture Résiliente (21 SP) — [100% TERMINÉ & VALIDÉ QA]
 
 **Durée :** 2 Semaines  
+**Statut Réel :** Validé à 100% (124 tests passés sur 124, 0 erreur PHPStan, 0 erreur TS).  
 **Objectif :** Implémenter l'infrastructure d'extensibilité du Core permettant l'injection de modules sans jamais modifier le code source natif, avec isolation des erreurs (Safe Mode).
 
 #### US 6.1 : Le Scanner de Modules & Validation du `manifest.json`

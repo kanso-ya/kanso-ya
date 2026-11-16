@@ -370,7 +370,31 @@ La logique interactive est découpée en modules ciblés :
 
 ---
 
-## 7. Règles d'Intégrité & Non-Régression pour les Développements Futurs
+## 7. Moteur de Modules & SDK Kanso-ya (Lot 3 - US 6.1 à 6.4)
+
+### 7.1. Architecture et Principes Fondamentaux
+Le Moteur de Modules Kanso-ya permet d'étendre dynamiquement le CMS sans altérer le code Core.
+
+1. **Table `modules` :** Registre centralisé en BDD (`id, folder_name, manifest_id, name, version, is_active, status, last_error, updated_at`).
+2. **Scanner de Répertoire (`Core\Api\Services\ModuleScanner`) :**
+   - Parcourt `/modules/` et vérifie la conformité de chaque `manifest.json` (id, name, version, author, compatibility).
+   - Valide la compatibilité sémantique avec la version courante du Core (`CURRENT_CORE_VERSION = '1.5.0'`) et PHP (`>=8.1`).
+   - Bloque toute tentative d'activation (422) si le module est incompatible.
+3. **Bus d'Événements Central (`Core\Sdk\EventManager`) :**
+   - Singleton fournissant un système de Hooks (Actions et Filtres) calqué sur le standard WordPress.
+   - **Actions (`addAction` / `dispatch`) :** Événements déclenchés aux points stratégiques du cycle de vie (`on_member_created`, `on_member_deleted`, `on_registration_validated`, `on_article_published`).
+   - **Filtres (`addFilter` / `applyFilters`) :** Altération des structures de données, notamment `admin_sidebar_menu` pour injecter des liens dans la sidebar `#module-hooks-zone` de `layout.php`.
+4. **Gestionnaire de Cycle de Vie & Safe Mode (`Core\Api\Services\ModuleManager`) :**
+   - Cycle d'état complet : `install` (création des tables `mod_*`), `activate` (`is_active = 1`), `deactivate` (`is_active = 0`), `uninstall` (purge `DROP TABLE mod_*`).
+   - **Safe Mode Automatique (CA3) :** Capture systématique de toute exception levée lors du `boot()` d'un module. Le CMS continue son exécution (HTTP 200 garanti), le module défaillant est basculé en `status = 'crashed'`, le détail de l'erreur est stocké dans `last_error`, et une alerte indélébile `MODULE_SAFE_MODE_TRIGGERED` est consignée dans `sys_logs`.
+5. **Modules Démonstrateurs Fournis :**
+   - `/modules/Boutique/` : Module opérationnel créant `mod_boutique_products`, injectant son entrée menu et exposant la vitrine sur `/boutique.php`.
+   - `/modules/CrashTest/` : Module de validation Safe Mode simulant une exception au démarrage.
+   - `/modules/IncompatibleModule/` : Module simulant une exigence de version Core 3.0.0 pour valider le rejet 422.
+
+---
+
+## 8. Règles d'Intégrité & Non-Régression pour les Développements Futurs
 
 Pour garantir la pérennité du projet lors de l'intégration du Lot 3 (Moteur de Modules) :
 
