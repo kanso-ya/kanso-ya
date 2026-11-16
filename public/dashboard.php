@@ -227,6 +227,78 @@ ob_start();
     <?php endif; ?>
 
     <?php if ($currentRole === 'Président'): ?>
+        <!-- =====================================================================
+             BASCULEMENT DE SAISON / ROLLOVER ANNUEL (PRÉSIDENT UNIQUEMENT - US 5.1)
+             ===================================================================== -->
+        <section class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200 space-y-6">
+            <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <span class="text-xs font-bold uppercase text-red-600">Automatisation Administrative & Sportive (US 5.1)</span>
+                    <h2 class="text-lg font-bold text-slate-900">Basculement Annuel de Saison (Moulinette Rollover)</h2>
+                    <p class="text-xs text-slate-500">Recalcule automatiquement les catégories d'âge (grades) pour tous les adhérents actifs, verrouille les surclassements entraîneur et archive les dossiers antérieurs.</p>
+                </div>
+                <button type="button" id="btn-open-rollover-modal" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow shrink-0">
+                    🔄 Déclencher le basculement de saison
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span class="font-bold text-slate-800 block mb-1">1. Recalcul automatique des Grades</span>
+                    <p class="text-slate-500">L'âge de chaque adhérent est recalculé à la date de référence pour lui affecter sa nouvelle catégorie d'âge (Poussin, Benjamin, Minime...).</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span class="font-bold text-slate-800 block mb-1">2. Respect strict des Surclassements</span>
+                    <p class="text-slate-500">Les adhérents surclassés par décision d'entraîneur (<code class="text-emerald-700 font-mono">is_category_forced = 1</code>) sont intégralement préservés.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span class="font-bold text-slate-800 block mb-1">3. Clôture des Dossiers Précédents</span>
+                    <p class="text-slate-500">Les dossiers validés de la saison sortante sont automatiquement passés au statut <code class="text-blue-700 font-mono">archived</code>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Modale de Confirmation Rouge de Rollover (US 5.1) -->
+        <div id="rollover-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border-2 border-red-500 space-y-5 animate-in fade-in duration-200">
+                <div class="flex items-center gap-3 text-red-600 border-b border-red-100 pb-3">
+                    <span class="text-2xl">⚠️</span>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">Confirmation du Basculement de Saison</h3>
+                        <p class="text-xs text-red-600 font-semibold">Cette opération massive modifie les dossiers de l'ensemble du club.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4 text-xs text-slate-600">
+                    <p>
+                        Vous êtes sur le point de déclencher la moulinette de changement de saison sportive.
+                        Tous les adhérents actifs verront leur catégorie d'âge recalculée pour la nouvelle saison cible.
+                    </p>
+
+                    <div class="bg-red-50 p-3.5 rounded-xl border border-red-200 space-y-2">
+                        <label class="block font-bold text-slate-800">Saison cible :</label>
+                        <input type="text" id="rollover-target-season" value="2027-2028" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold">
+
+                        <label class="block font-bold text-slate-800 mt-2">Date de référence du calcul d'âge :</label>
+                        <input type="date" id="rollover-reference-date" value="2027-09-01" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono">
+                    </div>
+
+                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
+                        🛡️ <strong>Garantie Sécurité :</strong> Les surclassements validés manuellement par les entraîneurs (<code>is_category_forced = 1</code>) ne seront <strong>pas modifiés</strong>.
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button type="button" id="btn-cancel-rollover" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition">
+                        Annuler
+                    </button>
+                    <button type="button" id="btn-confirm-rollover" class="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider transition shadow">
+                        Confirmer le basculement
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Journal d'Audit Applicatif (Réservé au Président - Point 6) -->
         <section class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-4">
             <h2 id="audit-logs-title" class="text-base font-bold text-slate-900">Journal d'Audit Applicatif du Club (`app_logs`)</h2>

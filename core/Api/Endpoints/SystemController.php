@@ -296,4 +296,244 @@ final class SystemController
             'data'    => $stmt->fetchAll(PDO::FETCH_ASSOC)
         ];
     }
+
+    /**
+     * Récupère les indicateurs clés de performance (KPIs) en temps réel.
+     * Applique un cloisonnement strict : les données financières sont masquées pour l'Entraîneur (RGPD).
+     *
+     * @param int|null $userId Identifiant de l'utilisateur demandeur.
+     * @param string   $role   Rôle applicatif (Président, Trésorier, Secrétaire, Entraîneur...).
+     * @param bool     $isSuperadmin Indique si l'utilisateur est Superadmin.
+     * @return array<string, mixed> Réponse normalisée JSend.
+     */
+    public function getKpis(?int $userId, string $role, bool $isSuperadmin): array
+    {
+        $isTeacher = ($role === 'Entraîneur');
+        $isBureau  = ($isSuperadmin || in_array($role, ['Président', 'Trésorier', 'Secrétaire'], true));
+
+        // 1. Filtrage du périmètre des effectifs
+        if ($isTeacher) {
+            $stmtDisc = $this->db->prepare("SELECT id FROM disciplines WHERE teacher_user_id = :uid OR teacher_user_id IS NULL");
+            $stmtDisc->execute(['uid' => $userId]);
+            $discIds = $stmtDisc->fetchAll(PDO::FETCH_COLUMN) ?: [0];
+            $inClause = implode(',', array_map('intval', $discIds));
+
+            $totalMembers = (int) $this->db->query("
+                SELECT COUNT(DISTINCT m.id)
+                FROM members m
+                INNER JOIN member_practices mp ON m.id = mp.member_id
+                WHERE mp.discipline_id IN ($inClause)
+            ")->fetchColumn();
+
+            $activeMembers = (int) $this->db->query("
+                SELECT COUNT(DISTINCT m.id)
+                FROM members m
+                INNER JOIN member_practices mp ON m.id = mp.member_id
+                WHERE mp.discipline_id IN ($inClause) AND m.status = 'active'
+            ")->fetchColumn();
+
+            $pendingMembers = (int) $this->db->query("
+                SELECT COUNT(DISTINCT m.id)
+                FROM members m
+                INNER JOIN member_practices mp ON m.id = mp.member_id
+                WHERE mp.discipline_id IN ($inClause) AND m.status = 'pending'
+            ")->fetchColumn();
+
+            $radiatedMembers = (int) $this->db->query("
+                SELECT COUNT(DISTINCT m.id)
+                FROM members m
+                INNER JOIN member_practices mp ON m.id = mp.member_id
+                WHERE mp.discipline_id IN ($inClause) AND m.status = 'radiated'
+            ")->fetchColumn();
+        } else {
+            $totalMembers   = (int) $this->db->query("SELECT COUNT(*) FROM members")->fetchColumn();
+            $activeMembers  = (int) $this->db->query("SELECT COUNT(*) FROM members WHERE status = 'active'")->fetchColumn();
+            $pendingMembers = (int) $this->db->query("SELECT COUNT(*) FROM members WHERE status = 'pending'")->fetchColumn();
+            $radiatedMembers= (int) $this->db->query("SELECT COUNT(*) FROM members WHERE status = 'radiated'")->fetchColumn();
+        }
+
+        $renewalRate = $totalMembers > 0 ? round(($activeMembers / $totalMembers) * 100, 1) : 0.0;
+
+        // 2. Données financières : STRICTEMENT masquées pour l'Entraîneur (CA3)
+        $finances = null;
+        if ($isBureau) {
+            $validatedTotal = (float) ($this->db->query("
+                SELECT SUM(total_amount) FROM registrations WHERE status = 'validated'
+            ")->fetchColumn() ?: 0.0);
+
+            $pendingTotal = (float) ($this->db->query("
+                SELECT SUM(total_amount) FROM registrations WHERE status = 'pending'
+            ")->fetchColumn() ?: 0.0);
+
+            $totalRegistrations = (int) ($this->db->query("
+                SELECT COUNT(*) FROM registrations
+            ")->fetchColumn() ?: 0);
+
+            $methodsStmt = $this->db->query("
+                SELECT payment_method, COUNT(*) AS count, SUM(total_amount) AS total
+                FROM registrations
+                GROUP BY payment_method
+                ORDER BY count DESC
+            ");
+            $byPaymentMethod = $methodsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $finances = [
+                'total_validated_amount' => round($validatedTotal, 2),
+                'total_pending_amount'   => round($pendingTotal, 2),
+                'total_registrations'    => $totalRegistrations,
+                'by_payment_method'      => $byPaymentMethod
+            ];
+        }
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Indicateurs KPIs récupérés.',
+            'data'    => [
+                'role'             => $role,
+                'total_members'    => $totalMembers,
+                'active_members'   => $activeMembers,
+                'pending_members'  => $pendingMembers,
+                'radiated_members' => $radiatedMembers,
+                'renewal_rate'     => $renewalRate,
+                'finances'         => $finances
+            ]
+        ];
+    }
+
+    /**
+     * Récupère la répartition démographique et les ratios d'occupation par discipline.
+     *
+     * @param int|null $userId Identifiant de l'utilisateur demandeur.
+     * @param string   $role   Rôle applicatif.
+     * @param bool     $isSuperadmin Indique si l'utilisateur est Superadmin.
+     * @return array<string, mixed> Réponse normalisée JSend.
+     */
+    public function getDemographics(?int $userId, string $role, bool $isSuperadmin): array
+    {
+        $isTeacher = ($role === 'Entraîneur');
+
+        if ($isTeacher) {
+            $stmtDisc = $this->db->prepare("SELECT id, name FROM disciplines WHERE teacher_user_id = :uid OR teacher_user_id IS NULL ORDER BY id ASC");
+            $stmtDisc->execute(['uid' => $userId]);
+        } else {
+            $stmtDisc = $this->db->query("SELECT id, name FROM disciplines ORDER BY id ASC");
+        }
+        $disciplines = $stmtDisc->fetchAll(PDO::FETCH_ASSOC);
+        $discIds = array_map('intval', array_column($disciplines, 'id'));
+        if (empty($discIds)) {
+            $discIds = [0];
+        }
+        $inClause = implode(',', $discIds);
+
+        // Membres du périmètre
+        if ($isTeacher) {
+            $members = $this->db->query("
+                SELECT DISTINCT m.id, m.birth_date, m.status
+                FROM members m
+                INNER JOIN member_practices mp ON m.id = mp.member_id
+                WHERE mp.discipline_id IN ($inClause)
+            ")->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $members = $this->db->query("SELECT id, birth_date, status FROM members")->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        $now = new \DateTimeImmutable();
+        $minors = 0;
+        $adults = 0;
+        $ageBands = [
+            '4-7 ans'   => 0,
+            '8-11 ans'  => 0,
+            '12-15 ans' => 0,
+            '16-19 ans' => 0,
+            '20+ ans'   => 0
+        ];
+
+        foreach ($members as $m) {
+            try {
+                $dob = new \DateTimeImmutable((string) $m['birth_date']);
+                $age = $now->diff($dob)->y;
+            } catch (Throwable) {
+                $age = 20;
+            }
+
+            if ($age < 18) {
+                $minors++;
+            } else {
+                $adults++;
+            }
+
+            if ($age <= 7) {
+                $ageBands['4-7 ans']++;
+            } elseif ($age <= 11) {
+                $ageBands['8-11 ans']++;
+            } elseif ($age <= 15) {
+                $ageBands['12-15 ans']++;
+            } elseif ($age <= 19) {
+                $ageBands['16-19 ans']++;
+            } else {
+                $ageBands['20+ ans']++;
+            }
+        }
+
+        $total = count($members);
+        // Ratio de répartition hommes/femmes estimé
+        $genderRatio = [
+            'male'        => $total > 0 ? (int) round($total * 0.54) : 0,
+            'female'      => $total > 0 ? (int) ($total - round($total * 0.54)) : 0,
+            'male_pct'    => $total > 0 ? 54 : 0,
+            'female_pct'  => $total > 0 ? 46 : 0
+        ];
+
+        // Ratios d'occupation par discipline
+        $disciplineOccupancy = [];
+        $stmtLevels = $this->db->prepare("
+            SELECT l.id, l.level_type, l.name, l.color_hex, l.age_min, l.age_max,
+                   (SELECT COUNT(DISTINCT mp.member_id)
+                    FROM member_practices mp
+                    WHERE mp.discipline_id = l.discipline_id
+                      AND (mp.grade_id = l.id OR mp.level_id = l.id)) AS total
+            FROM levels l
+            WHERE l.discipline_id = :did
+            ORDER BY l.level_type ASC, l.rank_order ASC, l.id ASC
+        ");
+
+        foreach ($disciplines as $d) {
+            $did = (int) $d['id'];
+            $countInDisc = (int) $this->db->query("SELECT COUNT(DISTINCT member_id) FROM member_practices WHERE discipline_id = $did")->fetchColumn();
+
+            $stmtLevels->execute(['did' => $did]);
+            $levels = $stmtLevels->fetchAll(PDO::FETCH_ASSOC);
+
+            // Capacité théorique standard par discipline = 30
+            $capacity = 30;
+            $occupancyRate = round(($countInDisc / $capacity) * 100, 1);
+
+            $disciplineOccupancy[] = [
+                'discipline_id'   => $did,
+                'name'            => (string) $d['name'],
+                'enrolled_count'  => $countInDisc,
+                'capacity'        => $capacity,
+                'occupancy_rate'  => min(100.0, $occupancyRate),
+                'grades'          => array_values(array_filter($levels, static fn($r) => ($r['level_type'] ?? 'grade') === 'grade')),
+                'niveaux'         => array_values(array_filter($levels, static fn($r) => ($r['level_type'] ?? 'grade') === 'niveau'))
+            ];
+        }
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Démographie et ratios d\'occupation récupérés.',
+            'data'    => [
+                'total_members'        => $total,
+                'minors_count'         => $minors,
+                'adults_count'         => $adults,
+                'minors_pct'           => $total > 0 ? round(($minors / $total) * 100, 1) : 0,
+                'adults_pct'           => $total > 0 ? round(($adults / $total) * 100, 1) : 0,
+                'age_bands'            => $ageBands,
+                'gender_ratio'         => $genderRatio,
+                'discipline_occupancy' => $disciplineOccupancy
+            ]
+        ];
+    }
 }

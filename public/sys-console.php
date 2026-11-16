@@ -180,12 +180,46 @@ ob_start();
     </section>
 
     <!-- =====================================================================
-         3. JOURNAL D'AUDIT TECHNIQUE & SÉCURITÉ RÉEL (sys_logs)
+         3. MAINTENANCE & BASCULEMENT DE SAISON (ROLLOVER ANNUEL - US 5.1)
+         ===================================================================== -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+            <div>
+                <h2 class="text-lg font-bold text-white">3. Basculement de Saison Sportive (Rollover Annuel - US 5.1)</h2>
+                <p class="text-xs text-slate-400">Recalcule automatiquement les catégories d'âge (grades) pour tous les membres actifs et archive les dossiers antérieurs.</p>
+            </div>
+            <button type="button" id="btn-open-sys-rollover-modal" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition shrink-0">
+                🔄 Basculer de saison
+            </button>
+        </div>
+        <p class="text-xs text-slate-400">
+            L'opération applique une transaction SQLite immédiate, préserve strictement les surclassements entraîneur (<code>is_category_forced = 1</code>) et inscrit une trace indélébile dans <code>app_logs</code> et <code>sys_logs</code>.
+        </p>
+    </section>
+
+    <!-- Modale Superadmin Rollover (US 5.1) -->
+    <div id="sys-rollover-modal" class="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-900 border-2 border-red-500 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <h3 class="text-base font-bold text-red-400">⚠️ Confirmation Rollover Superadmin</h3>
+            <p class="text-xs text-slate-300">Indiquez la saison cible et la date de référence pour déclencher la moulinette :</p>
+            <div class="space-y-3">
+                <input type="text" id="sys-target-season" value="2027-2028" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                <input type="date" id="sys-ref-date" value="2027-09-01" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" id="btn-cancel-sys-rollover" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-xl font-semibold">Annuler</button>
+                <button type="button" id="btn-confirm-sys-rollover" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs rounded-xl font-bold">Exécuter le Rollover</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         4. JOURNAL D'AUDIT TECHNIQUE & SÉCURITÉ RÉEL (sys_logs)
          ===================================================================== -->
     <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h2 class="text-lg font-bold text-white">3. Journal Technique & Sécurité en Temps Réel (`sys_logs`)</h2>
+                <h2 class="text-lg font-bold text-white">4. Journal Technique & Sécurité en Temps Réel (`sys_logs`)</h2>
                 <p class="text-xs text-slate-400">Chaque modification de configuration ou tentative d'accès non autorisée (403) s'inscrit ici en direct.</p>
             </div>
             <input type="search" id="sys-logs-search" placeholder="Filtrer par action, détail ou IP..." class="bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white w-full sm:w-64">

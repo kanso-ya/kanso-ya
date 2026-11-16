@@ -131,12 +131,13 @@ gantt
 
 ---
 
-### 4.1. Sprint 5 : Automatisation, Rollover & Statistiques Avancées (13 SP)
+### 4.1. Sprint 5 : Automatisation, Rollover & Statistiques Avancées (13 SP) — [100% TERMINÉ & VALIDÉ QA]
 
 **Durée :** 2 Semaines  
-**Objectif :** Supprimer la saisie manuelle lors du changement de saison sportive et offrir au bureau des tableaux de bord analytiques dynamiques.
+**Objectif :** Supprimer la saisie manuelle lors du changement de saison sportive et offrir au bureau des tableaux de bord analytiques dynamiques.  
+**Statut :** ✅ **100% Validé (16/16 tests passants dans `tests/e2e/06-sprint5-analytics-rollover.spec.ts`, total suite 112/112 passants)**
 
-#### US 5.1 : Moulinette de Changement de Saison (Rollover Annuel)
+#### US 5.1 : Moulinette de Changement de Saison (Rollover Annuel) — ✅ VALIDÉ
 * **En tant que** Président ou Superadmin
 * **Je veux** déclencher en un clic le recalcul massif des catégories d'âge et le passage à la nouvelle saison sportive
 * **Afin de** préparer la rentrée sans avoir à rééditer manuellement les centaines de fiches du club.
@@ -147,12 +148,12 @@ gantt
   * **CA3 (Sécurité Métier) :** Si `is_category_forced = 1` (surclassement validé par l'entraîneur), la moulinette ignore strictement le membre et consigne une note informative.
   * **CA4 :** L'opération est exécutée dans une transaction SQLite unique et consigne une entrée détaillée dans `app_logs` (nombre d'adhérents promus, nombre de surclassés ignorés).
 * **Tâches Techniques :**
-  1. Créer le service `core/Api/Services/RolloverService.php`.
-  2. Implémenter la route dans `public/api.php` avec contrôle de permission `settings.manage` ou Superadmin.
-  3. Ajouter le bouton "Déclencher le basculement de saison" dans `sys-console.php` et `dashboard.php` avec modale de confirmation rouge et récapitulatif avant validation.
-  4. Rédiger le test E2E Playwright `TC-ROLLOVER-01` couvrant le cas nominal et le cas surclassé.
+  1. [x] Créer le service `core/Api/Services/RolloverService.php` avec préchargement mémoire et transaction `BEGIN IMMEDIATE` / retry backoff.
+  2. [x] Implémenter la route dans `public/api.php` avec contrôle d'accès strict (Président ou Superadmin, rejet 403 pour les autres rôles).
+  3. [x] Ajouter le bouton "Déclencher le basculement de saison" dans `sys-console.php` et `dashboard.php` avec modale de confirmation rouge et récapitulatif avant validation.
+  4. [x] Rédiger les tests E2E Playwright `TC-ROLLOVER-01`, `TC-ROLLOVER-02`, `TC-ROLLOVER-03`, `TC-ROLLOVER-04` couvrant le cas nominal, le cas surclassé, le rejet 403 et l'UI modale.
 
-#### US 5.2 : Tableaux de Bord Analytiques & KPIs Statistiques
+#### US 5.2 : Tableaux de Bord Analytiques & KPIs Statistiques — ✅ VALIDÉ
 * **En tant que** Membre du Bureau (Président, Trésorier, Enseignant)
 * **Je veux** consulter des indicateurs visuels et graphiques sur les effectifs, la trésorerie et la répartition par niveaux
 * **Afin de** piloter la politique sportive et financière de l'association.
@@ -162,9 +163,9 @@ gantt
   * **CA2 :** La page `public/stats.php` intègre des cartes statistiques réactives (taux de renouvellement, ratio hommes/femmes, effectifs par créneau).
   * **CA3 (Cloisonnement RGPD) :** Pour le profil Enseignant, les statistiques d'adhésion sont strictement anonymisées (aucun nom ni montant financier affiché).
 * **Tâches Techniques :**
-  1. Enrichir `core/Api/Endpoints/SystemController.php` avec les requêtes SQL d'agrégation groupée.
-  2. Remplacer les placeholders de `core/ui/ts/dashboard.ts` et `stats.php` par des cartes statistiques Tailwind interactives.
-  3. Rédiger le test E2E `TC-STAT-ADVANCED` validant l'étanchéité des montants financiers selon le rôle.
+  1. [x] Enrichir `core/Api/Endpoints/SystemController.php` avec les requêtes SQL d'agrégation groupée (`getKpis`, `getDemographics`).
+  2. [x] Implémenter `core/ui/ts/stats.ts` et mettre à jour `stats.php` avec des cartes statistiques Tailwind interactives et badge RGPD.
+  3. [x] Rédiger les tests E2E `TC-STAT-01`, `TC-STAT-02`, `TC-STAT-ADVANCED` et `TC-STAT-03` validant l'étanchéité des montants financiers selon le rôle.
 
 ---
 

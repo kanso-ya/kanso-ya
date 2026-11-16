@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBrandingForm();
     initSmtpForm();
     initSysLogsFilter();
+    initSysRolloverControls();
 });
 async function loadSystemSettings() {
     const res = await fetchApi('/api/v1/settings');
@@ -209,5 +210,37 @@ function initSysLogsFilter() {
         renderSysLogs(allSysLogs.filter((l) => l.action.toLowerCase().includes(q) ||
             (l.details || '').toLowerCase().includes(q) ||
             (l.ip_address || '').toLowerCase().includes(q)));
+    });
+}
+function initSysRolloverControls() {
+    const btnOpen = document.getElementById('btn-open-sys-rollover-modal');
+    const modal = document.getElementById('sys-rollover-modal');
+    const btnCancel = document.getElementById('btn-cancel-sys-rollover');
+    const btnConfirm = document.getElementById('btn-confirm-sys-rollover');
+    const targetSeason = document.getElementById('sys-target-season');
+    const refDate = document.getElementById('sys-ref-date');
+    if (!btnOpen || !modal)
+        return;
+    btnOpen.addEventListener('click', () => modal.classList.remove('hidden'));
+    btnCancel?.addEventListener('click', () => modal.classList.add('hidden'));
+    btnConfirm?.addEventListener('click', async () => {
+        setButtonLoading(btnConfirm, true, 'Exécuter le Rollover');
+        try {
+            const res = await fetchApi('/api/v1/tasks/rollover-season', {
+                method: 'POST',
+                body: JSON.stringify({
+                    target_season: targetSeason?.value.trim() || '2027-2028',
+                    reference_date: refDate?.value.trim() || '2027-09-01'
+                })
+            });
+            if (res.status === 'success') {
+                showToast(`Rollover vers ${res.data?.target_season} terminé avec succès !`, 'success');
+                modal.classList.add('hidden');
+                await loadSystemLogs();
+            }
+        }
+        finally {
+            setButtonLoading(btnConfirm, false, 'Exécuter le Rollover');
+        }
     });
 }

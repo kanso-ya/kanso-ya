@@ -565,6 +565,51 @@ try {
         sendJson($controller->updateSettings($payload, $currentUserId, $isSuperadmin));
     }
 
+    // 6. TÂCHES SYSTÈME & CHANGEMENT DE SAISON / ROLLOVER (US 5.1)
+    if ($method === 'POST' && in_array($uri, ['/api/v1/tasks/rollover-season', '/api/v1/tasks/rollover'], true)) {
+        if (!$isSuperadmin && $currentRole !== 'Président') {
+            $logUnauthorizedAttempt($uri);
+            sendJson([
+                'status'  => 'error',
+                'code'    => 403,
+                'message' => 'Action de basculement de saison strictement réservée au Président ou Superadmin.',
+                'data'    => null
+            ]);
+        }
+        require_once __DIR__ . '/../core/Api/Services/RolloverService.php';
+        $rolloverService = new \Core\Api\Services\RolloverService();
+        sendJson($rolloverService->rollover($payload, $currentUserId, $isSuperadmin));
+    }
+
+    // 7. STATISTIQUES AVANCÉES, KPIS & DÉMOGRAPHIE (US 5.2)
+    if ($method === 'GET' && $uri === '/api/v1/stats/kpis') {
+        if (!$isAuthenticated || (!in_array('stats.view', $permissions, true) && !in_array('finances.manage', $permissions, true) && !$isSuperadmin)) {
+            $logUnauthorizedAttempt($uri);
+            sendJson([
+                'status'  => 'error',
+                'code'    => 403,
+                'message' => 'Accès refusé aux statistiques.',
+                'data'    => null
+            ]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->getKpis($currentUserId, $currentRole, $isSuperadmin));
+    }
+
+    if ($method === 'GET' && $uri === '/api/v1/stats/demographics') {
+        if (!$isAuthenticated || (!in_array('stats.view', $permissions, true) && !$isSuperadmin)) {
+            $logUnauthorizedAttempt($uri);
+            sendJson([
+                'status'  => 'error',
+                'code'    => 403,
+                'message' => 'Accès refusé aux données démographiques.',
+                'data'    => null
+            ]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->getDemographics($currentUserId, $currentRole, $isSuperadmin));
+    }
+
     sendJson([
         'status'  => 'error',
         'code'    => 404,

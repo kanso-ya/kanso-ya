@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTwoFactorControls();
     initPasswordForm();
     initClubBusinessSettingsForm();
+    initRolloverControls();
 
     window.addEventListener('kanso:auth-ready', async (e: Event) => {
         const ctx = (e as CustomEvent<AuthContext>).detail;
@@ -251,5 +252,51 @@ async function loadAuditLogs(): Promise<void> {
             <td class="p-3 text-slate-400">${log.created_at || ''}</td>
         `;
         tbody.appendChild(tr);
+    });
+}
+
+function initRolloverControls(): void {
+    const btnOpen = document.getElementById('btn-open-rollover-modal');
+    const modal = document.getElementById('rollover-confirm-modal');
+    const btnCancel = document.getElementById('btn-cancel-rollover');
+    const btnConfirm = document.getElementById('btn-confirm-rollover') as HTMLButtonElement | null;
+    const targetSeasonInput = document.getElementById('rollover-target-season') as HTMLInputElement | null;
+    const refDateInput = document.getElementById('rollover-reference-date') as HTMLInputElement | null;
+
+    if (!btnOpen || !modal) return;
+
+    btnOpen.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+    });
+
+    btnCancel?.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    btnConfirm?.addEventListener('click', async () => {
+        setButtonLoading(btnConfirm, true, 'Confirmer le basculement');
+        try {
+            const payload = {
+                target_season: targetSeasonInput?.value.trim() || '2027-2028',
+                reference_date: refDateInput?.value.trim() || '2027-09-01'
+            };
+            const res = await fetchApi<{
+                target_season: string;
+                promoted_count: number;
+                forced_ignored_count: number;
+                closed_registrations_count: number;
+            }>('/api/v1/tasks/rollover-season', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 'success' && res.data) {
+                showToast(`Basculement vers ${res.data.target_season} réussi ! (${res.data.promoted_count} promu(s), ${res.data.forced_ignored_count} surclassé(s) préservé(s))`, 'success');
+                modal.classList.add('hidden');
+                await loadAuditLogs();
+            }
+        } finally {
+            setButtonLoading(btnConfirm, false, 'Confirmer le basculement');
+        }
     });
 }

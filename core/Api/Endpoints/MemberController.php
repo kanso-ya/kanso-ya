@@ -64,7 +64,7 @@ final class MemberController
 
                 // Récupération des disciplines et grades pratiqués
                 $stmtPrac = $this->db->prepare("
-                    SELECT mp.id AS practice_id, mp.discipline_id, mp.grade_id, mp.level_id,
+                    SELECT mp.id AS practice_id, mp.discipline_id, mp.grade_id, mp.level_id, mp.is_category_forced, mp.season,
                            d.name AS discipline_name, g.name AS grade_name, n.name AS niveau_name, n.color_hex
                     FROM member_practices mp
                     INNER JOIN disciplines d ON mp.discipline_id = d.id

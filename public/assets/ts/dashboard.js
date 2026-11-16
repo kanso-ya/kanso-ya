@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTwoFactorControls();
     initPasswordForm();
     initClubBusinessSettingsForm();
+    initRolloverControls();
     window.addEventListener('kanso:auth-ready', async (e) => {
         const ctx = e.detail;
         if (ctx.role === 'Président') {
@@ -215,5 +216,42 @@ async function loadAuditLogs() {
             <td class="p-3 text-slate-400">${log.created_at || ''}</td>
         `;
         tbody.appendChild(tr);
+    });
+}
+function initRolloverControls() {
+    const btnOpen = document.getElementById('btn-open-rollover-modal');
+    const modal = document.getElementById('rollover-confirm-modal');
+    const btnCancel = document.getElementById('btn-cancel-rollover');
+    const btnConfirm = document.getElementById('btn-confirm-rollover');
+    const targetSeasonInput = document.getElementById('rollover-target-season');
+    const refDateInput = document.getElementById('rollover-reference-date');
+    if (!btnOpen || !modal)
+        return;
+    btnOpen.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+    });
+    btnCancel?.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    btnConfirm?.addEventListener('click', async () => {
+        setButtonLoading(btnConfirm, true, 'Confirmer le basculement');
+        try {
+            const payload = {
+                target_season: targetSeasonInput?.value.trim() || '2027-2028',
+                reference_date: refDateInput?.value.trim() || '2027-09-01'
+            };
+            const res = await fetchApi('/api/v1/tasks/rollover-season', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            if (res.status === 'success' && res.data) {
+                showToast(`Basculement vers ${res.data.target_season} réussi ! (${res.data.promoted_count} promu(s), ${res.data.forced_ignored_count} surclassé(s) préservé(s))`, 'success');
+                modal.classList.add('hidden');
+                await loadAuditLogs();
+            }
+        }
+        finally {
+            setButtonLoading(btnConfirm, false, 'Confirmer le basculement');
+        }
     });
 }

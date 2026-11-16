@@ -324,6 +324,16 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 
 ---
 
+### 5.6. Domaine 6 : Automatisation, Changement de Saison & Statistiques Avancées (Sprint 5)
+
+| Méthode | Route                            | Rôle / Droits Requis                                      | Payload Requis                                              | Réponse `data`                                                                 |
+| :------ | :------------------------------- | :-------------------------------------------------------- | :---------------------------------------------------------- | :----------------------------------------------------------------------------- |
+| `POST`  | `/api/v1/tasks/rollover-season`  | Président ou Superadmin                                   | `{ "target_season"?: string, "reference_date"?: string }`   | `{ "target_season", "promoted_count", "forced_ignored_count", "closed_count" }` |
+| `GET`   | `/api/v1/stats/kpis`             | `stats.view`, `finances.manage` ou Superadmin (RGPD Enseignant) | Aucun                                                       | `{ "total_members", "active_members", "renewal_rate", "finances": {...}\|null }`|
+| `GET`   | `/api/v1/stats/demographics`     | `stats.view` ou Superadmin                                | Aucun                                                       | `{ "age_bands", "gender_ratio", "discipline_occupancy": [...] }`               |
+
+---
+
 ## 6. Architecture Frontend MPA & Modules TypeScript
 
 ### 6.1. Le Gabarit Maître (`layout.php`)
