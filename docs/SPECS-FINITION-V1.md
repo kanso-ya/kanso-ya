@@ -115,9 +115,10 @@ Ce document formalise les spécifications fonctionnelles détaillées issues des
      - Téléphone principal ;
      - Lien de parenté (Père, Mère, Conjoint, Autre) ;
      - Téléphone secondaire facultatif.
-5. **Règle S8-05 (Résilience du Formulaire / Brouillon Local) :**
-   - Les étapes franchies du formulaire d'inscription sont persistées dans `localStorage.getItem('kanso_reg_draft')`.
-   - En cas de fermeture inopinée du navigateur ou de rechargement de page, un bandeau informatif propose : *"Un brouillon d'inscription en cours a été détecté. Souhaitez-vous le restaurer ?"* avec boutons `Restaurer` et `Effacer`.
+5. **Règle S8-05 (Résilience & Restauration Automatique Silencieuse du Brouillon) :**
+   - Toutes les étapes et données saisies dans le formulaire d'inscription sont persistées en temps réel dans `localStorage.getItem('kanso_reg_draft')` à chaque modification.
+   - Lors d'un retour depuis la page `/questionnaire-sante` ou lors d'un rafraîchissement/fermeture accidentelle de la page, la restauration s'opère de manière **100% automatique et transparente** sans nécessiter aucun clic sur un bouton manuel.
+   - Le tunnel réhydrate l'ensemble des champs (responsable, adhérents, disciplines, contacts) et positionne immédiatement l'utilisateur sur la première étape incomplète.
 6. **Règle S8-06 (Modale de Pré-Soumission) :**
    - Avant envoi final au serveur (`POST /api/v1/registrations`), une modale récapitule :
      - Les adhérents déclarés avec disciplines et tarifs ;
@@ -151,7 +152,7 @@ Ce document formalise les spécifications fonctionnelles détaillées issues des
 - `#health-mode-selector` / `data-testid="health-mode-selector"` : Sélecteur Attestation Cerfa / Certificat.
 - `#cerfa-minor-form` / `data-testid="cerfa-minor-form"` : Questionnaire santé mineurs.
 - `#cerfa-adult-form` / `data-testid="cerfa-adult-form"` : Questionnaire santé adultes.
-- `#btn-restore-draft` / `data-testid="btn-restore-draft"` : Bouton de restauration du brouillon local.
+- `#reg-draft-auto-restored-indicator` / `data-testid="reg-draft-auto-restored-indicator"` : Indicateur visuel discret de restauration automatique du brouillon.
 - `#pre-submit-modal` / `data-testid="pre-submit-modal"` : Modale de confirmation récapitulative.
 - `#btn-confirm-registration` / `data-testid="btn-confirm-registration"` : Validation définitive.
 
@@ -270,7 +271,7 @@ Ce document formalise les spécifications fonctionnelles détaillées issues des
 | **13** | RGPD | **S8** | Cloisonnement données santé (seule l'attestation est stockée) | `health_attestation_signed` |
 | **14** | Inscriptions| **S8** | Contacts d'urgence enrichis (tél secondaire, parenté) | `#reg-emerg-phone-secondary` |
 | **15** | Sécurité | **S7** | Bloc explicite des règles de mot de passe & modale confirmation | `#password-requirements-card` |
-| **16** | Wizard | **S8** | Sauvegarde locale du brouillon dans `localStorage` | `#btn-restore-draft` |
+| **16** | Wizard | **S8** | Sauvegarde & restauration automatique silencieuse du brouillon | `localStorage`, saut étape auto |
 | **17** | Inscriptions| **S8** | Modale récapitulative et consentements pré-soumission | `#pre-submit-modal` |
 | **18** | CMS | **S9** | Traçabilité `created_by` et `updated_by` sur la table `articles` | `articles.created_by` |
 | **19** | CMS | **S9** | Affichage auteur original et dernier éditeur dans Studio CMS | `#article-editor-info` |
@@ -290,3 +291,130 @@ Ce document formalise les spécifications fonctionnelles détaillées issues des
 | **33** | Accessibilité| **S10**| Conformité WCAG 2.1 niveau AA, Focus traps et ARIA | `aria-label`, `.focus-trap` |
 | **34** | SEO/Prod | **S10**| Métadonnées OpenGraph, Favicon dynamique, robots.txt | `<meta property="og:image">` |
 | **35** | Système | **S7** | Multi-Superadmin (`sys_superadmins`, `POST /api/v1/sys/superadmins`) | `POST /api/v1/sys/superadmins` |
+
+---
+
+## 7. Spécifications Détaillées des 17 Correctifs Post-Recette (Blocs 1, 2 et 3)
+
+### 7.1. Bloc 1 : Console Superadmin, Sécurité & Thème (Points 1 à 4)
+
+#### Point 1 : Interdiction Stricte de `/cms` pour le Rôle Superadmin
+- **Exigence Métier :** Le compte Superadmin assure exclusivement l'administration technique, l'intégrité de la BDD, le monitoring et les réglages système. Il n'a aucun droit de regard, d'écriture ou de publication sur la vie éditoriale du club (`/cms`).
+- **Comportement Attendu :**
+  - Navigation directe vers `/cms` : refus immédiat avec code HTTP 200 JSend 403 (`Droits insuffisants : l'administration technique n'a pas accès au CMS`) et redirection ou affichage d'un écran d'accès refusé.
+  - Sidebar : le lien "Articles & Pages" est masqué dès lors que le persona actif est Superadmin.
+  - Endpoints d'API `/api/v1/articles*` : rejet 403 systématique si la requête émane d'une session ou d'un token Superadmin.
+
+#### Point 2 : Gestion du Mot de Passe Superadmin & Comptes Secondaires
+- **Exigence Métier :** Offrir au Superadmin en place la possibilité de modifier son mot de passe technique et de créer de façon robuste des Superadmins secondaires.
+- **Règles & Endpoints :**
+  - `PATCH /api/v1/sys/password` : vérifie `current_password`, valide la complexité (8+ caractères, majuscule, minuscule, chiffre, symbole) de `new_password`, hache avec `password_hash(PASSWORD_BCRYPT)` et met à jour `sys_superadmins`.
+  - `POST /api/v1/sys/superadmins` : accepte obligatoirement `username`, `email` et `password`. Vérifie l'unicité du `username` et du format e-mail (rejet 409 si déjà existant). Insère le compte avec traçabilité dans `sys_logs`.
+
+#### Point 3 : Vue d'Ensemble Synthétique, Tableau des Modules Réel & Audit
+- **Exigence Métier :** La console `/sys-console` doit présenter un tableau de bord moderne et opérationnel :
+  - **4 KPIs Synthétiques :**
+    - `#kpi-active-modules` : Nombre de modules actifs vs installés (ex: `1 / 3`).
+    - `#kpi-total-superadmins` : Nombre de comptes Superadmin enregistrés.
+    - `#kpi-recent-logs` : Nombre d'événements consignés dans `sys_logs` sur les dernières 24h.
+    - `#kpi-db-size` : Taille du fichier SQLite `kanso_ya.sqlite` en kilo-octets/méga-octets.
+  - **Registre des Modules Réel :** Le tableau des modules doit refléter les modules effectivement présents dans `/modules/` (`Boutique`, `CrashTest`, `IncompatibleModule`). Un bouton `#btn-scan-modules` déclenche le scan et met à jour dynamiquement un compteur `#module-scan-counter`.
+  - **Traces d'Audit Récents :** Affichage paginé des 10 dernières actions consignées dans `sys_logs` avec horodatage, action et adresse IP.
+
+#### Point 4 : Application Universelle du Thème Dynamique
+- **Exigence Métier :** Les variables CSS `--brand-primary` et `--brand-accent` définies dans les paramètres de branding doivent s'appliquer sur 100% des éléments interactifs :
+  - Tous les boutons d'action principale (`.btn-primary`, validation, sauvegarde).
+  - Les liens textuels actifs, bordures d'onglets sélectionnés, boutons d'ajout au panier.
+  - Les badges de mise en avant et le fil d'Ariane du tunnel d'inscription.
+
+---
+
+### 7.2. Bloc 2 : Séparation Profil/Club, Inscription Résiliente & Ergonomie Tableaux (Points 5 à 11)
+
+#### Point 5 : Séparation Stricte entre `/dashboard` et `/settings`
+- **Exigence Métier :** Cloisonnement rigoureux entre l'espace individuel de l'adhérent et l'espace institutionnel de gestion du club :
+  - **`/dashboard` ("Mon Profil") :** Vue réservée à l'adhérent / tuteur pour consulter ses données personnelles, gérer les fiches de ses enfants/ayants droit rattachés, téléverser les pièces médicales et télécharger ses attestations/reçus. **Retrait absolu** du Rollover, des paramètres du club et des journaux d'audit de cette page.
+  - **`/settings` ("Paramètres du Club") :** Vue d'administration réservée au Président et Secrétaire (`settings.manage`). Regroupe les coordonnées du club, la gestion du Rollover de saison avec bouton sécurisé, les journaux d'audit de la vie du club (`app_logs`) et les configurations globales.
+
+#### Point 6 : Capacité Théorique par Discipline dans `/settings`
+- **Exigence Métier :** Permettre au Bureau de définir une capacité d'accueil maximale par discipline/cours via le paramètre `default_course_capacity` dans `sys_settings`.
+- **Impact Analytique :** Cette valeur sert d'étalon de référence pour alimenter les jauges de remplissage et les taux d'occupation présentés sur `/stats` et sur la page publique `/horaires`.
+
+#### Point 7 : Gestion et Édition des Pages Institutionnelles dans `/settings`
+- **Exigence Métier :** Donner la main au Bureau associatif dans `/settings` pour modifier directement le contenu rédactionnel des pages fixes du pied de page :
+  - `/horaires` : Présentation des créneaux et modalités d'accueil.
+  - `/mentions-legales` : Informations juridiques de l'association (SIRET, RNA, siège social).
+  - `/rgpd` : Politique de protection des données personnelles.
+  - `/cgv` : Conditions générales de vente et d'adhésion.
+- **Interface :** Formulaire avec sélection de la page via menu déroulant, éditeur de contenu et sauvegarde via `PUT /api/v1/pages/:slug`.
+
+#### Point 8 : Sauvegarde & Restauration Automatique Silencieuse du Brouillon d'Inscription
+- **Exigence Métier :** Éliminer tout risque de perte de données lors du tunnel d'inscription en ligne sans imposer de friction cognitive à l'utilisateur :
+  - Sauvegarde continue et transparente dans `localStorage` à chaque modification de champ ou validation d'étape.
+  - **Restauration 100% automatique et silencieuse :** au retour de la page `/questionnaire-sante` ou lors d'un rafraîchissement/fermeture intempestive, le tunnel réinjecte automatiquement les données sans afficher de bandeau préalable ni nécessiter de clic sur un bouton "Restaurer".
+  - L'écran s'ouvre directement sur la **première étape incomplète** avec affichage d'un toast ou badge discret `#reg-draft-auto-restored-indicator` notifiant l'utilisateur que sa progression a été conservée.
+
+#### Point 9 : Optimisation Pleine Largeur de l'Annuaire `/members`
+- **Exigence Métier :** Maximiser la surface de visualisation des adhérents pour supprimer le défilement horizontal superflu :
+  - Tableau prenant 100% de la largeur du conteneur (`w-full`).
+  - Colonnes optimisées (Photo/Avatar, Nom & Prénom, Date de naissance / Catégorie, Disciplines & Ceintures, Tuteurs rattachés, Statut médical, Statut d'adhésion).
+  - Actions compactes regroupées dans la dernière colonne sous forme de boutons icônes avec infobulles (Consulter, Modifier, Certificat, Renvoi OTP, Radier).
+
+#### Point 10 : Trésorerie `/registrations` avec Boutons Icônes & Tooltips
+- **Exigence Métier :** Remplacer les boutons textuels encombrants par une barre d'actions compacte et élégante :
+  - Boutons icônes SVG :
+    - `Inspecter` : icône œil (`data-testid="btn-inspect-registration"`).
+    - `Valider le règlement` : icône coche verte (`data-testid="btn-validate-registration"`).
+    - `Télécharger le Reçu` : icône reçu/document (`data-testid="btn-download-receipt"`).
+    - `Télécharger l'Attestation` : icône diplôme/badge (`data-testid="btn-download-attestation"`).
+    - `Radier / Restaurer` : icône poubelle/recyclage (`data-testid="btn-radiate-registration"`).
+  - Chaque bouton dispose obligatoirement d'un attribut `title` et `aria-label` déclenchant une infobulle native claire au survol.
+
+#### Point 11 : Nettoyage Ergonomique de `/disciplines` & `/roles`
+- **Exigence Métier :**
+  - **`/disciplines` :** Suppression définitive des parenthèses superflues autour des noms de disciplines dans les onglets. Les badges numériques indiquant le nombre d'adhérents inscrits deviennent des liens interactifs cliquables qui redirigent vers `/members` avec le filtre de discipline pré-activé.
+  - **`/roles` :** Suppression définitive des cartes redondantes affichées sous le tableau de la matrice des permissions. Seule la matrice unique multi-colonnes avec colonnes figées (`sticky`) subsiste, évitant la duplication d'informations.
+
+---
+
+### 7.3. Bloc 3 : Studio CMS Révolutionné (Points 12 à 17)
+
+#### Point 12 : Drag & Drop Universel dans le Builder CMS
+- **Exigence Métier :** Expérience de mise en page moderne basée sur l'API HTML5 Drag and Drop :
+  - **Palette vers Conteneur :** Les blocs de composants (Texte riche, Titre, Image/Galerie, Vidéo, Encadré d'appel) peuvent être glissés depuis la barre d'outils `#cms-component-palette` directement dans l'une des colonnes de l'éditeur.
+  - **Réordonnancement Dynamique :** Tout bloc déjà inséré dans une colonne peut être déplacé par glisser-déposer au sein de la même colonne (intra-colonne) ou transféré vers l'autre colonne (inter-colonnes) avec un indicateur visuel de zone de largage (`drop-zone-active`).
+
+#### Point 13 : Colonnes Asymétriques à Proportions Réglables Figées
+- **Exigence Métier :** Le gabarit à 2 colonnes ne doit plus être limité à un ratio rigide 50/50 :
+  - Un sélecteur de proportions visuel permet de choisir entre plusieurs configurations : 50/50, 70/30 (colonne principale + barre latérale) ou 30/70.
+  - Le ratio sélectionné est encodé sous forme d'attribut de style en ligne sécurisé (ex: `style="flex: 0 0 70%;"` et `style="flex: 0 0 30%;"`).
+  - L'assainisseur HTML backend (`CmsController::sanitizeHtml()`) préserve scrupuleusement ces propriétés CSS de mise en page pour garantir un rendu public strictement identique à la prévisualisation dans l'éditeur.
+
+#### Point 14 : Lecteur Vidéo Léger Intégré
+- **Exigence Métier :** Support direct des formats vidéo web (`video/mp4`, `video/webm`) jusqu'à une limite de 25 Mo via `POST /api/v1/articles/media`.
+- **Fonctionnalités du Lecteur :**
+  - Balise HTML5 `<video>` stylisée avec contrôles complets intégrés : Lecture (`play`), Pause, Arrêt (`stop`), Curseur de volume et barre de progression temporelle.
+  - Téléchargement asynchrone des médias avec prévisualisation immédiate dans le bloc d'édition.
+  - Préservation intégrale des balises `<video>` et `<source>` lors de la publication de l'article.
+
+#### Point 15 : Composant Multimédia Polyvalent (Photo Unique vs Carrousel)
+- **Exigence Métier :** Dans le Studio Builder, le bloc multimédia offre une bascule interactive entre deux modes d'affichage :
+  - **Mode Photo Unique :** Affichage d'une image plein cadre avec légende et effet de zoom léger au survol.
+  - **Mode Carrousel :** Permet d'associer plusieurs images au sein d'un même bloc avec choix du défilement :
+    - Carrousel Horizontal fluide avec glissement tactile (`scroll-snap-x mandatory`, boutons précédent/suivant et indicateurs de pagination).
+    - Carrousel Vertical compact pour formats de colonnes étroites.
+
+#### Point 16 : Filtres Combinés Multi-Critères dans la Liste des Publications
+- **Exigence Métier :** Faciliter la recherche et la gestion des contenus éditoriaux au sein de l'onglet Publications de `/cms` :
+  - Trois sélecteurs de filtrage combinables en temps réel :
+    - `#cms-filter-status` : Tous, Brouillons (`draft`), Publiés (`published`).
+    - `#cms-filter-category` : Filtrage par catégorie thématique (Actualités, Stages, Compétitions, Vie du Club).
+    - `#cms-filter-author` : Filtrage par auteur / rédacteur.
+  - L'application des filtres met à jour le tableau instantanément côté client sans latence réseau.
+
+#### Point 17 : Double Traçabilité Éditoriale Visible
+- **Exigence Métier :** Transparence et responsabilité éditoriale totale dans la gestion des articles :
+  - Chaque ligne d'article dans le tableau des publications affiche deux métadonnées distinctes :
+    - **Auteur Initial :** Prénom et Nom de l'utilisateur ayant créé le brouillon (`created_by`), accompagné de la date et l'heure de création.
+    - **Dernier Éditeur / Relecteur :** Prénom et Nom du dernier utilisateur ayant modifié le contenu ou changé le statut de publication (`updated_by`), accompagné du timestamp de révision.
+  - Si l'article n'a jamais été modifié après sa création, la mention "Aucune modification ultérieure" est affichée sobrement.

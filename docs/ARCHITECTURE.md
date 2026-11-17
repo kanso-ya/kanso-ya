@@ -230,6 +230,7 @@ Dans [`public/api.php`](file:///c:/laragon/www/kanso-ya/public/api.php), deux m�
 - **CSRF Token :** Tout utilisateur disposant d'une session reçoit un jeton cryptographique généré dans `$_SESSION['csrf_token']`. Ce jeton est exposé dans le DOM via `<meta name="csrf-token" content="...">`.
 - **Injection Client :** Le wrapper [`core/ui/ts/api.ts`](file:///c:/laragon/www/kanso-ya/core/ui/ts/api.ts) intercepte chaque requête mutative (`POST`, `PUT`, `PATCH`, `DELETE`) et injecte automatiquement l'en-tête HTTP `X-CSRF-Token`.
 - **Rétention Utilisateur (Soft Errors) :** Si l'API retourne une réponse `status: "error"`, le frontend TypeScript n'effectue jamais de redirection brutale. Il affiche une notification non intrusive (Toast) et laisse l'utilisateur sur son écran avec son contexte intact.
+- **Cloisonnement Strict du Superadmin & Interdiction de `/cms` :** Le compte Superadmin est une entité d'infrastructure système purement technique (gestion BDD, modules, branding, logs système). Il n'a aucune vocation éditoriale ou sportive au sein du club. Par conséquent, l'accès à la page `/cms` (gestion des articles et pages institutionnelles) ainsi qu'aux endpoints correspondants lui est formellement interdit (rejet systématique HTTP 200 JSend code 403 Forbidden et masquage strict du lien dans la sidebar).
 
 ### 4.4. Hooks de Recette QA & Personas
 
@@ -244,18 +245,19 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 
 ### 5.1. Domaine 1 : Authentification, Contexte & Profil
 
-| Méthode | Route                       | Rôle / Droits Requis      | Payload Requis                                           | Réponse `data`                                                |
-| :------ | :-------------------------- | :------------------------ | :------------------------------------------------------- | :------------------------------------------------------------ |
-| `POST`  | `/api/v1/auth/login`        | Public (Anonyme)          | `{ "email": string, "password": string }`                | Infos utilisateur & redirection                               |
-| `POST`  | `/api/v1/sys/auth/login`    | Furtif (Superadmin)       | `{ "username": string, "password": string }`             | Session Superadmin activée                                    |
-| `POST`  | `/api/v1/sys/superadmins`   | Superadmin uniquement     | `{ "username": string, "password": string, "email"?: string }` | `{ "id": int, "username": string, "email": string }` (Superadmin secondaire créé) |
-| `GET`   | `/api/v1/sys/superadmins`   | Superadmin uniquement     | Aucun                                                    | Liste des comptes Superadmin enregistrés                      |
-| `POST`  | `/api/v1/auth/logout`       | Connecté                  | Aucun                                                    | Déconnexion confirmée                                         |
-| `GET`   | `/api/v1/auth/me`           | Tous (y compris Visiteur) | Aucun                                                    | `{ "user_id": int, "role": string, "permissions": string[] }` |
-| `GET`   | `/api/v1/users/me/profile`  | Connecté                  | Aucun                                                    | Profil complet avec `custom_fields`                           |
-| `PUT`   | `/api/v1/users/me/profile`  | Connecté                  | Coordonnées, `custom_fields`                             | Profil mis à jour                                             |
-| `POST`  | `/api/v1/users/me/2fa`      | Connecté                  | `{ "enabled": bool, "secret"?: string }`                 | Statut 2FA mis à jour                                         |
-| `PATCH` | `/api/v1/users/me/password` | Connecté                  | `{ "current_password": string, "new_password": string }` | Confirmation du mot de passe                                  |
+| Méthode | Route                         | Rôle / Droits Requis      | Payload Requis                                           | Réponse `data`                                                |
+| :------ | :---------------------------- | :------------------------ | :------------------------------------------------------- | :------------------------------------------------------------ |
+| `POST`  | `/api/v1/auth/login`          | Public (Anonyme)          | `{ "email": string, "password": string }`                | Infos utilisateur & redirection                               |
+| `POST`  | `/api/v1/sys/auth/login`      | Furtif (Superadmin)       | `{ "username": string, "password": string }`             | Session Superadmin activée                                    |
+| `POST`  | `/api/v1/sys/superadmins`     | Superadmin uniquement     | `{ "username": string, "email": string, "password": string }` | `{ "id": int, "username": string, "email": string }` (Superadmin secondaire créé avec contrôle d'unicité) |
+| `GET`   | `/api/v1/sys/superadmins`     | Superadmin uniquement     | Aucun                                                    | Liste des comptes Superadmin enregistrés                      |
+| `PATCH` | `/api/v1/sys/password`        | Superadmin uniquement     | `{ "current_password": string, "new_password": string }` | Confirmation de mise à jour du mot de passe technique         |
+| `POST`  | `/api/v1/auth/logout`         | Connecté                  | Aucun                                                    | Déconnexion confirmée                                         |
+| `GET`   | `/api/v1/auth/me`             | Tous (y compris Visiteur) | Aucun                                                    | `{ "user_id": int, "role": string, "permissions": string[] }` |
+| `GET`   | `/api/v1/users/me/profile`    | Connecté                  | Aucun                                                    | Profil complet avec `custom_fields`                           |
+| `PUT`   | `/api/v1/users/me/profile`    | Connecté                  | Coordonnées, `custom_fields`                             | Profil mis à jour                                             |
+| `POST`  | `/api/v1/users/me/2fa`        | Connecté                  | `{ "enabled": bool, "secret"?: string }`                 | Statut 2FA mis à jour                                         |
+| `PATCH` | `/api/v1/users/me/password`   | Connecté                  | `{ "current_password": string, "new_password": string }` | Confirmation du mot de passe                                  |
 
 ---
 
@@ -290,6 +292,9 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 
 ### 5.4. Domaine 4 : Studio CMS, Médias & Pages Fixes
 
+> [!IMPORTANT]
+> **Interdiction stricte du Superadmin :** Toute tentative de navigation vers `/cms` ou d'appel aux routes `/api/v1/articles*` par un compte Superadmin est rejetée avec une réponse HTTP 200 JSend code 403 Forbidden (`Droits insuffisants : l'administration technique n'a pas accès au CMS`). Le lien est masqué dans la sidebar.
+
 | Méthode  | Route                         | Rôle / Droits Requis                                      | Payload Requis                                                  | Réponse `data`                    |
 | :------- | :---------------------------- | :-------------------------------------------------------- | :-------------------------------------------------------------- | :-------------------------------- |
 | `GET`    | `/api/v1/articles`            | Public (filtré selon rôle)                                | Aucun                                                           | Liste des articles visibles       |
@@ -298,10 +303,14 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 | `PUT`    | `/api/v1/articles/:id`        | `articles.write` ou `articles.publish`                    | Données de l'article                                            | Article mis à jour + mise à jour `updated_by` et timestamp `updated_at` |
 | `DELETE` | `/api/v1/articles/:id`        | `articles.publish`                                        | Aucun                                                           | Article supprimé                  |
 | `PATCH`  | `/api/v1/articles/:id/status` | `articles.publish`                                        | `{ "status": "draft" \| "published" }`                          | Statut éditorial modifié          |
-| `POST`   | `/api/v1/articles/media`      | `articles.write`                                          | `multipart/form-data`                                           | URL de l'image insérée            |
+| `POST`   | `/api/v1/articles/media`      | `articles.write`                                          | `multipart/form-data` (Images JPEG/PNG/WebP ou Vidéos MP4/WebM max 25 Mo) | `{ "url": string, "type": "image" \| "video" }` |
 | `GET`    | `/api/v1/pages`               | Public                                                    | Aucun                                                           | Liste des pages légales           |
 | `GET`    | `/api/v1/pages/:slug`         | Public (404 si `draft` pour visiteur)                     | Aucun                                                           | Contenu HTML de la page légale    |
-| `PUT`    | `/api/v1/pages/:slug`         | `pages.manage` ou Superadmin                              | `{ "title": string, "content": string, "status": string }`      | Page institutionnelle sauvegardée |
+| `PUT`    | `/api/v1/pages/:slug`         | `pages.manage` ou Président                               | `{ "title": string, "content": string, "status": string }`      | Page institutionnelle sauvegardée |
+
+#### Règles de Nettoyage HTML & Support Multimédia (`CmsController::sanitizeHtml()`)
+- **Préservation des balises vidéo :** Conservation explicite des éléments `<video controls preload="metadata" ...><source src="..." type="video/mp4"></video>` pour permettre l'insertion de séquences sportives et démonstrations.
+- **Préservation des styles de disposition asymétriques :** Préservation des attributs `style` de dimensionnement et de flexbox (ex: `style="width: ...; flex: 0 0 70%;"` et `style="flex: 0 0 30%;"`) pour figer fidèlement les proportions personnalisées des colonnes configurées dans le Studio CMS Builder.
 
 ---
 
@@ -323,7 +332,7 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 | `POST`      | `/api/v1/sys/branding-upload` | Superadmin uniquement                    | `multipart/form-data` (logo ou filigrane)       | URL publique de l'actif uploadé            |
 | `GET`       | `/api/v1/app-logs`            | `roles.manage` ou `logs.view`            | Aucun                                           | Entrées d'audit de la vie du club          |
 | `GET`       | `/api/v1/settings`            | Connecté                                 | Aucun                                           | Paires clé-valeur de `sys_settings`        |
-| `PATCH`     | `/api/v1/settings`            | `settings.manage` ou Superadmin          | `{ "settings": { "key": "value" } }`            | Configuration mise à jour (incluant remises: `discount_threshold`, `discount_type`, `discount_value` et santé: `medical_cert_mode`) |
+| `PATCH`     | `/api/v1/settings`            | `settings.manage` ou Superadmin          | `{ "settings": { "key": "value" } }`            | Configuration mise à jour (incluant remises: `discount_threshold`, `discount_type`, `discount_value`, santé: `medical_cert_mode`, et capacité théorique globale par discipline: `default_course_capacity`) |
 
 ---
 

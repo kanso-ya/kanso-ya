@@ -411,4 +411,68 @@ flowchart TD
   - Validation des rejets 401/403 et de la résilience aux injections / fraudes OTP.
   - Exécution sans accroc du Grand Chelem UAT interconnecté.
 
+---
+
+## 7. Phase de Correctifs Post-Recette (Blocs 1, 2 et 3 - 17 Points)
+
+Cette phase regroupe l'ensemble des 17 correctifs issus de la campagne de recette fonctionnelle manuelle, organisés en 3 blocs d'exécution prioritaires :
+
+```mermaid
+flowchart LR
+    subgraph B1["Bloc 1 : Console Superadmin, Sécurité & Thème"]
+        P1["Point 1: Interdiction /cms Superadmin (403)"]
+        P2["Point 2: MDP Superadmin & Secondaires"]
+        P3["Point 3: KPIs, Modules réels & Audit"]
+        P4["Point 4: Thème dynamique universel"]
+    end
+
+    subgraph B2["Bloc 2 : Séparation Profil/Club, Inscription & Tableaux"]
+        P5["Point 5: Séparation /dashboard vs /settings"]
+        P6["Point 6: Capacité théorique cours"]
+        P7["Point 7: Édition pages footer dans /settings"]
+        P8["Point 8: Restauration auto silencieuse brouillon"]
+        P9["Point 9: /members pleine largeur & compact"]
+        P10["Point 10: /registrations boutons icônes"]
+        P11["Point 11: /disciplines propre & /roles épuré"]
+    end
+
+    subgraph B3["Bloc 3 : Studio CMS Révolutionné"]
+        P12["Point 12: Drag & Drop palette + intra-colonne"]
+        P13["Point 13: 2 colonnes asymétriques réglables"]
+        P14["Point 14: Lecteur vidéo léger (mp4/webm)"]
+        P15["Point 15: Photo simple ou carrousel"]
+        P16["Point 16: Filtres combinés articles"]
+        P17["Point 17: Double traçabilité created_by/updated_by"]
+    end
+
+    B1 --> B2 --> B3
+```
+
+### 7.1. Bloc 1 : Console Superadmin, Sécurité & Thème (Points 1 à 4)
+- **Point 1 - Interdiction stricte de `/cms` pour le Superadmin :** Refus d'accès avec HTTP 200 JSend 403 (`Droits insuffisants`) et masquage du lien dans la navigation latérale. L'administration technique est strictement découplée du contenu associatif.
+- **Point 2 - Gestion des identifiants Superadmin :** Implémentation du changement de mot de passe technique via `PATCH /api/v1/sys/password` (validation complexité, hachage) et fiabilisation de la création de Superadmins secondaires via `POST /api/v1/sys/superadmins` (contrôle d'unicité, validation des champs `username`, `email`, `password`).
+- **Point 3 - Console synthétique & Registre des modules :** Affichage d'un tableau de bord de synthèse avec 4 cartes KPIs (Modules actifs/total, Comptes Superadmin, Logs techniques récents, Poids base SQLite), tableau des modules réellement scanné et synchronisé en BDD avec indicateur visuel de scan, et conservation indélébile des traces d'audit récentes.
+- **Point 4 - Thème dynamique réel :** Application sans exception des variables CSS `--brand-primary` et `--brand-accent` sur tous les boutons d'action du site (`btn-primary`), les bordures d'accentuation, les sélecteurs actifs et les liens du tunnel d'inscription.
+
+### 7.2. Bloc 2 : Séparation Profil/Club, Inscription Résiliente & Ergonomie Tableaux (Points 5 à 11)
+- **Point 5 - Séparation stricte `/dashboard` vs `/settings` :**
+  - `/dashboard` est exclusivement l'espace adhérent / représentant légal ("Mon profil" : coordonnées personnelles, gestion des enfants et personnes rattachées, téléchargement des attestations). Retrait définitif du Rollover, des paramètres du club et des journaux d'audit de cette vue.
+  - `/settings` devient le centre d'administration du club réservé au Bureau/Président ("Paramètres du club" : informations de contact du club, déclenchement sécurisé du Rollover de saison, consultation des logs de vie du club).
+- **Point 6 - Capacité théorique des disciplines :** Ajout de la clé `default_course_capacity` dans les paramètres du club (`sys_settings`), servant de base de calcul pour les jauges d'occupation et indicateurs de saturation de `/stats`.
+- **Point 7 - Édition des pages institutionnelles dans `/settings` :** Intégration d'un panneau d'édition simplifié permettant au Bureau de personnaliser le contenu des pages légales et informatives du pied de page (`/horaires`, `/mentions-legales`, `/rgpd`, `/cgv`).
+- **Point 8 - Sauvegarde & Restauration automatique transparente du tunnel d'inscription :** Sauvegarde temps réel dans `localStorage` à chaque saisie. Lors du retour du questionnaire de santé (`/questionnaire-sante`) ou après un rechargement de page, restauration 100% automatique et silencieuse (sans bandeau ni clic de confirmation) avec repositionnement immédiat sur la première étape incomplète.
+- **Point 9 - Ergonomie optimisée de l'annuaire `/members` :** Tableau étendu en pleine largeur avec colonnes optimisées et boutons d'actions compacts (icônes avec infobulles) dans la colonne finale pour supprimer le défilement horizontal inutile.
+- **Point 10 - Ergonomie de la trésorerie `/registrations` :** Remplacement des libellés textuels volumineux par des boutons d'actions icônes élégants assortis d'infobulles contextuelles claires (`title` / `aria-label`) pour les actions Inspecter, Valider, Reçu, Attestation, et Radier.
+- **Point 11 - Nettoyage ergonomique `/disciplines` et `/roles` :**
+  - `/disciplines` : Suppression des parenthèses disgracieuses dans les onglets de disciplines, transformation des badges de comptage d'effectifs en liens cliquables filtrant directement l'annuaire.
+  - `/roles` : Suppression définitive des cartes redondantes situées sous la matrice des permissions, maintenant une interface tabulaire épurée à lecture unique.
+
+### 7.3. Bloc 3 : Studio CMS Révolutionné (Points 12 à 17)
+- **Point 12 - Drag & Drop universel dans le Studio CMS :** Capacité de glisser-déposer des blocs de contenu depuis la barre d'outils vers les colonnes cibles, ainsi que de réorganiser intuitivement les blocs par glisser-déposer intra-colonne et inter-colonnes.
+- **Point 13 - Mise en page 2 colonnes asymétriques à ratios réglables :** Possibilité de choisir et d'ajuster dynamiquement la proportion des 2 colonnes (ex: 70/30, 50/50, 30/70) via une réglette ou un sélecteur visuel, avec préservation stricte des styles de flexbox et dimensionnement dans le code HTML assaini (`CmsController::sanitizeHtml()`).
+- **Point 14 - Lecteur vidéo léger intégré :** Support des médias vidéo courts (`video/mp4`, `video/webm` jusqu'à 25 Mo) avec lecteur HTML5 intégré offrant des contrôles complets (lecture, pause, stop, réglage du volume, barre de progression) et intégration fluide dans les blocs éditoriaux.
+- **Point 15 - Composant photo simple ou carrousel :** Composant image polyvalent offrant une bascule fluide entre affichage d'une photographie unique et galerie en carrousel (défilement horizontal scroll-snap fluide ou mode vertical compact).
+- **Point 16 - Filtres combinés de la liste des articles :** Possibilité de filtrer simultanément les articles par statut éditorial (`draft`, `published`), par catégorie thématique et par auteur.
+- **Point 17 - Double traçabilité éditoriale :** Affichage clair et exhaustif dans le tableau des publications du Studio CMS de l'auteur d'origine (`created_by`) et du dernier éditeur/publieur (`updated_by`), garantissant une transparence totale de la chaîne de révision.
+
 
