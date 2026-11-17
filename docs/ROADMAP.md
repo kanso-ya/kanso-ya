@@ -301,15 +301,16 @@ npm run test:e2e
 * **Lancement Sprint 6 :** 01 décembre 2026
 * **Revue & Recette Finale Core v1.0.0 (Lot 3) :** 15 décembre 2026
 * **Sprint 7 (Socle, Navigation, Auth, Thème & Backup BDD) :** ✅ **100% VALIDÉ (150/150 Pass)**
-* **Lancement Sprint 8 (Inscriptions Avancées, Remises & Santé) :** Immédiat
-* **Lancement Sprint 9 (CRM, Studio CMS Traçable, Exports & Reçus) :** Fin Sprint 8
-* **Lancement Sprint 10 (Console Découpée, Extensibilité SDK & a11y) :** Fin Sprint 9
+* **Sprint 8 (Inscriptions Avancées, Remises & Santé) :** ✅ **100% VALIDÉ (162/162 Pass, commit ecfebe2)**
+* **Sprint 9 (CRM, Studio CMS Traçable, Exports & Reçus) :** ✅ **100% VALIDÉ (176/176 Pass, commit 4340bec)**
+* **Sprint 10 (Console Découpée, SDK, RBAC Sticky & Horaires) :** ✅ **100% VALIDÉ (188/188 Pass, commit c599fd2)**
+* **Sprint 11 (Lockdown Final Massif E2E & UAT) :** ✅ **100% VALIDÉ (208/208 Pass - Release v1.0.0-final)**
 
 ---
 
-## 6. Phase de Finition & Clôture Production (Sprints 7 à 10) — Les 35 Points de Recette
+## 6. Phase de Finition & Clôture Production (Sprints 7 à 11) — Les 35 Points de Recette
 
-La phase de finition intègre les **35 retours de recette manuelle** répartis rigoureusement en 4 sprints opérationnels :
+La phase de finition intègre les **35 retours de recette manuelle** répartis rigoureusement en 5 jalons opérationnels, désormais **100 % Achevés et Homologués** :
 
 ```mermaid
 flowchart TD
@@ -322,14 +323,14 @@ flowchart TD
         P6["Points 29 & 30 : Thème dynamique CSS --brand-primary / --brand-accent"]
     end
 
-    subgraph S8["Sprint 8 : Inscriptions Avancées, Remises & Santé (Points 7-9, 12-14, 16-17) 🚀"]
+    subgraph S8["Sprint 8 : Inscriptions Avancées, Remises & Santé (Points 7-9, 12-14, 16-17) ✅ VALIDÉ"]
         P7["Points 7 & 8 : Remises de cotisation paramétrables (% ou montant fixe) & calcul panier"]
         P8["Points 9, 12 & 13 : Mode certificat vs Questionnaire santé (/questionnaire-sante) & RGPD santé"]
         P9["Point 14 : Contacts d'urgence enrichis (téléphone secondaire, lien parenté)"]
         P10["Points 16 & 17 : Brouillon localStorage & Modale récapitulative pré-soumission"]
     end
 
-    subgraph S9["Sprint 9 : CRM, Studio CMS Traçable, Exports & Reçus (Points 18-26) 📋"]
+    subgraph S9["Sprint 9 : CRM, Studio CMS Traçable, Exports & Reçus (Points 18-26) ✅ VALIDÉ"]
         P11["Points 18 & 19 : Traçabilité auteur/éditeur (created_by, updated_by) sur articles CMS"]
         P12["Point 20 : Reçus de cotisation & Attestations CE/CSE téléchargeables"]
         P13["Point 21 : Export CSV/Excel filtré des adhérents selon permissions"]
@@ -337,38 +338,29 @@ flowchart TD
         P15["Points 24-26 : Actions groupées CRM, gestion des médias CMS & Tri multi-colonnes trésorerie"]
     end
 
-    subgraph S10["Sprint 10 : Console Découpée, SDK & Clôture Production (Points 27, 28, 31-34) 📋"]
+    subgraph S10["Sprint 10 : Console Découpée, SDK & Horaires Dynamiques (Points 27, 28, 31-34) ✅ VALIDÉ"]
         P16["Point 27 : Console Superadmin découpée (/sys-branding, /sys-smtp, /sys-modules, /sys-logs)"]
-        P17["Point 28 : Hook EventManager stats_tabs pour personnalisation analytique modulaire"]
+        P17["Point 28 : Matrice RBAC sticky avec toggles & hook EventManager stats_tabs"]
         P18["Points 31 & 32 : Templates d'e-mails transactionnels personnalisables & page dynamique /horaires"]
-        P19["Points 33 & 34 : Accessibilité WCAG AA, Focus traps, SEO OpenGraph, Favicon & Clôture v1.2.0"]
+        P19["Points 33 & 34 : Accessibilité WCAG AA, Modales Escape, SEO OpenGraph, Favicon"]
     end
 
-    S7 --> S8 --> S9 --> S10
+    subgraph S11["Sprint 11 : Lockdown Final Massif E2E & Homologation Générale ✅ VALIDÉ"]
+        P20["Lockdown 12 Suites E2E : Étanchéité absolue des 8 rôles, Sécurité, Concurrence & Grand Chelem UAT"]
+    end
+
+    S7 --> S8 --> S9 --> S10 --> S11
 ```
 
 ---
 
 ### 6.1. Sprint 7 (Achevé & Validé) : Socle, Navigation, Auth, Thème & Backup BDD
 * **Story Points :** 21 SP | **Statut :** ✅ **100% VALIDÉ EN RECETTE (150/150 Pass)**
-* **Points de Recette Couverts :**
-  - **Point 1 :** Révocation de toute session par défaut : tout nouvel arrivant est strictement `Visiteur` (`user_id = 0`, `role_name = 'Visiteur'`).
-  - **Point 2 :** Épuration du Header : suppression du badge de rôle et du bouton Espace Membre ; affichage de `Prénom Nom` uniquement si connecté.
-  - **Point 3 :** Sauvegarde et restauration SQLite Playwright bit-à-bit (`global-setup.ts` et `global-teardown.ts`).
-  - **Point 4 :** URLs propres sans `.php` (`/login`, `/register`, `/dashboard`, `/stats`, `/members`, `/registrations`, `/cms`, etc.).
-  - **Point 5 :** Refonte visuelle de `/login` avec branding club dynamique.
-  - **Point 6 :** Redirection post-connexion vers `/` pour les adhérents/bureau (et `/sys-console` pour le Superadmin).
-  - **Point 10 :** QR Code 2FA TOTP généré en SVG natif vectoriel renouvelé toutes les 30s.
-  - **Point 11 :** Bouton bascule `#btn-toggle-secret` pour afficher/masquer la clé secrète textuelle.
-  - **Point 15 :** Bloc explicite des règles de mot de passe, Toasts explicites et modale de confirmation.
-  - **Point 29 :** Application intégrale de `--brand-primary` sur tous les boutons principaux et éléments interactifs.
-  - **Point 30 :** Application intégrale de `--brand-accent` sur les badges et highlights.
-  - **Point 35 :** Multi-Superadmin (`sys_superadmins`, `POST /api/v1/sys/superadmins`, interface console).
 
 ---
 
-### 6.2. Sprint 8 (Prêt à l'Exécution) : Inscriptions Avancées, Remises Paramétrables & Santé
-* **Story Points :** 24 SP | **Statut :** 🚀 **Spécifié & Prêt au Démarrage**
+### 6.2. Sprint 8 (Achevé & Validé) : Inscriptions Avancées, Remises Paramétrables & Santé
+* **Story Points :** 24 SP | **Statut :** ✅ **100% VALIDÉ EN RECETTE (162/162 Pass, commit ecfebe2)**
 * **Points de Recette Couverts :**
   - **Point 7 :** Paramétrage des remises de cotisation dans `sys_settings` : seuil d'adhérents déclencheur (`discount_threshold`), type de remise (`discount_type` : `'percent'` ou `'fixed'`), valeur de la remise (`discount_value`).
   - **Point 8 :** Calcul dynamique de la remise dans le tunnel d'inscription public (`register.ts`) avec affichage transparent de la ligne de déduction dans le récapitulatif du panier.
@@ -381,32 +373,42 @@ flowchart TD
 
 ---
 
-### 6.3. Sprint 9 (Planifié) : CRM, Studio CMS Traçable, Exports & Reçus
-* **Story Points :** 26 SP | **Statut :** 📋 **Planifié**
+### 6.3. Sprint 9 (Achevé & Validé) : CRM, Studio CMS Traçable, Exports & Reçus
+* **Story Points :** 26 SP | **Statut :** ✅ **100% VALIDÉ EN RECETTE (176/176 Pass, commit 4340bec)**
 * **Points de Recette Couverts :**
   - **Point 18 :** Traçabilité éditoriale dans la table `articles` : colonnes `created_by` (auteur initial) et `updated_by` (dernier modificateur/publieur) associées à `created_at` et `updated_at`.
   - **Point 19 :** Affichage dans la liste des publications du Studio CMS du créateur de l'article et du dernier éditeur/relecteur.
-  - **Point 20 :** Module de génération et téléchargement de reçus d'adhésion et d'attestations CE/CSE (format PDF / impression web stylisée) pour les dossiers validés.
-  - **Point 21 :** Export CSV / Excel des effectifs CRM avec filtrage automatique selon les autorisations du rôle connecté (anonymisation stricte pour l'Entraîneur).
+  - **Point 20 :** Module de génération et téléchargement de reçus d'adhésion et d'attestations CE/CSE certifiés conformes pour les dossiers validés.
+  - **Point 21 :** Export CSV UTF-8 avec BOM `\uFEFF` des effectifs CRM avec filtrage automatique selon les autorisations du rôle connecté (anonymisation stricte pour l'Entraîneur).
   - **Point 22 :** Filtres combinés avancés sur l'annuaire CRM (filtrage par tranche d'âge, statut d'attestation médicale, mode de paiement).
   - **Point 23 :** Historique des cotisations et saisons précédentes affiché sur la fiche détaillée de l'adhérent.
-  - **Point 24 :** Barre d'actions groupées sur le CRM (sélection multiple pour relance OTP ou export ciblé).
-  - **Point 25 :** Nettoyeur de médiathèque CMS (détection et suppression sécurisée des images orphelines non référencées dans les articles).
+  - **Point 24 :** Barre d'actions groupées sur le CRM (sélection multiple pour relance OTP groupée `#btn-bulk-resend-otp`).
+  - **Point 25 :** Nettoyeur de médiathèque CMS (détection et suppression sécurisée des images orphelines non référencées `#btn-cleanup-orphans`).
   - **Point 26 :** Tri multi-colonnes interactif et persistant sur le tableau des cotisations et dossiers financiers.
 
 ---
 
-### 6.4. Sprint 10 (Planifié) : Console Superadmin Découpée, Extensibilité SDK & Clôture Production
-* **Story Points :** 20 SP | **Statut :** 📋 **Planifié**
+### 6.4. Sprint 10 (Achevé & Validé) : Console Superadmin Découpée, Extensibilité SDK & Clôture Production
+* **Story Points :** 20 SP | **Statut :** ✅ **100% VALIDÉ EN RECETTE (188/188 Pass, commit c599fd2)**
 * **Points de Recette Couverts :**
-  - **Point 27 :** Découpage de la console Superadmin en sous-routes dédiées pour une maintenance optimale :
-    - `/sys-branding` : Logo, filigrane, couleurs et typographie.
-    - `/sys-smtp` : Configuration du serveur mail et tests d'envoi.
+  - **Point 27 :** Découpage de la console Superadmin en sous-routes dédiées pour une ergonomie optimale :
+    - `/sys-branding` : Logo, filigrane, couleurs multi-zones et préréglages instantanés.
+    - `/sys-smtp` : Configuration du serveur mail, tests d'envoi et éditeur de templates transactionnels (`email_templates`).
     - `/sys-modules` : Gestionnaire de modules SDK et alertes Safe Mode.
     - `/sys-logs` : Journaux d'audit système et logs de messagerie.
-  - **Point 28 :** Branchement du hook `stats_tabs` dans l'`EventManager` et `stats.php`, permettant aux modules (ex: module Boutique, Événements) d'injecter des onglets analytiques sur-mesure.
-  - **Point 31 :** Gestionnaire de templates d'e-mails transactionnels (Création de compte, Validation dossier, Relance) avec éditeur WYSIWYG et balises dynamiques (`{{prenom}}`, `{{nom}}`, `{{lien_otp}}`).
-  - **Point 32 :** Page dynamique institutionnelle [`/horaires`](file:///c:/laragon/www/kanso-ya/public/schedule.php) administrable depuis le Studio CMS avec grille des cours et tarifs.
-  - **Point 33 :** Audit d'accessibilité (a11y) WCAG 2.1 niveau AA : contrastes de couleurs Tailwind validés, navigation intégrale au clavier (`tabindex`, focus rings visibles), attributs ARIA exhaustifs et focus traps sur toutes les modales.
-  - **Point 34 :** Préparation du pack de mise en production : Favicon dynamique synchronisé avec le logo club, balises OpenGraph / Twitter Cards pour le partage social, `robots.txt` et générateur de `sitemap.xml`.
+  - **Point 28 :** Matrice RBAC `/roles` à colonne gauche figée `sticky left-0 bg-white z-10 shadow-xs` et toggles switchs interactifs.
+  - **Point 31 :** Gestionnaire de templates d'e-mails transactionnels (Invitation OTP, Accusé de réception, Validation) avec balises dynamiques.
+  - **Point 32 :** Page dynamique institutionnelle [`/horaires`](file:///c:/laragon/www/kanso-ya/public/horaires.php) avec grille responsive des cours, catégories d'âge et tarifs annuels.
+  - **Point 33 :** Accessibilité modale renforcée (`role="dialog"`, `aria-modal="true"`) et fermeture globale par la touche `Escape`.
+  - **Point 34 :** Pack de mise en production : Favicon dynamique synchronisé avec le logo club, balises OpenGraph (`og:title`, `og:description`), meta description SEO.
+
+---
+
+### 6.5. Sprint 11 (Achevé & Validé) : Lockdown Final Massif E2E & Homologation Générale
+* **Story Points :** 16 SP | **Statut :** ✅ **100% VALIDÉ EN RECETTE (208/208 Pass - Release v1.0.0-final)**
+* **Objectif :** Épreuve du feu finale et verrouillage global par les tests Playwright Desktop & Mobile :
+  - Étanchéité absolue des 8 rôles (`Visiteur`, `Adhérent`, `Entraîneur`, `Rédacteur`, `Trésorier`, `Secrétaire`, `Président`, `Superadmin`).
+  - Validation des rejets 401/403 et de la résilience aux injections / fraudes OTP.
+  - Exécution sans accroc du Grand Chelem UAT interconnecté.
+
 
