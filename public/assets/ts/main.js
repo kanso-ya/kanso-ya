@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initLogoutButtons();
     initPersonaSwitcher();
     initQuickAddMemberModal();
+    initModalEscapeHandler();
     await syncUserContextAndPermissions();
 });
 /**
@@ -313,6 +314,22 @@ function initQuickAddMemberModal() {
         }
         finally {
             setButtonLoading(submitBtn, false, 'Enregistrer');
+        }
+    });
+}
+/**
+ * Accessibilité : Fermeture automatique de toute modale ouverte avec la touche Escape (Point 34).
+ */
+function initModalEscapeHandler() {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const modals = document.querySelectorAll('#confirm-modal, #modal-add-member, #document-preview-modal, #read-article-modal, #sys-rollover-modal');
+            modals.forEach((m) => {
+                if (!m.classList.contains('hidden')) {
+                    m.classList.add('hidden');
+                    m.classList.remove('flex');
+                }
+            });
         }
     });
 }

@@ -635,4 +635,197 @@ final class SystemController
             ]
         ];
     }
+
+    /**
+     * Récupère la liste de tous les modèles d'emails transactionnels (Point 31).
+     *
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function getEmailTemplates(): array
+    {
+        $stmt = $this->db->query("
+            SELECT id, template_key, title, subject, body_html, variables_available, updated_at
+            FROM email_templates
+            ORDER BY id ASC
+        ");
+        $templates = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Modèles d\'emails récupérés.',
+            'data'    => $templates
+        ];
+    }
+
+    /**
+     * Met à jour un modèle d'email transactionnel (Point 31).
+     *
+     * @param string               $key     Clé du template (ex: 'otp_invitation').
+     * @param array<string, mixed> $payload Contient 'subject' et/ou 'body_html'.
+     * @param int|null             $actorId Id du Superadmin modificateur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function updateEmailTemplate(string $key, array $payload, ?int $actorId = 1): array
+    {
+        $stmtFind = $this->db->prepare("SELECT id, title FROM email_templates WHERE template_key = :k LIMIT 1");
+        $stmtFind->execute(['k' => $key]);
+        $tpl = $stmtFind->fetch(PDO::FETCH_ASSOC);
+
+        if (!$tpl) {
+            return [
+                'status'  => 'error',
+                'code'    => 404,
+                'message' => "Modèle d'email '{$key}' introuvable.",
+                'data'    => null
+            ];
+        }
+
+        $subject = isset($payload['subject']) ? trim((string) $payload['subject']) : null;
+        $bodyHtml = isset($payload['body_html']) ? trim((string) $payload['body_html']) : null;
+
+        $updates = [];
+        $params = ['k' => $key];
+
+        if ($subject !== null && $subject !== '') {
+            $updates[] = 'subject = :subj';
+            $params['subj'] = $subject;
+        }
+        if ($bodyHtml !== null && $bodyHtml !== '') {
+            $updates[] = 'body_html = :bhtml';
+            $params['bhtml'] = $bodyHtml;
+        }
+
+        if (empty($updates)) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Aucune modification fournie (sujet ou corps HTML requis).',
+                'data'    => null
+            ];
+        }
+
+        $updates[] = 'updated_at = CURRENT_TIMESTAMP';
+        $sql = "UPDATE email_templates SET " . implode(', ', $updates) . " WHERE template_key = :k";
+        $this->db->prepare($sql)->execute($params);
+
+        // Audit log
+        $logStmt = $this->db->prepare("
+            INSERT INTO sys_logs (superadmin_id, action, details, ip_address)
+            VALUES (:actor, 'UPDATE_EMAIL_TEMPLATE', :det, :ip)
+        ");
+        $logStmt->execute([
+            'actor' => $actorId,
+            'det'   => "Mise à jour du modèle d'email '{$key}' ({$tpl['title']})",
+            'ip'    => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
+        ]);
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => "Modèle d'email '{$key}' mis à jour avec succès.",
+            'data'    => [
+                'template_key' => $key,
+                'subject'      => $subject,
+                'body_html'    => $bodyHtml
+            ]
+        ];
+    }
+
+    /**
+     * Récupère les métriques système (Point 27 / US 1.1).
+     *
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function getSystemMetrics(): array
+    {
+        $dbPath = __DIR__ . '/../../../storage/db/kanso-ya.sqlite';
+        $dbSize = file_exists($dbPath) ? filesize($dbPath) : 0;
+
+        $usersCount = (int) $this->db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $membersCount = (int) $this->db->query("SELECT COUNT(*) FROM members")->fetchColumn();
+        $registrationsCount = (int) $this->db->query("SELECT COUNT(*) FROM registrations")->fetchColumn();
+        $articlesCount = (int) $this->db->query("SELECT COUNT(*) FROM articles")->fetchColumn();
+
+        $sqliteVersion = $this->db->query("SELECT sqlite_version()")->fetchColumn() ?: 'Inconnue';
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Métriques système récupérées.',
+            'data'    => [
+                'users_count'         => $usersCount,
+                'members_count'       => $membersCount,
+                'registrations_count' => $registrationsCount,
+                'articles_count'      => $articlesCount,
+                'db_size_bytes'       => $dbSize,
+                'db_size_formatted'   => round($dbSize / 1024, 1) . ' Ko',
+                'sqlite_version'      => (string) $sqliteVersion,
+                'php_version'         => PHP_VERSION,
+                'server_time'         => date('Y-m-d H:i:s')
+            ]
+        ];
+    }
+
+    /**
+     * Crée une sauvegarde horodatée de la BDD SQLite (Point 27).
+     *
+     * @param int|null $actorId Id du Superadmin déclencheur.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function backupDatabase(?int $actorId = 1): array
+    {
+        $backupDir = __DIR__ . '/../../../storage/backups';
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+
+        $sourceDb = __DIR__ . '/../../../storage/db/kanso-ya.sqlite';
+        if (!file_exists($sourceDb)) {
+            return [
+                'status'  => 'error',
+                'code'    => 404,
+                'message' => 'Fichier de base de données source introuvable.',
+                'data'    => null
+            ];
+        }
+
+        $filename = 'kanso-ya-backup-' . date('Y-m-d-His') . '.sqlite';
+        $destination = $backupDir . '/' . $filename;
+
+        // Copie sécurisée de la BDD
+        $copied = copy($sourceDb, $destination);
+        if (!$copied) {
+            return [
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Impossible de créer la copie de sauvegarde de la base.',
+                'data'    => null
+            ];
+        }
+
+        $fileSize = filesize($destination);
+
+        // Traçabilité
+        $logStmt = $this->db->prepare("
+            INSERT INTO sys_logs (superadmin_id, action, details, ip_address)
+            VALUES (:actor, 'DATABASE_BACKUP_CREATED', :det, :ip)
+        ");
+        $logStmt->execute([
+            'actor' => $actorId,
+            'det'   => "Sauvegarde manuelle créée : {$filename} (" . round($fileSize / 1024, 1) . " Ko)",
+            'ip'    => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
+        ]);
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Sauvegarde de la base de données créée avec succès.',
+            'data'    => [
+                'filename'       => $filename,
+                'size_formatted' => round($fileSize / 1024, 1) . ' Ko',
+                'created_at'     => date('Y-m-d H:i:s')
+            ]
+        ];
+    }
 }

@@ -50,19 +50,33 @@ interface SuperadminItem {
     created_at: string;
 }
 
+interface EmailTemplateItem {
+    id: number;
+    template_key: string;
+    title: string;
+    subject: string;
+    body_html: string;
+    variables_available: string;
+    updated_at: string;
+}
+
 let allSysLogs: SysLogItem[] = [];
 let allModules: ModuleItem[] = [];
 let allSuperadmins: SuperadminItem[] = [];
+let allEmailTemplates: EmailTemplateItem[] = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     loadSystemSettings();
+    loadSystemMetrics();
     loadEmailLogs();
     loadSystemLogs();
     loadModules();
     loadSuperadmins();
+    initBackupButton();
     initSuperadminForm();
     initBrandingForm();
     initSmtpForm();
+    initEmailTemplatesEditor();
     initSysLogsFilter();
     initSysRolloverControls();
     initModuleControls();
@@ -580,3 +594,125 @@ function initSuperadminForm(): void {
         }
     });
 }
+
+async function loadSystemMetrics(): Promise<void> {
+    const elUsers = document.getElementById('metric-users-count');
+    const elMembers = document.getElementById('metric-members-count');
+    const elDbSize = document.getElementById('metric-db-size');
+    const elArticles = document.getElementById('metric-articles-count');
+
+    if (!elUsers && !elMembers && !elDbSize && !elArticles) return;
+
+    try {
+        const res = await fetchApi<{
+            users_count: number;
+            members_count: number;
+            articles_count: number;
+            db_size: string;
+        }>('/api/v1/sys/metrics');
+
+        if (res.status === 'success' && res.data) {
+            if (elUsers) elUsers.textContent = String(res.data.users_count);
+            if (elMembers) elMembers.textContent = String(res.data.members_count);
+            if (elArticles) elArticles.textContent = String(res.data.articles_count);
+            if (elDbSize) elDbSize.textContent = res.data.db_size;
+        }
+    } catch {
+        // Silencieux si l'appel échoue sur une page où ce n'est pas critique
+    }
+}
+
+function initBackupButton(): void {
+    const btn = document.getElementById('btn-backup-db') as HTMLButtonElement | null;
+    if (!btn) return;
+
+    btn.addEventListener('click', async () => {
+        setButtonLoading(btn, true, '💾 Sauvegarder la base de données');
+        try {
+            const res = await fetchApi<{ filename: string; size: string }>('/api/v1/sys/backup', {
+                method: 'POST'
+            });
+
+            if (res.status === 'success' && res.data) {
+                showToast(`Sauvegarde SQLite réussie : ${res.data.filename} (${res.data.size})`, 'success');
+                await loadSystemLogs();
+            } else {
+                showToast(res.message || 'Erreur lors de la sauvegarde de la base de données', 'error');
+            }
+        } finally {
+            setButtonLoading(btn, false, '💾 Sauvegarder la base de données');
+        }
+    });
+}
+
+async function initEmailTemplatesEditor(): Promise<void> {
+    const select = document.getElementById('select-email-template') as HTMLSelectElement | null;
+    const form = document.getElementById('form-edit-email-template') as HTMLFormElement | null;
+    const btn = document.getElementById('btn-save-email-template') as HTMLButtonElement | null;
+    const inputSubject = document.getElementById('tpl-subject') as HTMLInputElement | null;
+    const textareaBody = document.getElementById('tpl-body-html') as HTMLTextAreaElement | null;
+    const hintVariables = document.getElementById('tpl-variables-hint');
+
+    if (!select || !form) return;
+
+    try {
+        const res = await fetchApi<EmailTemplateItem[]>('/api/v1/sys/email-templates');
+        if (res.status === 'success' && Array.isArray(res.data) && res.data.length > 0) {
+            allEmailTemplates = res.data;
+            select.innerHTML = allEmailTemplates.map(t => `<option value="${escapeHtml(t.template_key)}">${escapeHtml(t.title)} (${escapeHtml(t.template_key)})</option>`).join('');
+
+            const displayTemplate = (key: string): void => {
+                const tpl = allEmailTemplates.find(t => t.template_key === key);
+                if (!tpl) return;
+                if (inputSubject) inputSubject.value = tpl.subject;
+                if (textareaBody) textareaBody.value = tpl.body_html;
+                if (hintVariables) hintVariables.textContent = tpl.variables_available;
+            };
+
+            select.addEventListener('change', () => {
+                displayTemplate(select.value);
+            });
+
+            // Affichage du premier template par défaut
+            displayTemplate(select.value);
+        }
+    } catch {
+        showToast('Impossible de charger les modèles d\'emails', 'error');
+    }
+
+    form.addEventListener('submit', async (e: Event) => {
+        e.preventDefault();
+        const selectedKey = select.value;
+        if (!selectedKey) return;
+
+        setButtonLoading(btn, true, '💾 Enregistrer le modèle d\'email');
+        try {
+            const subject = inputSubject?.value.trim() || '';
+            const bodyHtml = textareaBody?.value || '';
+
+            const res = await fetchApi<{ template_key: string }>(`/api/v1/sys/email-templates/${selectedKey}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    subject,
+                    body_html: bodyHtml
+                })
+            });
+
+            if (res.status === 'success') {
+                showToast(`Modèle d'email « ${selectedKey} » mis à jour avec succès !`, 'success');
+                // Mettre à jour dans allEmailTemplates
+                const item = allEmailTemplates.find(t => t.template_key === selectedKey);
+                if (item) {
+                    item.subject = subject;
+                    item.body_html = bodyHtml;
+                }
+                await loadSystemLogs();
+            } else {
+                showToast(res.message || 'Erreur lors de la sauvegarde du modèle', 'error');
+            }
+        } finally {
+            setButtonLoading(btn, false, '💾 Enregistrer le modèle d\'email');
+        }
+    });
+}
+

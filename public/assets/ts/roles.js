@@ -73,14 +73,14 @@ async function loadRolesMatrix() {
         perms: Array.isArray(r.permissions) ? r.permissions : JSON.parse(r.permissions || '[]')
     }));
     const headerRow = document.createElement('tr');
-    headerRow.innerHTML = `<th class="p-4 w-72 font-extrabold uppercase tracking-wider text-slate-300 border-r border-slate-800">Domaine & Permission</th>`;
+    headerRow.innerHTML = `<th class="p-4 w-72 font-extrabold uppercase tracking-wider text-slate-300 border-r border-slate-800 sticky left-0 bg-slate-900 z-20 shadow-sm">Domaine & Permission</th>`;
     roles.forEach((role) => {
         const th = document.createElement('th');
         th.className = 'p-3.5 text-center border-r border-slate-800 min-w-[170px]';
         if (role.is_system) {
             th.innerHTML = `
                 <div class="font-extrabold text-sm text-white">${role.name}</div>
-                <span class="inline-block mt-1 px-2 py-0.5 rounded bg-red-900/70 text-red-200 text-[10px] uppercase">🔒 Système</span>
+                <span class="inline-block mt-1 px-2 py-0.5 rounded bg-red-900/70 text-red-200 text-[10px] uppercase font-bold">🔒 Système</span>
             `;
         }
         else {
@@ -99,12 +99,12 @@ async function loadRolesMatrix() {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 transition';
         tr.innerHTML = `
-            <td class="p-3.5 border-r border-slate-200">
+            <td class="p-3.5 border-r border-slate-200 sticky left-0 bg-white z-10 shadow-xs">
                 <div class="flex items-center gap-2">
                     <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">${perm.domain}</span>
                     <strong class="text-slate-900 font-bold">${perm.label}</strong>
                 </div>
-                <code class="text-[10px] text-slate-400">${perm.key}</code>
+                <code class="text-[10px] text-slate-400 font-mono">${perm.key}</code>
             </td>
         `;
         roles.forEach((role) => {
@@ -112,9 +112,10 @@ async function loadRolesMatrix() {
             const td = document.createElement('td');
             td.className = 'p-3 text-center border-r border-slate-100';
             td.innerHTML = `
-                <label class="inline-flex items-center cursor-pointer">
+                <label class="relative inline-flex items-center justify-center cursor-pointer" title="${role.is_system ? 'Droit verrouillé (Rôle Système)' : (isChecked ? 'Désactiver' : 'Activer')}">
                     <input type="checkbox" data-matrix-role="${role.id}" value="${perm.key}" ${isChecked ? 'checked' : ''} ${role.is_system ? 'disabled' : ''}
-                           class="w-4 h-4 accent-emerald-600 rounded cursor-pointer">
+                           class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 ${role.is_system ? 'opacity-40 cursor-not-allowed' : ''}"></div>
                 </label>
             `;
             tr.appendChild(td);
@@ -122,7 +123,7 @@ async function loadRolesMatrix() {
         tbody.appendChild(tr);
     });
     const footRow = document.createElement('tr');
-    footRow.innerHTML = `<td class="p-4 font-bold text-slate-600 border-r border-slate-200">Actions sur la colonne</td>`;
+    footRow.innerHTML = `<td class="p-4 font-bold text-slate-600 border-r border-slate-200 sticky left-0 bg-slate-50 z-10 shadow-xs">Actions sur la colonne</td>`;
     roles.forEach((role) => {
         const td = document.createElement('td');
         td.className = 'p-3 text-center border-r border-slate-200 space-y-1.5';

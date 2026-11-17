@@ -651,6 +651,39 @@ try {
         sendJson($controller->updateSettings($payload, $currentUserId, $isSuperadmin));
     }
 
+    if ($method === 'GET' && in_array($uri, ['/api/v1/sys/metrics', '/api/v1/sys/stats'], true)) {
+        if (!in_array('system.admin', $permissions, true) && !$isSuperadmin) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès restreint au Superadmin.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->getSystemMetrics());
+    }
+
+    if ($method === 'POST' && in_array($uri, ['/api/v1/sys/backup', '/api/v1/sys/database/backup'], true)) {
+        if (!in_array('system.admin', $permissions, true) && !$isSuperadmin) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès restreint au Superadmin.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->backupDatabase($currentUserId));
+    }
+
+    if ($method === 'GET' && in_array($uri, ['/api/v1/sys/email-templates', '/api/v1/email-templates'], true)) {
+        if (!in_array('system.admin', $permissions, true) && !in_array('settings.manage', $permissions, true) && !$isSuperadmin) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès restreint aux paramètres système.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->getEmailTemplates());
+    }
+
+    if (in_array($method, ['PUT', 'PATCH'], true) && preg_match('#^/api/v1/sys/email-templates/([^/]+)$#', $uri, $matches)) {
+        if (!in_array('system.admin', $permissions, true) && !in_array('settings.manage', $permissions, true) && !$isSuperadmin) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès restreint aux paramètres système.', 'data' => null]);
+        }
+        $key = urldecode($matches[1]);
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->updateEmailTemplate($key, $payload, $currentUserId));
+    }
+
     // 6. TÂCHES SYSTÈME & CHANGEMENT DE SAISON / ROLLOVER (US 5.1)
     if ($method === 'POST' && in_array($uri, ['/api/v1/tasks/rollover-season', '/api/v1/tasks/rollover'], true)) {
         if (!$isSuperadmin && $currentRole !== 'Président') {

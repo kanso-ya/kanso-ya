@@ -72,7 +72,7 @@ try {
             <form id="login-form" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-600 mb-1.5">Adresse Email</label>
-                    <input type="text" name="email" required autocomplete="username" placeholder="prenom.nom@domaine.fr"
+                    <input type="text" id="login-identifier" name="email" required autocomplete="username" placeholder="prenom.nom@domaine.fr"
                            class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                 </div>
 
@@ -80,7 +80,7 @@ try {
                     <div class="flex items-center justify-between mb-1.5">
                         <label class="block text-xs font-semibold uppercase text-slate-600">Mot de passe</label>
                     </div>
-                    <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••"
+                    <input type="password" id="login-password" name="password" required autocomplete="current-password" placeholder="••••••••"
                            class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                 </div>
 

@@ -216,6 +216,16 @@ function runCoreSchemaMigration(): void
         status VARCHAR(30) NOT NULL DEFAULT 'published',
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS email_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_key VARCHAR(100) NOT NULL UNIQUE,
+        title VARCHAR(255) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        body_html TEXT NOT NULL,
+        variables_available TEXT NOT NULL DEFAULT '',
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
 SQL;
 
     $db->exec($sql);
@@ -249,6 +259,48 @@ SQL;
         try {
             $db->exec($q);
         } catch (Throwable) {
+        }
+    }
+
+    // Peuplement des modèles d'emails transactionnels (Point 31)
+    $stmtCount = $db->query("SELECT COUNT(*) FROM email_templates");
+    if ($stmtCount && (int) $stmtCount->fetchColumn() === 0) {
+        $templates = [
+            [
+                'key'       => 'otp_invitation',
+                'title'     => 'Invitation d\'activation de compte (OTP 48h)',
+                'subject'   => 'Activez votre espace personnel - {{club_name}}',
+                'body_html' => "<p>Bonjour {{first_name}},</p><p>Votre dossier d'adhésion a été validé. Cliquez sur le lien sécurisé suivant pour définir votre mot de passe et accéder à votre espace (lien valable 48h) :</p><p><a href=\"{{activation_link}}\">Activer mon compte</a></p><p>À très bientôt sur les tatamis !</p>",
+                'vars'      => '{{first_name}}, {{last_name}}, {{club_name}}, {{activation_link}}, {{expires_in}}'
+            ],
+            [
+                'key'       => 'registration_received',
+                'title'     => 'Accusé de réception de pré-inscription',
+                'subject'   => 'Confirmation de réception de votre dossier - {{club_name}}',
+                'body_html' => "<p>Bonjour {{payer_name}},</p><p>Nous avons bien reçu votre dossier d'adhésion pour la saison {{season}} (Montant : {{total_amount}} €).</p><p>Notre équipe de trésorerie procède actuellement à sa vérification.</p>",
+                'vars'      => '{{payer_name}}, {{total_amount}}, {{season}}, {{club_name}}'
+            ],
+            [
+                'key'       => 'registration_validated',
+                'title'     => 'Validation du dossier & Reçu de cotisation',
+                'subject'   => 'Votre inscription est validée - Reçu officiel {{club_name}}',
+                'body_html' => "<p>Bonjour {{payer_name}},</p><p>Votre règlement pour le dossier #{{registration_id}} a été validé avec succès.</p><p>Votre reçu de cotisation officiel et votre attestation pour le CSE sont disponibles au téléchargement dans votre espace adhérent.</p>",
+                'vars'      => '{{payer_name}}, {{registration_id}}, {{total_amount}}, {{club_name}}'
+            ]
+        ];
+
+        $insTpl = $db->prepare("
+            INSERT INTO email_templates (template_key, title, subject, body_html, variables_available)
+            VALUES (:key, :title, :subject, :body, :vars)
+        ");
+        foreach ($templates as $t) {
+            $insTpl->execute([
+                'key'     => $t['key'],
+                'title'   => $t['title'],
+                'subject' => $t['subject'],
+                'body'    => $t['body_html'],
+                'vars'    => $t['vars']
+            ]);
         }
     }
 

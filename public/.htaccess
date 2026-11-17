@@ -9,6 +9,10 @@
     RewriteRule ^login/?$ login.php [L,NC]
     RewriteRule ^sys-admin-xyz/?$ sys-admin-login.php [L,NC]
     RewriteRule ^sys-console/?$ sys-console.php [L,NC]
+    RewriteRule ^sys-branding/?$ sys-branding.php [L,NC]
+    RewriteRule ^sys-smtp/?$ sys-smtp.php [L,NC]
+    RewriteRule ^sys-modules/?$ sys-modules.php [L,NC]
+    RewriteRule ^sys-logs/?$ sys-logs.php [L,NC]
     RewriteRule ^register/?$ register.php [L,NC]
     RewriteRule ^activate-otp/?$ activate-otp.php [L,QSA,NC]
 
@@ -23,9 +27,10 @@
     RewriteRule ^roles/?$ roles.php [L,NC]
     RewriteRule ^boutique/?$ boutique.php [L,NC]
     RewriteRule ^questionnaire-sante/?$ health-check.php [L,NC]
+    RewriteRule ^horaires/?$ horaires.php [L,NC]
 
     # 4. Pages institutionnelles et légales fixes (US 4.1 - CA3)
-    RewriteRule ^(rgpd|cgv|mentions-legales|horaires)/?$ legal.php?slug=$1 [L,QSA,NC]
+    RewriteRule ^(rgpd|cgv|mentions-legales)/?$ legal.php?slug=$1 [L,QSA,NC]
 
     # 5. Accès direct aux fichiers physiques existants
     RewriteCond %{REQUEST_FILENAME} -f [OR]

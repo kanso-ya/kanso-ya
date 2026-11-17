@@ -11,7 +11,7 @@ declare(strict_types=1);
 <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
 <!-- Modale Globale de Confirmation Destructrice (Section 4.4 : bg-slate-900/60 + bouton bg-red-600) -->
-<div id="confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+<div id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 transform transition-all">
         <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0 font-bold">!</div>
