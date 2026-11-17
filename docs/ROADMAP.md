@@ -2,34 +2,36 @@
 
 **Projet :** Kanso-ya CMS Associatif (Core & Extensibilité)  
 **Rôle :** @cp (Chef de Projet Agile / Product Owner)  
-**Version :** 2.0 (Post-Recette Lot 2 — Préparation Lot 3)  
-**Date :** 16 novembre 2026  
+**Version :** 2.2 (Post-Correctifs v1.0 — Planification Finitions UX & Polissage v1.1)  
+**Date :** 18 novembre 2026  
 
 ---
 
 ## 1. Synthèse Globale des Releases & État d'Avancement Réel
 
-Le projet Kanso-ya est développé selon la méthodologie **Scrum** avec des sprints de deux semaines. La trajectoire globale est structurée en 3 phases majeures (Lots) :
+Le projet Kanso-ya est développé selon la méthodologie **Scrum** avec des sprints de deux semaines. La trajectoire globale est structurée en phases successives jusqu'à la v1.1 :
 
 ```mermaid
 flowchart LR
-    L1["Lot 1 : Socle & CRM Core\n(Sprints 1 & 2)\n✅ 100% VALIDÉ"] --> L2["Lot 2 : Inscriptions & CMS\n(Sprints 3 & 4)\n✅ 100% VALIDÉ"]
-    L2 --> L3["Lot 3 : Évolutivité & SDK\n(Sprints 5 & 6)\n✅ 100% VALIDÉ"]
-    L3 --> L4["Phase de Finition & Production\n(Sprints 7, 8, 9 & 10)\n🚀 35 POINTS DE RECETTE"]
+    L1["Lot 1 : Socle & CRM Core (Sprints 1-2) - VALIDE"] --> L2["Lot 2 : Inscriptions & CMS (Sprints 3-4) - VALIDE"]
+    L2 --> L3["Lot 3 : Evolutivite & SDK (Sprints 5-6) - VALIDE"]
+    L3 --> L4["Finition Production v1.0 (Sprints 7-11 + 17 Correctifs) - VALIDE"]
+    L4 --> L5["Finitions UX & Polissage v1.1 (Sprints 12, 13 & 14) - 21 POINTS"]
 ```
 
 ### Tableau de Bord d'Avancement par Lot & Sprint
 
-| Phase / Lot | Sprints | Objectifs Clés (35 Points de Recette) | Story Points | Statut Réel | Tests E2E |
+| Phase / Lot | Sprints | Objectifs Clés | Story Points | Statut Réel | Tests E2E |
 | :--- | :---: | :--- | :---: | :---: | :---: |
 | **Lot 1 : Socle & CRM** | Sprint 1 & 2 | BDD SQLite WAL, Shadow Login, 2FA, RBAC Multi-colonnes, CRM & Fiches | **44 SP** | **Terminé & Recetté** | 28/28 Pass ✅ |
 | **Lot 2 : Inscriptions & CMS** | Sprint 3 & 4 | Wizard Public, Panier Familial, Trésorerie réversible, OTP, Studio CMS 2 onglets | **47 SP** | **Terminé & Recetté** | 32/32 Pass ✅ |
 | **Lot 3 : Évolutivité & SDK** | Sprint 5 & 6 | Rollover de saison, Stats avancées, Scanner de modules, EventManager & Safe Mode | **34 SP** | **Terminé & Recetté** | 38/38 Pass ✅ |
-| **Sprint 7 (Finition 1)** | Sprint 7 | URLs propres, Header épuré, Visiteur strict, 2FA SVG 30s, Multi-Superadmin, Backup BDD (Pts 1-6, 10, 11, 15, 29, 30, 35) | **21 SP** | **Terminé & Recetté** | 52/52 Pass ✅ |
-| **Sprint 8 (Finition 2)** | Sprint 8 | Remises paramétrables (%/fixe), Mode certificat/questionnaire santé Cerfa, Brouillon localStorage (Pts 7-9, 12-14, 16-17) | **24 SP** | **Prêt à l'exécution** | Prévu (Sprint 8) |
-| **Sprint 9 (Finition 3)** | Sprint 9 | Traçabilité CMS (`created_by`/`updated_by`), Reçus & Attestations CE, Exports CRM, Tris & Filtres (Pts 18-26) | **26 SP** | **Planifié** | Prévu (Sprint 9) |
-| **Sprint 10 (Finition 4)** | Sprint 10 | Console Superadmin découpée, Hook SDK `stats_tabs`, Templates emails, a11y WCAG & SEO (Pts 27, 28, 31-34) | **20 SP** | **Planifié** | Prévu (Sprint 10) |
-| **TOTAL GÉNÉRAL** | **10 Sprints** | **CMS & CRM Associatif Kanso-ya Production Ready (v1.2.0)** | **216 SP** | **78.7% Réalisé** | **150/150 Pass** |
+| **Finition v1.0 (35 Pts)** | Sprints 7 à 11 | URLs propres, Remises, Cerfa santé, Exports/Reçus, Console découpée & Lockdown E2E | **107 SP** | **Terminé & Recetté** | 208/208 Pass ✅ |
+| **Correctifs Post-Recette (17 Pts)** | Blocs 1 à 3 | Isolation Superadmin, Profil/Club séparés, Studio CMS Drag & Drop, Vidéo & Carrousels | **26 SP** | **Terminé & Recetté** | 222/222 Pass ✅ |
+| **Sprint 12 (Polissage v1.1 - 1/3)** | Sprint 12 | Langage humain global, Toasts validation, Thème CSS `--brand-*`, Rollover alias & Mode Démo/Prod (Pts 1-7) | **18 SP** | **Terminé & Recetté** | 230/230 Pass ✅ |
+| **Sprint 13 (Polissage v1.1 - 2/3)** | Sprint 13 | Mot de passe oublié OTP + double saisie, 2FA multi-méthode (QR/Clé/Email), Inscription vierge/`?discipline=ID` & Réinscription complète (Pts 8-14) | **21 SP** | **Planifié** | Prévu (Sprint 13) |
+| **Sprint 14 (Polissage v1.1 - 3/3)** | Sprint 14 | Tableaux compacts sans débordement, Actions sur 2 lignes (`/members`, `/registrations`), Onglets `/stats`, `/sys-smtp` & multi-disciplines + Lockdown v1.1 (Pts 15-21) | **19 SP** | **Planifié** | Prévu (Sprint 14) |
+| **TOTAL GÉNÉRAL** | **14 Sprints** | **CMS & CRM Associatif Kanso-ya v1.1** | **316 SP** | **81.6% Réalisé** | **222/222 Pass** |
 
 ---
 
@@ -474,5 +476,73 @@ flowchart LR
 - **Point 15 - Composant photo simple ou carrousel :** Composant image polyvalent offrant une bascule fluide entre affichage d'une photographie unique et galerie en carrousel (défilement horizontal scroll-snap fluide ou mode vertical compact).
 - **Point 16 - Filtres combinés de la liste des articles :** Possibilité de filtrer simultanément les articles par statut éditorial (`draft`, `published`), par catégorie thématique et par auteur.
 - **Point 17 - Double traçabilité éditoriale :** Affichage clair et exhaustif dans le tableau des publications du Studio CMS de l'auteur d'origine (`created_by`) et du dernier éditeur/publieur (`updated_by`), garantissant une transparence totale de la chaîne de révision.
+
+---
+
+## 8. Phase de Finitions UX & Polissage v1.1 (Sprints 12, 13 et 14 — 21 Points)
+
+Cette phase clôture le polissage ergonomique, sémantique et sécuritaire de Kanso-ya pour une mise en service grand public sans friction. Les **21 points de finition** sont découpés en 3 sprints incrémentaux validés unitairement par PHPStan, build TS/CSS et 100 % des tests E2E Playwright (Desktop & Mobile Pixel 5).
+
+```mermaid
+flowchart LR
+    subgraph S12["Sprint 12 : Langage, Toasts & Theme Reel (Pts 1-7)"]
+        P12A["Pts 1-2 : Langage humain 100% UI"]
+        P12B["Pt 3 : Toasts obligatoires formulaires"]
+        P12C["Pts 4 & 7 : CSS --brand-* reel sans emerald-*"]
+        P12D["Pts 5-6 : Rollover alias & Mode Demo/Prod"]
+    end
+
+    subgraph S13["Sprint 13 : Auth Avancee & Inscription (Pts 8-14)"]
+        P13A["Pts 8-9 : Mot de passe oublie OTP + double saisie"]
+        P13B["Pts 10-11 : 2FA QR 30s / Cle / Email"]
+        P13C["Pts 12-13 : Inscription vierge & ?discipline=ID"]
+        P13D["Pt 14 : Reinscription pre-remplie integrale"]
+    end
+
+    subgraph S14["Sprint 14 : Tableaux, Onglets & Lockdown (Pts 15-21)"]
+        P14A["Pts 15-16 : /members compact + actions 2 lignes"]
+        P14B["Pt 17 : /registrations compact + actions 2 lignes"]
+        P14C["Pts 18-20 : Onglets /stats, /sys-smtp & disciplines"]
+        P14D["Pt 21 : Suite E2E v1.1 Desktop & Mobile"]
+    end
+
+    S12 --> S13 --> S14
+```
+
+### 8.1. Sprint 12 : Langage Humain, Toasts Universels, Thème CSS Réel & Exploitation (18 SP — Points 1 à 7)
+* **Statut :** ✅ **100% VALIDÉ EN RECETTE (230/230 Pass — Rapport : `docs/current-sprint/12-report-sprint12.md`)**
+* **Objectif :** Rendre l'interface 100 % intelligible par un bénévole non-technicien, garantir un retour Toast sur chaque erreur de saisie, appliquer réellement le thème dynamique sur l'ensemble du DOM et fiabiliser les outils d'exploitation.
+* **Découpage des Points :**
+  - **Point 1 — Langage humain (Rôles & Permissions) :** Suppression intégrale des clés techniques brutes (`members.view`, `members.edit`, `finances.manage`, `articles.publish`, `rbac`, etc.) dans l'interface visible (`/roles`, alertes d'autorisation, badges) au profit d'intitulés métier en français naturel.
+  - **Point 2 — Langage humain (Journaux, Messagerie & Sécurité) :** Remplacement des identifiants techniques (`app_logs`, `sys_logs`, `email_logs`, `otp`, `totp`, `smtp`) dans tous les libellés visibles par des formulations claires (*Journal d'activité du club*, *Journal système*, *Code de sécurité à usage unique*, *Serveur de messagerie*).
+  - **Point 3 — Toasts obligatoires sur toute erreur de validation de formulaire :** Chaque validation échouée (client ou API) sur l'ensemble des formulaires du CMS déclenche obligatoirement un Toast explicite (`showToast(..., 'error')`) sans jamais laisser l'utilisateur face à un échec silencieux ou une erreur HTML brute.
+  - **Point 4 — Architecture CSS Thème Dynamique réel (`--brand-*`) :** Injection dans `<head>` des 5 variables maîtresses (`--brand-primary`, `--brand-primary-hover`, `--brand-sidebar`, `--brand-header`, `--brand-accent`), remplacement des classes `emerald-*` figées par les classes dédiées (`.bg-brand-primary`, `.text-brand-primary`, `.border-brand-primary`) et surcharges CSS `!important`.
+  - **Point 5 — Harmonisation du endpoint Rollover de saison :** Unification sur `POST /api/v1/tasks/rollover-season` avec exposition de l'alias `POST /api/v1/rollover` dans `public/api.php` et alignement des appels côté client (`/settings`, `/sys-console`).
+  - **Point 6 — Suivi Mode Démo / Production (`demo_mode_enabled`) :** Ajout de la clé `demo_mode_enabled` dans `sys_settings` et affichage d'un indicateur d'état + contrôle de bascule dans la vue d'ensemble Superadmin (`/sys-console`).
+  - **Point 7 — Polissage des états interactifs du thème :** Cohérence visuelle des survols (`--brand-primary-hover`), bordures d'éléments sélectionnés, anneaux de focus et badges d'accentuation (`--brand-accent`) en mode clair et contrasté.
+
+### 8.2. Sprint 13 : Parcours Sécurité (Mot de Passe Oublié & 2FA Multi-Méthode) & Inscription / Réinscription (21 SP — Points 8 à 14)
+* **Statut :** Planifié
+* **Objectif :** Offrir une autonomie complète sur la récupération de compte et la double authentification multi-canal, et fluidifier le parcours d'inscription comme de réinscription.
+* **Découpage des Points :**
+  - **Point 8 — Demande "Mot de passe oublié" anti-énumération :** Lien dédié sur `/login`, formulaire d'envoi d'e-mail connecté à `POST /api/v1/auth/forgot-password` générant un code à usage unique sans jamais révéler si l'adresse existe en base.
+  - **Point 9 — Réinitialisation de mot de passe avec double saisie de confirmation :** Écran de saisie du code temporaire reçu par e-mail, contrôle visuel des règles de complexité et double saisie obligatoire du nouveau mot de passe avec Toast bloquant en cas de divergence.
+  - **Point 10 — Double authentification (2FA) via Application : QR Code (30s) ou Clé secrète manuelle :** Choix explicite dans l'onglet Sécurité du profil permettant d'enrôler une application d'authentification soit en scannant le QR Code SVG dynamique (cycle 30s), soit en affichant/copiant la clé secrète manuelle.
+  - **Point 11 — Double authentification (2FA) par Code E-mail :** Support complet de la méthode `email` dans `POST /api/v1/users/me/2fa` et implémentation de `POST /api/v1/users/me/2fa/send-email-code` pour recevoir et valider un code temporaire par courriel.
+  - **Point 12 — Inscription vierge par défaut (zéro discipline pré-cochée) :** Sur `/register`, aucune discipline n'est cochée automatiquement à l'ouverture sans paramètre URL, imposant un choix volontaire et explicite du pratiquant.
+  - **Point 13 — Pré-sélection contextuelle `?discipline=ID` depuis `/horaires` :** Liens directs "S'inscrire" sur chaque discipline de `/horaires` pointant vers `/register?discipline=<ID>` et pré-cochant uniquement cette discipline dans le wizard.
+  - **Point 14 — Pré-remplissage intégral à la réinscription :** Lorsqu'un utilisateur connecté (adhérent ou tuteur) lance une réinscription sur `/register`, pré-remplissage automatique de son identité, de son **niveau technique actuel** (ceinture/grade), de son **contact d'urgence complet** et de ses **tuteurs légaux**.
+
+### 8.3. Sprint 14 : Ergonomie Tableaux Compacts, Actions sur 2 Lignes, Onglets & Lockdown v1.1 (19 SP — Points 15 à 21)
+* **Statut :** Planifié
+* **Objectif :** Éliminer définitivement tout débordement horizontal sur les tableaux de gestion, uniformiser les barres d'actions sur 2 lignes et rendre tous les systèmes d'onglets 100 % fonctionnels.
+* **Découpage des Points :**
+  - **Point 15 — Annuaire `/members` compact sans élargissement du conteneur :** Dimensionnement maîtrisé des colonnes (`table-fixed` / troncature élégante) garantissant que le tableau respecte strictement son conteneur sur Desktop sans provoquer d'extension de page.
+  - **Point 16 — Icônes d'action sur 2 lignes dans `/members` :** Organisation compacte des boutons icônes d'action sur 2 rangées structurées avec infobulles claires dans la colonne finale de l'annuaire.
+  - **Point 17 — Trésorerie `/registrations` compacte avec icônes d'action sur 2 lignes :** Même discipline de largeur contenue et grille d'icônes sur 2 lignes (Inspecter, Valider, Reçu, Attestation, Radier/Restaurer) dans le tableau de trésorerie.
+  - **Point 18 — Onglets fonctionnels sur `/stats` :** Système d'onglets réellement navigable (Vue d'ensemble, Démographie, Occupation des cours, Finances Bureau, + onglets injectés via `stats_tabs`) préservant l'anonymisation RGPD de l'Entraîneur.
+  - **Point 19 — Onglets fonctionnels sur `/sys-smtp` :** Découpage opérationnel par onglets (*Paramètres du serveur*, *Modèles d'e-mails*, *Test & Historique d'envoi*) sans perte de contexte.
+  - **Point 20 — Onglets fonctionnels sur tous les tableaux multi-disciplines :** Harmonisation des onglets interactifs (`role="tablist"`, `aria-selected`, compteurs temps réel) sur `/disciplines`, `/horaires` et les vues filtrées multi-disciplines.
+  - **Point 21 — Verrouillage E2E v1.1 (Desktop Chrome & Mobile Chrome Pixel 5) :** Ajout de la suite Playwright couvrant les 21 points (Sprints 12, 13, 14) et validation de non-régression à 100 % sur l'ensemble du projet.
 
 

@@ -184,7 +184,7 @@ final class CmsController
             return [
                 'status'  => 'error',
                 'code'    => 422,
-                'message' => 'Visibilité invalide (valeurs autorisées : public, members, board).',
+                'message' => 'Visibilité invalide (Public, Adhérents ou Bureau uniquement).',
                 'data'    => null
             ];
         }

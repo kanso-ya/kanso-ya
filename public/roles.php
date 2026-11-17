@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$pageTitle     = 'Rôles & Permissions (RBAC)';
+$pageTitle     = 'Rôles & Permissions';
 $activeNav     = 'roles';
 $requireAuth   = true;
 $requiredPerms = ['roles.manage'];
@@ -11,18 +11,18 @@ $pageScripts   = ['/assets/ts/roles.js'];
 ob_start();
 ?>
 <div class="space-y-6">
-    <!-- En-tête + Formulaire d'ajout d'une nouvelle colonne (Nouveau Rôle - Point 10) -->
+    <!-- En-tête + Formulaire d'ajout d'une nouvelle colonne (Nouveau Rôle) -->
     <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-            <span class="text-xs font-bold uppercase text-purple-600">Contrôle d'Accès Basé sur les Rôles (RBAC)</span>
-            <h1 class="text-2xl font-extrabold text-slate-900 mt-0.5">Tableau Matriciel des Rôles & Permissions</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Chaque colonne représente un rôle. Vous pouvez renommer un rôle, ajouter une nouvelle colonne ou supprimer un rôle personnalisé.</p>
+            <span class="text-xs font-bold uppercase text-brand-primary">Gestion des Droits d'Accès</span>
+            <h1 class="text-2xl font-extrabold text-slate-900 mt-0.5">Tableau des Rôles & Permissions</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Chaque colonne représente un rôle du club. Vous pouvez renommer un rôle, ajouter une nouvelle colonne ou supprimer un rôle personnalisé.</p>
         </div>
 
-        <form id="form-add-role-column" class="flex items-center gap-2 shrink-0">
+        <form id="form-add-role-column" class="flex items-center gap-2 shrink-0" novalidate>
             <input type="text" id="new-role-name" required placeholder="Nom du nouveau rôle (ex: Bénévole)..." class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold w-56 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-            <button type="submit" id="btn-add-role-col" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition shrink-0">
-                + Ajouter une colonne (Rôle)
+            <button type="submit" id="btn-add-role-col" class="bg-brand-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition shrink-0">
+                + Ajouter un rôle
             </button>
         </form>
     </div>

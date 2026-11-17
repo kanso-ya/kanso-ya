@@ -8,7 +8,7 @@ declare(strict_types=1);
  */
 ?>
 <!-- Conteneur de Toasts non-intrusifs (bas-droite, auto-dismiss 3s) -->
-<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+<div id="toast-container" data-testid="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
 <!-- Modale Globale de Confirmation Destructrice (Section 4.4 : bg-slate-900/60 + bouton bg-red-600) -->
 <div id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">

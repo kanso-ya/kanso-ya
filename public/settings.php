@@ -41,9 +41,9 @@ ob_start();
     <!-- En-tête Paramètres du Club & Navigation à Onglets -->
     <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <span class="text-xs font-bold uppercase text-emerald-600">Administration du Club — <?= htmlspecialchars($currentRole, ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="text-xs font-bold uppercase text-brand-primary">Administration du Club — <?= htmlspecialchars($currentRole, ENT_QUOTES, 'UTF-8') ?></span>
             <h1 class="text-2xl font-extrabold text-slate-900 mt-0.5">Paramètres du Club</h1>
-            <p class="text-xs text-slate-500">Configurez les cotisations, le moteur de remises, la politique médicale, les modules actifs et le rollover de saison.</p>
+            <p class="text-xs text-slate-500">Configurez les cotisations, le moteur de remises, la politique médicale, les extensions actives et le basculement de saison.</p>
         </div>
 
         <!-- Sélecteur d'onglets -->
@@ -77,7 +77,7 @@ ob_start();
             <h2 class="text-lg font-bold text-slate-900">Cotisations de Base, Moteur de Remises & Mode Médical</h2>
         </div>
 
-        <form id="form-club-settings" class="space-y-6">
+        <form id="form-club-settings" class="space-y-6" novalidate>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <?php if ($currentRole === 'Président'): ?>
                     <div>
@@ -163,9 +163,9 @@ ob_start();
                 </div>
             </div>
 
-            <!-- Texte explicatif validation OTP -->
+            <!-- Texte explicatif après validation -->
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Texte explicatif affiché après validation d'une inscription (Procédure OTP)</label>
+                <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Texte explicatif affiché après validation d'une inscription</label>
                 <textarea name="registration_confirmation_text" rows="3" class="w-full border border-slate-300 rounded-xl p-3.5 text-sm"><?= htmlspecialchars($confirmTxt, ENT_QUOTES, 'UTF-8') ?></textarea>
             </div>
 
@@ -179,17 +179,17 @@ ob_start();
 
     <?php if ($currentRole === 'Président'): ?>
         <!-- =====================================================================
-             ONGLET 2 : GESTION DES MODULES (PRÉSIDENT / SUPERADMIN - US 6.3)
+             ONGLET 2 : GESTION DES EXTENSIONS DU CLUB
              ===================================================================== -->
         <section id="tab-panel-club-modules" class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200 space-y-6 hidden">
             <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <span class="text-xs font-bold uppercase text-purple-600">Extensibilité & Écosystème SDK</span>
+                    <span class="text-xs font-bold uppercase text-purple-600">Extensions du Club</span>
                     <h2 class="text-lg font-bold text-slate-900">Modules Installés & Extensions</h2>
-                    <p class="text-xs text-slate-500">Activez ou désactivez les extensions du club. Les modules défaillants sont isolés en Safe Mode automatique.</p>
+                    <p class="text-xs text-slate-500">Activez ou désactivez les extensions du club. Tout module défaillant est automatiquement mis hors service en mode sécurisé.</p>
                 </div>
                 <button type="button" id="btn-scan-modules" class="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl transition border border-purple-200 shrink-0">
-                    🔄 Rescanner le dossier /modules/
+                    🔄 Actualiser la liste des extensions
                 </button>
             </div>
 
@@ -199,16 +199,16 @@ ob_start();
         </section>
 
         <!-- =====================================================================
-             ONGLET 3 : BASCULEMENT DE SAISON (ROLLOVER) (US 5.1)
+             ONGLET 3 : BASCULEMENT DE SAISON
              ===================================================================== -->
         <section id="tab-panel-club-rollover" class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200 space-y-6 hidden">
             <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <span class="text-xs font-bold uppercase text-red-600">Automatisation Administrative & Sportive (US 5.1)</span>
-                    <h2 class="text-lg font-bold text-slate-900">Basculement Annuel de Saison (Moulinette Rollover)</h2>
-                    <p class="text-xs text-slate-500">Recalcule automatiquement les catégories d'âge (grades) pour tous les adhérents actifs, verrouille les surclassements entraîneur et archive les dossiers antérieurs.</p>
+                    <span class="text-xs font-bold uppercase text-red-600">Automatisation Administrative & Sportive</span>
+                    <h2 class="text-lg font-bold text-slate-900">Basculement Annuel de Saison</h2>
+                    <p class="text-xs text-slate-500">Recalcule automatiquement les catégories d'âge (grades) pour tous les adhérents actifs, préserve les surclassements validés et archive les dossiers antérieurs.</p>
                 </div>
-                <button type="button" id="btn-open-rollover-modal" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow shrink-0">
+                <button type="button" id="btn-open-rollover-modal" data-testid="btn-trigger-rollover" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow shrink-0">
                     🔄 Déclencher le basculement de saison
                 </button>
             </div>
@@ -220,16 +220,16 @@ ob_start();
                 </div>
                 <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
                     <span class="font-bold text-slate-800 block mb-1">2. Respect strict des Surclassements</span>
-                    <p class="text-slate-500">Les adhérents surclassés par décision d'entraîneur (<code class="text-emerald-700 font-mono">is_category_forced = 1</code>) sont intégralement préservés.</p>
+                    <p class="text-slate-500">Les adhérents surclassés manuellement par décision d'entraîneur conservent intégralement leur catégorie attribuée.</p>
                 </div>
                 <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
                     <span class="font-bold text-slate-800 block mb-1">3. Clôture des Dossiers Précédents</span>
-                    <p class="text-slate-500">Les dossiers validés de la saison sortante sont automatiquement passés au statut <code class="text-blue-700 font-mono">archived</code>.</p>
+                    <p class="text-slate-500">Les dossiers validés de la saison sortante sont automatiquement archivés pour préparer la rentrée.</p>
                 </div>
             </div>
         </section>
 
-        <!-- Modale de Confirmation Rouge de Rollover (US 5.1) -->
+        <!-- Modale de Confirmation Rouge de Basculement de Saison -->
         <div id="rollover-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border-2 border-red-500 space-y-5 animate-in fade-in duration-200">
                 <div class="flex items-center gap-3 text-red-600 border-b border-red-100 pb-3">
@@ -242,7 +242,7 @@ ob_start();
 
                 <div class="space-y-4 text-xs text-slate-600">
                     <p>
-                        Vous êtes sur le point de déclencher la moulinette de changement de saison sportive.
+                        Vous êtes sur le point de déclencher le changement de saison sportive.
                         Tous les adhérents actifs verront leur catégorie d'âge recalculée pour la nouvelle saison cible.
                     </p>
 
@@ -255,7 +255,7 @@ ob_start();
                     </div>
 
                     <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
-                        🛡️ <strong>Garantie Sécurité :</strong> Les surclassements validés manuellement par les entraîneurs (<code>is_category_forced = 1</code>) ne seront <strong>pas modifiés</strong>.
+                        🛡️ <strong>Garantie Sécurité :</strong> Les surclassements validés manuellement par les entraîneurs ne seront <strong>pas modifiés</strong>.
                     </div>
                 </div>
 
@@ -271,18 +271,18 @@ ob_start();
         </div>
 
         <!-- =====================================================================
-             ONGLET 4 : JOURNAL D'AUDIT APPLICATIF (PRÉSIDENT)
+             ONGLET 4 : JOURNAL D'ACTIVITÉ DU CLUB (PRÉSIDENT)
              ===================================================================== -->
         <section id="tab-panel-club-logs" class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-4 hidden">
-            <h2 id="audit-logs-title" class="text-base font-bold text-slate-900">Journal d'Audit Applicatif du Club (`app_logs`)</h2>
+            <h2 id="audit-logs-title" class="text-base font-bold text-slate-900">Journal d'activité du club</h2>
             <div class="overflow-x-auto rounded-xl border border-slate-200 max-h-96">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-50 text-slate-600 uppercase border-b border-slate-200">
                         <tr>
-                            <th class="p-3">ID</th>
+                            <th class="p-3">N°</th>
                             <th class="p-3">Action</th>
-                            <th class="p-3">Cible</th>
-                            <th class="p-3">Horodatage</th>
+                            <th class="p-3">Élément concerné</th>
+                            <th class="p-3">Date & Heure</th>
                         </tr>
                     </thead>
                     <tbody id="audit-logs-tbody" class="divide-y divide-slate-100"></tbody>
@@ -290,15 +290,14 @@ ob_start();
             </div>
         </section>
         <!-- =====================================================================
-             ONGLET 5 : ÉDITEUR DES PAGES DU PIED DE PAGE (Point 16b)
-             - /horaires, /mentions-legales, /rgpd, /cgv
+             ONGLET 5 : ÉDITEUR DES PAGES DU PIED DE PAGE
              ===================================================================== -->
         <section id="tab-panel-club-pages" class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200 space-y-6 hidden">
             <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <span class="text-xs font-bold uppercase text-emerald-600">Pages Institutionnelles & Légales</span>
+                    <span class="text-xs font-bold uppercase text-brand-primary">Pages Institutionnelles & Légales</span>
                     <h2 class="text-lg font-bold text-slate-900">Éditeur des Pages du Pied de Page</h2>
-                    <p class="text-xs text-slate-500">Personnalisez le contenu affiché sur les pages publiques /horaires, /mentions-legales, /rgpd et /cgv.</p>
+                    <p class="text-xs text-slate-500">Personnalisez le contenu affiché sur les pages publiques Horaires, Mentions légales, Politique RGPD et CGV.</p>
                 </div>
             </div>
 
@@ -306,14 +305,14 @@ ob_start();
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Sélectionner la page à éditer *</label>
                     <select id="select-institutional-page" class="w-full sm:w-80 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white">
-                        <option value="horaires">Horaires des Cours & Tarifs (/horaires)</option>
-                        <option value="mentions-legales">Mentions Légales (/mentions-legales)</option>
-                        <option value="rgpd">Politique de Confidentialité (/rgpd)</option>
-                        <option value="cgv">Conditions Générales d'Adhésion (/cgv)</option>
+                        <option value="horaires">Horaires des Cours & Tarifs</option>
+                        <option value="mentions-legales">Mentions Légales</option>
+                        <option value="rgpd">Politique de Confidentialité (RGPD)</option>
+                        <option value="cgv">Conditions Générales d'Adhésion (CGV)</option>
                     </select>
                 </div>
 
-                <form id="form-institutional-page" class="space-y-4">
+                <form id="form-institutional-page" class="space-y-4" novalidate>
                     <div>
                         <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Titre de la Page *</label>
                         <input type="text" id="page-title-input" required class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white">

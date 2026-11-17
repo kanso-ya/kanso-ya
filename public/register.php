@@ -153,7 +153,7 @@ ob_start();
                 </div>
 
                 <div class="flex justify-end pt-4 border-t border-slate-100">
-                    <button type="button" id="btn-next-from-identity" class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition">
+                    <button type="button" id="btn-next-from-identity" class="px-6 py-2.5 bg-brand-primary text-white text-sm font-semibold rounded-xl transition">
                         Étape suivante →
                     </button>
                 </div>
@@ -168,7 +168,7 @@ ob_start();
                         <div>
                             <span class="text-xs font-bold uppercase text-amber-700">Étape 2 — Pratiquant Mineur (&lt; 18 ans)</span>
                             <h2 class="text-lg font-bold text-slate-900">Informations des Responsables Légaux</h2>
-                            <p class="text-xs text-slate-600">Le Responsable Légal 1 doit être majeur (18 ans minimum) et recevra le lien d'activation OTP.</p>
+                            <p class="text-xs text-slate-600">Le Responsable Légal 1 doit être majeur (18 ans minimum) et recevra le lien d'activation par e-mail.</p>
                         </div>
                         <button type="button" id="btn-copy-adult-as-tutor" class="hidden px-3.5 py-2 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-bold transition shrink-0">
                             ⚡ Reprendre le majeur du dossier comme Responsable Légal 1
@@ -440,13 +440,13 @@ ob_start();
         </div>
 
         <div class="max-w-2xl mx-auto p-6 bg-slate-50 rounded-2xl border border-slate-200 text-left space-y-3">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Procédure de validation & Connexion par mail OTP :</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Procédure de validation & Activation de votre compte par e-mail :</h3>
             <p class="text-sm text-slate-700 leading-relaxed">
                 <?= nl2br(htmlspecialchars($confirmTxt, ENT_QUOTES, 'UTF-8')) ?>
             </p>
             <ol class="list-decimal pl-5 text-xs text-slate-600 space-y-1.5 pt-2">
                 <li><strong>Étape 1 (Règlement) :</strong> Remettez votre règlement au Trésorier ou Secrétariat du club lors de votre premier cours.</li>
-                <li><strong>Étape 2 (Vérification du cours/grade & Envoi OTP) :</strong> Le bureau vérifie vos cours/grades choisis et vous envoie un email automatique avec un <strong>lien d'activation à usage unique valable 48h</strong>.</li>
+                <li><strong>Étape 2 (Vérification du cours/grade & Envoi du lien) :</strong> Le bureau vérifie vos cours/grades choisis et vous envoie un e-mail automatique avec un <strong>lien d'activation à usage unique valable 48h</strong>.</li>
                 <li><strong>Étape 3 (Création du mot de passe) :</strong> Cliquez sur ce lien pour définir votre mot de passe et accéder à votre espace personnel.</li>
             </ol>
         </div>

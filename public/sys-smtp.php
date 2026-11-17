@@ -18,7 +18,7 @@ ob_start();
         <div>
             <span class="text-xs font-bold uppercase text-emerald-400">Communication & Notifications</span>
             <h1 class="text-2xl font-extrabold text-white mt-1">Serveur SMTP & Modèles d'Emails Transactionnels</h1>
-            <p class="text-xs text-slate-400 mt-1">Configurez le serveur d'envoi, testez la délivrabilité et personnalisez les emails automatiques (OTP, confirmations, reçus).</p>
+            <p class="text-xs text-slate-400 mt-1">Configurez le serveur d'envoi, testez la délivrabilité et personnalisez les e-mails automatiques (invitations, confirmations, reçus).</p>
         </div>
         <div class="flex items-center gap-2">
             <input type="email" id="test-smtp-recipient" placeholder="destinataire@test.fr" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
@@ -71,11 +71,11 @@ ob_start();
     <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
             <div>
-                <h2 class="text-lg font-bold text-white">2. Modèles d'Emails Transactionnels (`email_templates`)</h2>
-                <p class="text-xs text-slate-400">Personnalisez le sujet et le contenu des notifications envoyées par le système.</p>
+                <h2 class="text-lg font-bold text-white">2. Modèles d'E-mails Automatiques</h2>
+                <p class="text-xs text-slate-400">Personnalisez le sujet et le contenu des notifications envoyées par le site.</p>
             </div>
             <select id="select-email-template" data-testid="select-email-template" class="bg-slate-950 border border-slate-700 text-white text-xs font-semibold rounded-xl px-3.5 py-2">
-                <option value="otp_invitation">Invitation OTP 48h</option>
+                <option value="otp_invitation">Invitation d'activation de compte (48h)</option>
                 <option value="registration_received">Accusé de réception dossier</option>
                 <option value="registration_validated">Validation & Reçu officiel</option>
             </select>
@@ -107,7 +107,7 @@ ob_start();
 
     <!-- 3. Historique & Traçabilité des envois d'emails -->
     <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-3">
-        <h2 class="text-lg font-bold text-white border-b border-slate-800 pb-3">3. Journal d'Envoi des Emails (`email_logs`)</h2>
+        <h2 class="text-lg font-bold text-white border-b border-slate-800 pb-3">3. Historique des E-mails Envoyés</h2>
         <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-56">
             <table class="w-full text-left border-collapse text-xs">
                 <thead class="bg-slate-950 text-slate-400 uppercase border-b border-slate-800">

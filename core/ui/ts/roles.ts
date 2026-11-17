@@ -24,14 +24,14 @@ interface PermissionSpec {
 }
 
 const PERMISSION_CATALOG: PermissionSpec[] = [
-    { key: 'members.view', label: 'Consulter l\'annuaire adhérents', domain: 'CRM' },
-    { key: 'members.edit', label: 'Créer / Modifier / Radier un adhérent', domain: 'CRM' },
-    { key: 'stats.view', label: 'Consulter les statistiques', domain: 'Statistiques' },
-    { key: 'finances.manage', label: 'Inspecter & Valider les cotisations', domain: 'Trésorerie' },
-    { key: 'articles.write', label: 'Rédiger des articles (Brouillon)', domain: 'CMS' },
-    { key: 'articles.publish', label: 'Publier & Supprimer des articles', domain: 'CMS' },
-    { key: 'pages.manage', label: 'Éditer les pages légales (/rgpd, /cgv)', domain: 'CMS' },
-    { key: 'roles.manage', label: 'Gérer les rôles RBAC & disciplines', domain: 'Admin' }
+    { key: 'members.view', label: 'Consulter l\'annuaire des adhérents', domain: 'Adhérents' },
+    { key: 'members.edit', label: 'Créer, modifier ou radier un adhérent', domain: 'Adhérents' },
+    { key: 'stats.view', label: 'Consulter les statistiques du club', domain: 'Statistiques' },
+    { key: 'finances.manage', label: 'Inspecter et valider les cotisations', domain: 'Trésorerie' },
+    { key: 'articles.write', label: 'Rédiger des articles (en brouillon)', domain: 'Contenu' },
+    { key: 'articles.publish', label: 'Publier et supprimer des articles', domain: 'Contenu' },
+    { key: 'pages.manage', label: 'Modifier les pages institutionnelles et légales', domain: 'Contenu' },
+    { key: 'roles.manage', label: 'Gérer les rôles, permissions et disciplines', domain: 'Administration' }
 ];
 
 const bootRolesPage = (): void => {
@@ -56,9 +56,12 @@ function initAddRoleColumnForm(): void {
     form.addEventListener('submit', async (e: Event) => {
         e.preventDefault();
         const name = input?.value.trim() || '';
-        if (!name) return;
+        if (!name) {
+            showToast('Veuillez saisir un nom pour le nouveau rôle.', 'error');
+            return;
+        }
 
-        setButtonLoading(btn, true, '+ Ajouter une colonne (Rôle)');
+        setButtonLoading(btn, true, '+ Ajouter un rôle');
         try {
             const res = await fetchApi('/api/v1/roles', {
                 method: 'POST',
@@ -70,7 +73,7 @@ function initAddRoleColumnForm(): void {
                 await loadRolesMatrix();
             }
         } finally {
-            setButtonLoading(btn, false, '+ Ajouter une colonne (Rôle)');
+            setButtonLoading(btn, false, '+ Ajouter un rôle');
         }
     });
 }
@@ -124,7 +127,6 @@ async function loadRolesMatrix(): Promise<void> {
                     <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">${perm.domain}</span>
                     <strong class="text-slate-900 font-bold">${perm.label}</strong>
                 </div>
-                <code class="text-[10px] text-slate-400 font-mono">${perm.key}</code>
             </td>
         `;
 

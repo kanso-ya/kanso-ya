@@ -4,10 +4,11 @@
  * et des paramètres métier du Président / Trésorier / Secrétaire (Points 1 & 3).
  */
 import { fetchApi } from './api.js';
-import { openConfirmModal, setButtonLoading, showToast } from './main.js';
+import { setButtonLoading, showToast } from './main.js';
 import { generateQrCodeSvg } from './qrcode.js';
 let activeTotpSecret = '';
 let activeUserEmail = '';
+let active2faMode = 'qr';
 let totpIntervalId = null;
 document.addEventListener('DOMContentLoaded', () => {
     initProfileTabs();
@@ -64,9 +65,15 @@ async function loadMyProfile() {
     const secretEl = document.getElementById('totp-secret-display');
     if (secretEl)
         secretEl.textContent = activeTotpSecret;
+    const manualSecretEl = document.getElementById('totp-secret-manual-display');
+    if (manualSecretEl)
+        manualSecretEl.textContent = activeTotpSecret;
+    const emailLabel = document.getElementById('twofa-user-email-label');
+    if (emailLabel)
+        emailLabel.textContent = activeUserEmail;
     refreshTotpQrCode();
     startTotpTimer();
-    update2faUiState(p.two_factor_enabled);
+    update2faUiState(p.two_factor_enabled, p.two_factor_method || 'totp');
 }
 function refreshTotpQrCode() {
     const qrContainer = document.getElementById('totp-qrcode-container');
@@ -113,6 +120,20 @@ function initProfileForm() {
     addBtn?.addEventListener('click', () => appendCustomFieldRow());
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const firstNameInput = document.getElementById('prof-first-name');
+        const lastNameInput = document.getElementById('prof-last-name');
+        const emailInput = document.getElementById('prof-email');
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
+        const email = emailInput.value.trim();
+        if (!firstName || !lastName) {
+            showToast('Veuillez renseigner votre prénom et votre nom.', 'error');
+            return;
+        }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showToast('Veuillez saisir une adresse e-mail de connexion valide.', 'error');
+            return;
+        }
         setButtonLoading(saveBtn, true, 'Enregistrer les informations de mon profil');
         const custom_fields = [];
         document.querySelectorAll('.custom-field-row').forEach((row) => {
@@ -122,9 +143,9 @@ function initProfileForm() {
                 custom_fields.push({ label, value });
         });
         const payload = {
-            first_name: document.getElementById('prof-first-name').value.trim(),
-            last_name: document.getElementById('prof-last-name').value.trim(),
-            email: document.getElementById('prof-email').value.trim(),
+            first_name: firstName,
+            last_name: lastName,
+            email,
             phone: document.getElementById('prof-phone').value.trim(),
             address: document.getElementById('prof-address').value.trim(),
             custom_fields
@@ -143,7 +164,7 @@ function initProfileForm() {
         }
     });
 }
-function update2faUiState(enabled) {
+function update2faUiState(enabled, method = 'totp') {
     const badge = document.getElementById('badge-2fa-status');
     const btnEnable = document.getElementById('btn-enable-2fa');
     const btnDisable = document.getElementById('btn-disable-2fa');
@@ -151,7 +172,8 @@ function update2faUiState(enabled) {
         badge.className = enabled
             ? 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800'
             : 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600';
-        badge.textContent = enabled ? '✓ 2FA Active' : 'Désactivée';
+        const suffix = method === 'email' ? ' (E-mail)' : '';
+        badge.textContent = enabled ? `✓ 2FA Active${suffix}` : 'Désactivée';
     }
     btnEnable?.classList.toggle('hidden', enabled);
     btnDisable?.classList.toggle('hidden', !enabled);
@@ -160,8 +182,36 @@ function initTwoFactorControls() {
     const btnEnable = document.getElementById('btn-enable-2fa');
     const btnDisable = document.getElementById('btn-disable-2fa');
     const codeInput = document.getElementById('totp-code-input');
+    const codeLabel = document.getElementById('label-2fa-code-input');
     const btnToggleSecret = document.getElementById('btn-toggle-secret');
     const secretWrapper = document.getElementById('totp-secret-wrapper');
+    const btnCopySecret = document.getElementById('btn-copy-totp-secret');
+    const btnSendEmailCode = document.getElementById('btn-send-2fa-email-code');
+    const modeButtons = [
+        { mode: 'qr', btn: document.getElementById('btn-2fa-mode-qr'), panel: document.getElementById('panel-2fa-qr') },
+        { mode: 'manual', btn: document.getElementById('btn-2fa-mode-manual'), panel: document.getElementById('panel-2fa-manual') },
+        { mode: 'email', btn: document.getElementById('btn-2fa-mode-email'), panel: document.getElementById('panel-2fa-email') }
+    ];
+    modeButtons.forEach(({ mode, btn }) => {
+        btn?.addEventListener('click', () => {
+            active2faMode = mode;
+            modeButtons.forEach((item) => {
+                const isSelected = item.mode === mode;
+                item.btn?.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+                if (item.btn) {
+                    item.btn.className = isSelected
+                        ? 'p-3 rounded-xl border-2 border-brand-primary bg-emerald-50 text-left transition'
+                        : 'p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white text-left transition';
+                }
+                item.panel?.classList.toggle('hidden', !isSelected);
+            });
+            if (codeLabel) {
+                codeLabel.textContent = mode === 'email'
+                    ? 'Code reçu par e-mail (6 chiffres) *'
+                    : 'Code de vérification à 6 chiffres *';
+            }
+        });
+    });
     btnToggleSecret?.addEventListener('click', () => {
         if (!secretWrapper)
             return;
@@ -175,15 +225,46 @@ function initTwoFactorControls() {
             btnToggleSecret.textContent = 'Afficher la clé secrète textuelle';
         }
     });
+    btnCopySecret?.addEventListener('click', async () => {
+        if (!activeTotpSecret)
+            return;
+        try {
+            await navigator.clipboard.writeText(activeTotpSecret);
+            showToast('Clé secrète copiée dans le presse-papiers !', 'success');
+        }
+        catch {
+            showToast(`Clé secrète : ${activeTotpSecret}`, 'info');
+        }
+    });
+    btnSendEmailCode?.addEventListener('click', async () => {
+        setButtonLoading(btnSendEmailCode, true, '✉️ Envoyer un code de vérification par e-mail');
+        try {
+            const res = await fetchApi('/api/v1/users/me/2fa/send-email-code', {
+                method: 'POST',
+                body: JSON.stringify({ purpose: 'setup' })
+            });
+            if (res.status === 'success') {
+                showToast(res.message || 'Un code à 6 chiffres a été envoyé à votre adresse e-mail.', 'success');
+            }
+        }
+        finally {
+            setButtonLoading(btnSendEmailCode, false, '✉️ Envoyer un code de vérification par e-mail');
+        }
+    });
     btnEnable?.addEventListener('click', async () => {
         const code = codeInput?.value.trim() || '';
+        if (!/^\d{6}$/.test(code)) {
+            showToast('Veuillez saisir un code de vérification valide à 6 chiffres.', 'error');
+            return;
+        }
+        const apiMethod = active2faMode === 'email' ? 'email' : 'totp';
         const res = await fetchApi('/api/v1/users/me/2fa', {
             method: 'POST',
-            body: JSON.stringify({ enabled: true, totp_code: code })
+            body: JSON.stringify({ enabled: true, method: apiMethod, totp_code: code, code })
         });
         if (res.status === 'success') {
-            showToast('Double authentification (2FA) activée !', 'success');
-            update2faUiState(true);
+            showToast(res.message || 'Double authentification activée !', 'success');
+            update2faUiState(true, apiMethod);
             if (codeInput)
                 codeInput.value = '';
         }
@@ -194,16 +275,29 @@ function initTwoFactorControls() {
             body: JSON.stringify({ enabled: false })
         });
         if (res.status === 'success') {
-            showToast('Double authentification (2FA) désactivée.', 'info');
-            update2faUiState(false);
+            showToast('Double authentification désactivée.', 'info');
+            update2faUiState(false, 'totp');
         }
     });
 }
 function initPasswordForm() {
     const form = document.getElementById('form-change-password');
-    const btn = document.getElementById('btn-submit-password');
+    const modal = document.getElementById('password-confirm-modal');
+    const modalForm = document.getElementById('form-modal-confirm-password');
+    const modalConfirmInput = document.getElementById('modal-confirm-new-password');
+    const btnCancelModal = document.getElementById('btn-cancel-password-modal');
+    const btnConfirmModal = document.getElementById('btn-confirm-password-change');
     if (!form)
         return;
+    let pendingCurrentPassword = '';
+    let pendingNewPassword = '';
+    const closePwdModal = () => {
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+        if (modalConfirmInput)
+            modalConfirmInput.value = '';
+    };
+    btnCancelModal?.addEventListener('click', closePwdModal);
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         const formData = new FormData(form);
@@ -214,29 +308,52 @@ function initPasswordForm() {
             return;
         }
         if (newPassword.length < 8) {
-            showToast('Le mot de passe doit comporter au moins 8 caractères.', 'error');
+            showToast('Le nouveau mot de passe doit comporter au moins 8 caractères.', 'error');
             return;
         }
-        // Modale de confirmation avant modification du mot de passe
-        openConfirmModal('Modifier le mot de passe ?', 'Êtes-vous sûr de vouloir mettre à jour votre mot de passe de connexion ? Vous devrez utiliser ce nouveau mot de passe lors de vos prochaines visites.', async () => {
-            setButtonLoading(btn, true, 'Mettre à jour mon mot de passe');
-            try {
-                const res = await fetchApi('/api/v1/users/me/password', {
-                    method: 'PATCH',
-                    body: JSON.stringify({
-                        current_password: currentPassword,
-                        new_password: newPassword
-                    })
-                });
-                if (res.status === 'success') {
-                    showToast('Mot de passe modifié avec succès !', 'success');
-                    form.reset();
-                }
+        if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+            showToast('Le nouveau mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial.', 'error');
+            return;
+        }
+        pendingCurrentPassword = currentPassword;
+        pendingNewPassword = newPassword;
+        if (modal && modalConfirmInput) {
+            modalConfirmInput.value = '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            modalConfirmInput.focus();
+        }
+    });
+    modalForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const confirmValue = modalConfirmInput?.value || '';
+        if (!confirmValue) {
+            showToast('Veuillez confirmer votre nouveau mot de passe.', 'error');
+            return;
+        }
+        if (confirmValue !== pendingNewPassword) {
+            showToast('Les deux mots de passe saisis ne correspondent pas.', 'error');
+            return;
+        }
+        setButtonLoading(btnConfirmModal, true, 'Confirmer la modification');
+        try {
+            const res = await fetchApi('/api/v1/users/me/password', {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    current_password: pendingCurrentPassword,
+                    new_password: pendingNewPassword,
+                    confirm_password: confirmValue
+                })
+            });
+            if (res.status === 'success') {
+                showToast('Mot de passe modifié avec succès !', 'success');
+                form.reset();
+                closePwdModal();
             }
-            finally {
-                setButtonLoading(btn, false, 'Mettre à jour mon mot de passe');
-            }
-        });
+        }
+        finally {
+            setButtonLoading(btnConfirmModal, false, 'Confirmer la modification');
+        }
     });
 }
 function initClubBusinessSettingsForm() {

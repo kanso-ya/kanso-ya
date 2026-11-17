@@ -111,6 +111,7 @@ async function loadSystemSettings(): Promise<void> {
     setVal('sys-watermark-url', d.site_watermark_url);
     setVal('sys-watermark-opacity', d.site_watermark_opacity);
     setVal('sys-color-primary', d.theme_primary_color);
+    setVal('sys-color-accent', d.theme_accent_color || d.theme_primary_color);
     setVal('sys-color-sidebar', d.theme_sidebar_color);
     setVal('sys-color-header', d.theme_header_color);
 
@@ -135,6 +136,8 @@ function initBrandingForm(): void {
             if (!raw) return;
             const palette = JSON.parse(raw);
             (document.getElementById('sys-color-primary') as HTMLInputElement).value = palette.primary;
+            const accentEl = document.getElementById('sys-color-accent') as HTMLInputElement | null;
+            if (accentEl) accentEl.value = palette.accent || palette.primary;
             (document.getElementById('sys-color-sidebar') as HTMLInputElement).value = palette.sidebar;
             (document.getElementById('sys-color-header') as HTMLInputElement).value = palette.header;
             showToast('Palette appliquée aux sélecteurs. Cliquez sur Enregistrer pour la publier.', 'info');

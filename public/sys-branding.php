@@ -61,14 +61,14 @@ ob_start();
                     <h3 class="text-sm font-bold text-white">Palette de Couleurs Dynamique</h3>
                     <div class="flex flex-wrap gap-2 text-xs">
                         <span class="text-slate-400 self-center mr-1">Préréglages :</span>
-                        <button type="button" data-preset='{"primary":"#059669","sidebar":"#0f172a","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-emerald-900/60 text-emerald-300 border border-emerald-700 font-semibold">Émeraude Dojo</button>
-                        <button type="button" data-preset='{"primary":"#dc2626","sidebar":"#18181b","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-red-900/60 text-red-300 border border-red-700 font-semibold">Rouge Shogun</button>
-                        <button type="button" data-preset='{"primary":"#2563eb","sidebar":"#0f172a","header":"#f8fafc"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-blue-900/60 text-blue-300 border border-blue-700 font-semibold">Bleu Océan</button>
-                        <button type="button" data-preset='{"primary":"#d97706","sidebar":"#1c1917","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-amber-900/60 text-amber-300 border border-amber-700 font-semibold">Or Martial</button>
+                        <button type="button" data-preset='{"primary":"#059669","accent":"#10b981","sidebar":"#0f172a","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-emerald-900/60 text-emerald-300 border border-emerald-700 font-semibold">Émeraude Dojo</button>
+                        <button type="button" data-preset='{"primary":"#dc2626","accent":"#f87171","sidebar":"#18181b","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-red-900/60 text-red-300 border border-red-700 font-semibold">Rouge Shogun</button>
+                        <button type="button" data-preset='{"primary":"#2563eb","accent":"#3b82f6","sidebar":"#0f172a","header":"#f8fafc"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-blue-900/60 text-blue-300 border border-blue-700 font-semibold">Bleu Océan</button>
+                        <button type="button" data-preset='{"primary":"#d97706","accent":"#f59e0b","sidebar":"#1c1917","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-amber-900/60 text-amber-300 border border-amber-700 font-semibold">Or Martial</button>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
                         <div>
                             <span class="text-xs font-bold text-white block">Couleur Primaire & Boutons</span>
@@ -79,7 +79,15 @@ ob_start();
 
                     <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
                         <div>
-                            <span class="text-xs font-bold text-white block">Couleur de la Sidebar</span>
+                            <span class="text-xs font-bold text-white block">Couleur d'Accentuation</span>
+                            <span class="text-[11px] text-slate-400">Badges, liens d'inscription</span>
+                        </div>
+                        <input type="color" id="sys-color-accent" name="theme_accent_color" value="#10b981" class="w-10 h-10 rounded cursor-pointer bg-transparent border-0">
+                    </div>
+
+                    <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-white block">Couleur du Menu Latéral</span>
                             <span class="text-[11px] text-slate-400">Fond de la barre latérale gauche</span>
                         </div>
                         <input type="color" id="sys-color-sidebar" name="theme_sidebar_color" value="#0f172a" class="w-10 h-10 rounded cursor-pointer bg-transparent border-0">
@@ -88,7 +96,7 @@ ob_start();
                     <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
                         <div>
                             <span class="text-xs font-bold text-white block">Couleur du Bandeau Supérieur</span>
-                            <span class="text-[11px] text-slate-400">Fond du Header fixe en haut</span>
+                            <span class="text-[11px] text-slate-400">Fond du bandeau fixe en haut</span>
                         </div>
                         <input type="color" id="sys-color-header" name="theme_header_color" value="#ffffff" class="w-10 h-10 rounded cursor-pointer bg-transparent border-0">
                     </div>

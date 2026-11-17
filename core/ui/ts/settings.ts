@@ -78,9 +78,26 @@ function initClubSettingsForm(): void {
 
     form.addEventListener('submit', async (e: Event) => {
         e.preventDefault();
+        const payload = Object.fromEntries(new FormData(form).entries());
+
+        const basePrice = parseFloat(String(payload.membership_base_price ?? ''));
+        if (Number.isNaN(basePrice) || basePrice < 0) {
+            showToast('Veuillez saisir un montant de cotisation de base valide (0 € ou plus).', 'error');
+            return;
+        }
+        const capacity = parseInt(String(payload.default_course_capacity ?? '30'), 10);
+        if (Number.isNaN(capacity) || capacity < 1 || capacity > 500) {
+            showToast('La capacité théorique par cours doit être comprise entre 1 et 500.', 'error');
+            return;
+        }
+        const discountVal = parseFloat(String(payload.discount_value ?? '0'));
+        if (Number.isNaN(discountVal) || discountVal < 0) {
+            showToast('La valeur de la remise ne peut pas être négative.', 'error');
+            return;
+        }
+
         setButtonLoading(btn, true, 'Enregistrer les paramètres du club');
         try {
-            const payload = Object.fromEntries(new FormData(form).entries());
             const res = await fetchApi('/api/v1/settings', {
                 method: 'PATCH',
                 body: JSON.stringify(payload)
@@ -198,12 +215,11 @@ function initRolloverControls(): void {
         setButtonLoading(confirmBtn, true, 'Basculement en cours...');
         try {
             const res = await fetchApi<{
-                active_members_processed: number;
-                categories_recalculated: number;
-                forced_categories_preserved: number;
-                registrations_archived: number;
+                promoted_count?: number;
+                forced_ignored_count?: number;
+                closed_registrations_count?: number;
                 target_season: string;
-            }>('/api/v1/rollover', {
+            }>('/api/v1/tasks/rollover-season', {
                 method: 'POST',
                 body: JSON.stringify({
                     target_season: targetSeason,
@@ -213,8 +229,10 @@ function initRolloverControls(): void {
 
             if (res.status === 'success' && res.data) {
                 modal.classList.add('hidden');
+                const promoted = res.data.promoted_count ?? 0;
+                const preserved = res.data.forced_ignored_count ?? 0;
                 showToast(
-                    `Basculement réussi ! ${res.data.active_members_processed} adhérents traités (${res.data.forced_categories_preserved} surclassements préservés).`,
+                    `Basculement vers ${res.data.target_season} réussi ! ${promoted} changement(s) de catégorie (${preserved} surclassement(s) préservé(s)).`,
                     'success'
                 );
                 await loadAuditLogs();
@@ -223,6 +241,23 @@ function initRolloverControls(): void {
             setButtonLoading(confirmBtn, false, 'Confirmer le basculement');
         }
     });
+}
+
+function formatClubLogAction(rawAction: string): string {
+    const map: Record<string, string> = {
+        REGISTRATION_VALIDATED: 'Dossier d\'inscription validé',
+        MEMBER_RADIATED: 'Adhérent radié',
+        MEMBER_CREATED: 'Nouvel adhérent créé',
+        MEMBER_UPDATED: 'Fiche adhérent modifiée',
+        SEASON_ROLLOVER: 'Basculement annuel de saison',
+        CLUB_SETTINGS_UPDATED: 'Paramètres du club mis à jour',
+        '2FA_ENABLED': 'Double authentification activée',
+        '2FA_DISABLED': 'Double authentification désactivée',
+        PASSWORD_RESET_REQUESTED: 'Demande de réinitialisation de mot de passe',
+        OTP_RESENT: 'Lien d\'activation renvoyé',
+        ARTICLE_PUBLISHED: 'Article publié'
+    };
+    return map[rawAction] || rawAction;
 }
 
 async function loadAuditLogs(): Promise<void> {
@@ -238,8 +273,8 @@ async function loadAuditLogs(): Promise<void> {
         tr.className = 'hover:bg-slate-50 transition';
         tr.innerHTML = `
             <td class="p-3 font-mono text-slate-500">#${log.id}</td>
-            <td class="p-3 font-bold text-slate-900">${log.action}</td>
-            <td class="p-3 text-slate-600">${log.target_type ? `${log.target_type} #${log.target_id || ''}` : '-'}</td>
+            <td class="p-3 font-bold text-slate-900">${formatClubLogAction(String(log.action || ''))}</td>
+            <td class="p-3 text-slate-600">${log.details || (log.target_type ? `${log.target_type} #${log.target_id || ''}` : '-')}</td>
             <td class="p-3 text-slate-400 font-mono">${log.created_at || ''}</td>
         `;
         tbody.appendChild(tr);
@@ -298,6 +333,17 @@ function initInstitutionalPagesEditor(): void {
         const contentInput = document.getElementById('page-content-input') as HTMLTextAreaElement | null;
 
         if (!titleInput || !statusSelect || !contentInput) return;
+
+        const cleanTitle = titleInput.value.trim();
+        const cleanContent = contentInput.value.trim();
+        if (!cleanTitle) {
+            showToast('Veuillez saisir un titre pour cette page institutionnelle.', 'error');
+            return;
+        }
+        if (!cleanContent) {
+            showToast('Le contenu de la page ne peut pas être vide.', 'error');
+            return;
+        }
 
         setButtonLoading(btn, true, 'Enregistrement...');
         try {

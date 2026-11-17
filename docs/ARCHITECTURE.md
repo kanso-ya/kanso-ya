@@ -2,8 +2,8 @@
 
 **Projet :** Kanso-ya CMS Associatif (Core)  
 **Rôle :** @architect (Architecture Logicielle & Référentiel Technique)  
-**Statut :** Référence Officielle de Production (Baseline Post-Lot 2)  
-**Dernière révision :** 16 novembre 2026
+**Statut :** Référence Officielle de Production (Baseline Post-Correctifs v1.0 & Préparation Finitions v1.1)  
+**Dernière révision :** 18 novembre 2026
 
 ---
 
@@ -247,17 +247,19 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 
 | Méthode | Route                         | Rôle / Droits Requis      | Payload Requis                                           | Réponse `data`                                                |
 | :------ | :---------------------------- | :------------------------ | :------------------------------------------------------- | :------------------------------------------------------------ |
-| `POST`  | `/api/v1/auth/login`          | Public (Anonyme)          | `{ "email": string, "password": string }`                | Infos utilisateur & redirection                               |
-| `POST`  | `/api/v1/sys/auth/login`      | Furtif (Superadmin)       | `{ "username": string, "password": string }`             | Session Superadmin activée                                    |
-| `POST`  | `/api/v1/sys/superadmins`     | Superadmin uniquement     | `{ "username": string, "email": string, "password": string }` | `{ "id": int, "username": string, "email": string }` (Superadmin secondaire créé avec contrôle d'unicité) |
-| `GET`   | `/api/v1/sys/superadmins`     | Superadmin uniquement     | Aucun                                                    | Liste des comptes Superadmin enregistrés                      |
-| `PATCH` | `/api/v1/sys/password`        | Superadmin uniquement     | `{ "current_password": string, "new_password": string }` | Confirmation de mise à jour du mot de passe technique         |
-| `POST`  | `/api/v1/auth/logout`         | Connecté                  | Aucun                                                    | Déconnexion confirmée                                         |
-| `GET`   | `/api/v1/auth/me`             | Tous (y compris Visiteur) | Aucun                                                    | `{ "user_id": int, "role": string, "permissions": string[] }` |
-| `GET`   | `/api/v1/users/me/profile`    | Connecté                  | Aucun                                                    | Profil complet avec `custom_fields`                           |
-| `PUT`   | `/api/v1/users/me/profile`    | Connecté                  | Coordonnées, `custom_fields`                             | Profil mis à jour                                             |
-| `POST`  | `/api/v1/users/me/2fa`        | Connecté                  | `{ "enabled": bool, "secret"?: string }`                 | Statut 2FA mis à jour                                         |
-| `PATCH` | `/api/v1/users/me/password`   | Connecté                  | `{ "current_password": string, "new_password": string }` | Confirmation du mot de passe                                  |
+| `POST`  | `/api/v1/auth/login`                | Public (Anonyme)          | `{ "email": string, "password": string, "two_factor_code"?: string }` | Infos utilisateur, challenge 2FA si requis & redirection      |
+| `POST`  | `/api/v1/auth/forgot-password`      | Public (Anonyme)          | `{ "email": string }`                                    | Réponse neutre systématique (génère un OTP si l'e-mail existe sans jamais révéler son existence — anti-énumération) |
+| `POST`  | `/api/v1/sys/auth/login`            | Furtif (Superadmin)       | `{ "username": string, "password": string }`             | Session Superadmin activée                                    |
+| `POST`  | `/api/v1/sys/superadmins`           | Superadmin uniquement     | `{ "username": string, "email": string, "password": string }` | `{ "id": int, "username": string, "email": string }` (Superadmin secondaire créé avec contrôle d'unicité) |
+| `GET`   | `/api/v1/sys/superadmins`           | Superadmin uniquement     | Aucun                                                    | Liste des comptes Superadmin enregistrés                      |
+| `PATCH` | `/api/v1/sys/password`              | Superadmin uniquement     | `{ "current_password": string, "new_password": string }` | Confirmation de mise à jour du mot de passe technique         |
+| `POST`  | `/api/v1/auth/logout`               | Connecté                  | Aucun                                                    | Déconnexion confirmée                                         |
+| `GET`   | `/api/v1/auth/me`                   | Tous (y compris Visiteur) | Aucun                                                    | `{ "user_id": int, "role": string, "permissions": string[] }` |
+| `GET`   | `/api/v1/users/me/profile`          | Connecté                  | Aucun                                                    | Profil complet avec `custom_fields`                           |
+| `PUT`   | `/api/v1/users/me/profile`          | Connecté                  | Coordonnées, `custom_fields`                             | Profil mis à jour                                             |
+| `POST`  | `/api/v1/users/me/2fa`              | Connecté                  | `{ "enabled": bool, "method"?: "totp" \| "email", "secret"?: string, "code"?: string }` | Statut 2FA & méthode active (`totp` ou `email`) mis à jour |
+| `POST`  | `/api/v1/users/me/2fa/send-email-code` | Connecté               | `{ "purpose"?: "setup" \| "login" }`                     | Envoi d'un code 2FA temporaire par e-mail (TTL 10 min, journalisé dans `email_logs`) |
+| `PATCH` | `/api/v1/users/me/password`         | Connecté                  | `{ "current_password": string, "new_password": string }` | Confirmation du mot de passe                                  |
 
 ---
 
@@ -332,7 +334,7 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 | `POST`      | `/api/v1/sys/branding-upload` | Superadmin uniquement                    | `multipart/form-data` (logo ou filigrane)       | URL publique de l'actif uploadé            |
 | `GET`       | `/api/v1/app-logs`            | `roles.manage` ou `logs.view`            | Aucun                                           | Entrées d'audit de la vie du club          |
 | `GET`       | `/api/v1/settings`            | Connecté                                 | Aucun                                           | Paires clé-valeur de `sys_settings`        |
-| `PATCH`     | `/api/v1/settings`            | `settings.manage` ou Superadmin          | `{ "settings": { "key": "value" } }`            | Configuration mise à jour (incluant remises: `discount_threshold`, `discount_type`, `discount_value`, santé: `medical_cert_mode`, et capacité théorique globale par discipline: `default_course_capacity`) |
+| `PATCH`     | `/api/v1/settings`            | `settings.manage` ou Superadmin          | `{ "settings": { "key": "value" } }`            | Configuration mise à jour (incluant remises : `discount_threshold`, `discount_type`, `discount_value`, santé : `medical_cert_mode`, capacité théorique globale : `default_course_capacity`, et mode d'exploitation : `demo_mode_enabled`) |
 
 ---
 
@@ -340,7 +342,7 @@ Pour permettre l'exécution des tests Playwright sans dépendre d'un stockage de
 
 | Méthode | Route                            | Rôle / Droits Requis                                      | Payload Requis                                              | Réponse `data`                                                                 |
 | :------ | :------------------------------- | :-------------------------------------------------------- | :---------------------------------------------------------- | :----------------------------------------------------------------------------- |
-| `POST`  | `/api/v1/tasks/rollover-season`  | Président ou Superadmin                                   | `{ "target_season"?: string, "reference_date"?: string }`   | `{ "target_season", "promoted_count", "forced_ignored_count", "closed_count" }` |
+| `POST`  | `/api/v1/tasks/rollover-season` *(alias : `/api/v1/rollover`)* | Président ou Superadmin                                   | `{ "target_season"?: string, "reference_date"?: string }`   | `{ "target_season", "promoted_count", "forced_ignored_count", "closed_count" }` |
 | `GET`   | `/api/v1/stats/kpis`             | `stats.view`, `finances.manage` ou Superadmin (RGPD Enseignant) | Aucun                                                       | `{ "total_members", "active_members", "renewal_rate", "finances": {...}\|null }`|
 | `GET`   | `/api/v1/stats/demographics`     | `stats.view` ou Superadmin                                | Aucun                                                       | `{ "age_bands", "gender_ratio", "discipline_occupancy": [...] }`               |
 
@@ -448,3 +450,46 @@ Le Sprint 7 a consolidé les fondations ergonomiques, visuelles et sécuritaires
 
 ### 9.6. Sauvegarde & Restauration SQLite sous Playwright
 - Automatisation stricte dans `tests/setup/global-setup.ts` et `tests/setup/global-teardown.ts` : snapshot initial du fichier SQLite (`storage/db/kanso-ya.sqlite` ainsi que ses fichiers `-wal` et `-shm`) avant le démarrage des tests, et restauration bit-à-bit à la fin de la campagne pour garantir une base saine et zéro pollution entre runs de tests.
+
+---
+
+## 10. Évolutions d'Architecture v1.1 : Sécurité Multi-Méthode, Thème CSS Réel & Mode Exploitation (Sprints 12 à 14)
+
+### 10.1. Harmonisation des Endpoints & Nouveaux Contrats d'Authentification
+1. **Basculement de Saison Harmonisé :**
+   - La route canonique reste `POST /api/v1/tasks/rollover-season`.
+   - Un **alias direct `POST /api/v1/rollover`** est routé vers le même contrôleur (`RolloverService`) dans `public/api.php`, supprimant tout risque de désynchronisation entre l'UI (`/settings`, `/sys-console`) et les scripts d'automatisation.
+2. **Récupération de Mot de Passe Oublié (Anti-Énumération) :**
+   - `POST /api/v1/auth/forgot-password` reçoit `{ "email": string }`.
+   - Si l'adresse correspond à un utilisateur actif dans `users`, le backend génère un jeton OTP temporaire (usage unique, TTL 15 min), l'enregistre dans `users.otp_code` / `users.otp_expires_at` dans une transaction `BEGIN IMMEDIATE` et journalise l'envoi dans `email_logs`.
+   - **Garantie anti-énumération :** que l'adresse existe ou non en base, l'API retourne invariablement un HTTP 200 JSend `status: "success"` avec un message neutre (*"Si un compte est associé à cette adresse e-mail, un code de réinitialisation vient de vous être envoyé."*).
+   - La finalisation de la réinitialisation consomme le jeton via `POST /api/v1/auth/activate-otp` (vérification de complexité + invalidation immédiate du jeton après usage).
+3. **Double Authentification (2FA) Multi-Méthode (`totp` ou `email`) :**
+   - Extension de `POST /api/v1/users/me/2fa` pour accepter `method: "totp" | "email"` en plus de `enabled` et `secret` / `code` (stockage de la méthode choisie dans `users` ou `custom_fields.two_factor_method`).
+   - Ajout de `POST /api/v1/users/me/2fa/send-email-code` : génère un code numérique temporaire à 6 chiffres (TTL 10 min, haché ou horodaté), l'expédie via la couche SMTP configurée avec trace dans `email_logs`, et permet de valider l'activation ou le défi de connexion sans application mobile TOTP.
+
+### 10.2. Architecture CSS du Thème Dynamique Réel (`--brand-*`)
+Pour mettre fin aux incohérences visuelles causées par les classes Tailwind `emerald-*` figées à la compilation, le gabarit maître [`core/ui/templates/layout.php`](file:///c:/laragon/www/kanso-ya/core/ui/templates/layout.php) adopte une injection centralisée dans `<head>` :
+
+1. **5 Variables CSS Maîtresses dans `:root` :**
+   ```css
+   :root {
+     --brand-primary: #059669;       /* Couleur primaire dynamique (sys_settings) */
+     --brand-primary-hover: #047857; /* Teinte assombrie calculée automatiquement (-12% luminosité) */
+     --brand-sidebar: #0f172a;       /* Fond de la barre latérale */
+     --brand-header: #ffffff;        /* Fond du bandeau supérieur */
+     --brand-accent: #10b981;        /* Couleur d'accentuation / badges / focus */
+   }
+   ```
+2. **Classes Utilitaires Dédiées & Surcharges `!important` :**
+   - Remplacement systématique des classes figées (`bg-emerald-600`, `hover:bg-emerald-700`, `text-emerald-600`, `border-emerald-500`, `ring-emerald-500`) par les classes sémantiques dédiées :
+     - `.bg-brand-primary` (`background-color: var(--brand-primary) !important;`) et `.bg-brand-primary:hover` (`background-color: var(--brand-primary-hover) !important;`)
+     - `.text-brand-primary` (`color: var(--brand-primary) !important;`)
+     - `.border-brand-primary` (`border-color: var(--brand-primary) !important;`)
+     - `.bg-brand-accent`, `.text-brand-accent`, `.border-brand-accent`
+   - Pour assurer la rétrocompatibilité avec tout composant tiers ou module SDK utilisant encore des utilitaires Tailwind par défaut, un bloc `<style id="kanso-dynamic-theme">` injecté dans `<head>` mappe les classes primaires de marque vers `var(--brand-primary)` et `var(--brand-primary-hover)` avec règles CSS `!important` ciblées.
+
+### 10.3. Suivi du Mode Démo / Production (`demo_mode_enabled`)
+- Ajout de la clé `demo_mode_enabled` (`'1'` ou `'0'`, défaut `'0'` en production, `'1'` en environnement de démonstration/sandbox) dans la table `sys_settings`.
+- Exposée via `GET /api/v1/settings` et modifiable par le Superadmin via `PATCH /api/v1/settings` (avec journalisation dans `sys_logs`).
+- Permet à la vue d'ensemble Superadmin (`/sys-console`) d'afficher en permanence un indicateur d'état d'exploitation du CMS (*Mode Démonstration* vs *Mode Production*) afin d'éviter toute confusion entre un environnement bac à sable et le site associatif en production.

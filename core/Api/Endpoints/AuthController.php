@@ -21,6 +21,209 @@ final class AuthController
     public function __construct()
     {
         $this->db = Database::getInstance();
+        $this->ensureTwoFactorMethodColumn();
+    }
+
+    /**
+     * Garantit l'existence de la colonne two_factor_method sur la table users.
+     */
+    private function ensureTwoFactorMethodColumn(): void
+    {
+        try {
+            $cols = $this->db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (is_array($cols) && !in_array('two_factor_method', $cols, true)) {
+                $this->db->exec("ALTER TABLE users ADD COLUMN two_factor_method VARCHAR(20) NOT NULL DEFAULT 'totp'");
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    /**
+     * Exécute une opération SQLite dans une transaction IMMEDIATE avec retry sur verrou.
+     *
+     * @template T
+     * @param callable(): T $operation
+     * @return T
+     * @throws Throwable
+     */
+    private function executeImmediateTransaction(callable $operation): mixed
+    {
+        $maxAttempts = 15;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                if ($this->db->inTransaction()) {
+                    $this->db->exec('ROLLBACK');
+                }
+                $this->db->exec('BEGIN IMMEDIATE');
+                $result = $operation();
+                $this->db->exec('COMMIT');
+                return $result;
+            } catch (Throwable $e) {
+                try {
+                    if ($this->db->inTransaction()) {
+                        $this->db->exec('ROLLBACK');
+                    }
+                } catch (Throwable) {
+                }
+                $msg = strtolower($e->getMessage());
+                if ((str_contains($msg, 'locked') || str_contains($msg, 'busy')) && $attempt < $maxAttempts) {
+                    usleep(random_int(40000, 120000) * $attempt);
+                    continue;
+                }
+                throw $e;
+            }
+        }
+        throw new \RuntimeException('Base de données temporairement occupée.');
+    }
+
+    /**
+     * Initie une procédure "Mot de passe oublié" anti-énumération :
+     * génère un code de réinitialisation si le compte existe et le journalise dans email_logs,
+     * tout en renvoyant systématiquement un message neutre identique.
+     *
+     * @param array<string, mixed> $payload Contient 'email'.
+     * @return array<string, mixed> Réponse normalisée.
+     */
+    public function forgotPassword(array $payload): array
+    {
+        $email = strtolower(trim((string) ($payload['email'] ?? '')));
+
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Veuillez saisir une adresse e-mail valide.',
+                'data'    => null
+            ];
+        }
+
+        $neutralMessage = 'Si un compte est associé à cette adresse e-mail, un code de réinitialisation vient de vous être envoyé.';
+
+        try {
+            $this->executeImmediateTransaction(function () use ($email): void {
+                $stmt = $this->db->prepare("SELECT id, email, first_name FROM users WHERE LOWER(email) = :email AND is_active = 1 LIMIT 1");
+                $stmt->execute(['email' => $email]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                $stmt->closeCursor();
+
+                if (!$user) {
+                    return;
+                }
+
+                $resetCode = strtoupper(bin2hex(random_bytes(4)));
+                $expiresAt = (new \DateTimeImmutable('+48 hours'))->format('Y-m-d H:i:s');
+
+                $stmtUpd = $this->db->prepare("
+                    UPDATE users
+                    SET otp_code = :code, otp_expires_at = :exp
+                    WHERE id = :id
+                ");
+                $stmtUpd->execute([
+                    'code' => $resetCode,
+                    'exp'  => $expiresAt,
+                    'id'   => (int) $user['id']
+                ]);
+
+                $stmtMail = $this->db->prepare("
+                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
+                    VALUES (:email, :subject, 'PASSWORD_RESET', 'sent', :resp)
+                ");
+                $stmtMail->execute([
+                    'email'   => (string) $user['email'],
+                    'subject' => 'Réinitialisation de votre mot de passe',
+                    'resp'    => '250 OK (Code de réinitialisation envoyé)'
+                ]);
+
+                $stmtLog = $this->db->prepare("
+                    INSERT INTO app_logs (user_id, action, target_type, target_id, details)
+                    VALUES (:uid, 'PASSWORD_RESET_REQUESTED', 'user', :uid, 'Demande de réinitialisation du mot de passe')
+                ");
+                $stmtLog->execute(['uid' => (int) $user['id']]);
+            });
+        } catch (Throwable) {
+            // Maintien de la réponse neutre anti-énumération même en cas d'incident mineur
+        }
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => $neutralMessage,
+            'data'    => ['dispatched' => true]
+        ];
+    }
+
+    /**
+     * Envoie un code de vérification à 6 chiffres par e-mail pour activer ou utiliser la double authentification par e-mail.
+     *
+     * @param int $userId Identifiant de l'utilisateur connecté.
+     * @return array<string, mixed> Réponse normalisée.
+     */
+    public function sendTwoFactorEmailCode(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [
+                'status'  => 'error',
+                'code'    => 401,
+                'message' => 'Veuillez vous connecter pour recevoir un code de vérification.',
+                'data'    => null
+            ];
+        }
+
+        $stmt = $this->db->prepare("SELECT id, email FROM users WHERE id = :id LIMIT 1");
+        $stmt->execute(['id' => $userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user || empty($user['email'])) {
+            return [
+                'status'  => 'error',
+                'code'    => 404,
+                'message' => 'Compte utilisateur introuvable.',
+                'data'    => null
+            ];
+        }
+
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = (new \DateTimeImmutable('+10 minutes'))->format('Y-m-d H:i:s');
+
+        try {
+            $this->executeImmediateTransaction(function () use ($userId, $user, $code, $expiresAt): void {
+                $this->db->prepare("
+                    UPDATE users
+                    SET otp_code = :code, otp_expires_at = :exp
+                    WHERE id = :id
+                ")->execute([
+                    'code' => $code,
+                    'exp'  => $expiresAt,
+                    'id'   => $userId
+                ]);
+
+                $this->db->prepare("
+                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
+                    VALUES (:email, :subject, '2FA_EMAIL_CODE', 'sent', :resp)
+                ")->execute([
+                    'email'   => (string) $user['email'],
+                    'subject' => 'Votre code de vérification de sécurité',
+                    'resp'    => '250 OK (Code 2FA envoyé par e-mail)'
+                ]);
+            });
+        } catch (Throwable $e) {
+            return [
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Impossible d\'envoyer le code de vérification par e-mail pour le moment.',
+                'data'    => null
+            ];
+        }
+
+        return [
+            'status'  => 'success',
+            'code'    => 200,
+            'message' => 'Un code de vérification à 6 chiffres a été envoyé à votre adresse e-mail.',
+            'data'    => [
+                'email'      => (string) $user['email'],
+                'expires_in' => 600
+            ]
+        ];
     }
 
     /**
@@ -177,7 +380,7 @@ final class AuthController
     {
         $stmt = $this->db->prepare("
             SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.address,
-                   u.custom_fields, u.two_factor_enabled, u.two_factor_secret,
+                   u.custom_fields, u.two_factor_enabled, u.two_factor_method, u.two_factor_secret,
                    r.name AS role_name
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
@@ -200,6 +403,7 @@ final class AuthController
             : [];
         $profile['custom_fields'] = is_array($custom) ? $custom : [];
         $profile['two_factor_enabled'] = (int) ($profile['two_factor_enabled'] ?? 0) === 1;
+        $profile['two_factor_method'] = (string) ($profile['two_factor_method'] ?: 'totp');
 
         if (empty($profile['two_factor_secret'])) {
             $profile['two_factor_secret'] = 'KANSO2FA' . strtoupper(bin2hex(random_bytes(4)));
@@ -295,74 +499,135 @@ final class AuthController
     }
 
     /**
-     * Active ou désactive la double authentification (2FA TOTP) sur le compte (Point 4).
+     * Active ou désactive la double authentification (Application mobile / Clé manuelle / E-mail).
      *
      * @param int                  $userId  Identifiant de l'utilisateur.
-     * @param array<string, mixed> $payload Contient 'enabled' (bool) et 'totp_code' (string).
-     * @return array<string, mixed> Réponse JSend.
+     * @param array<string, mixed> $payload Contient 'enabled' (bool), 'method' ('totp'|'email') et 'totp_code'/'code'.
+     * @return array<string, mixed> Réponse normalisée.
      */
     public function toggleTwoFactor(int $userId, array $payload): array
     {
         $enabled = !empty($payload['enabled']);
-        $code    = trim((string) ($payload['totp_code'] ?? ''));
+        $method  = strtolower(trim((string) ($payload['method'] ?? 'totp')));
+        if (!in_array($method, ['totp', 'email'], true)) {
+            $method = 'totp';
+        }
+        $code = trim((string) ($payload['totp_code'] ?? $payload['code'] ?? ''));
 
         if ($enabled && !preg_match('/^\d{6}$/', $code)) {
             return [
                 'status'  => 'error',
                 'code'    => 422,
-                'message' => 'Veuillez saisir un code d\'authentification à 6 chiffres valide pour activer la 2FA.',
+                'message' => 'Veuillez saisir un code de vérification à 6 chiffres valide.',
                 'data'    => null
             ];
         }
 
-        $secret = $enabled ? ('KANSO2FA' . strtoupper(bin2hex(random_bytes(4)))) : null;
+        if ($enabled && $method === 'email') {
+            $stmtCheck = $this->db->prepare("SELECT otp_code, otp_expires_at FROM users WHERE id = :id LIMIT 1");
+            $stmtCheck->execute(['id' => $userId]);
+            $row = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            $storedCode = trim((string) ($row['otp_code'] ?? ''));
+            $expStr     = trim((string) ($row['otp_expires_at'] ?? ''));
+            $isExpired  = $expStr !== '' && strtotime($expStr) !== false && time() > strtotime($expStr);
 
-        $stmt = $this->db->prepare("
-            UPDATE users
-            SET two_factor_enabled = :enabled,
-                two_factor_secret = COALESCE(:secret, two_factor_secret)
-            WHERE id = :id
-        ");
-        $stmt->execute([
-            'enabled' => $enabled ? 1 : 0,
-            'secret'  => $secret,
-            'id'      => $userId
-        ]);
+            if ($storedCode === '' || $storedCode !== $code || $isExpired) {
+                return [
+                    'status'  => 'error',
+                    'code'    => 422,
+                    'message' => 'Le code reçu par e-mail est invalide ou expiré. Veuillez demander un nouveau code.',
+                    'data'    => null
+                ];
+            }
+        }
 
-        $this->db->prepare("
-            INSERT INTO app_logs (user_id, action, target_type, target_id, details)
-            VALUES (:uid, :act, 'user', :uid, :det)
-        ")->execute([
-            'uid' => $userId,
-            'act' => $enabled ? '2FA_ENABLED' : '2FA_DISABLED',
-            'det' => $enabled ? 'Protection 2FA activée' : 'Protection 2FA désactivée'
-        ]);
+        $secret = ($enabled && $method === 'totp') ? ('KANSO2FA' . strtoupper(bin2hex(random_bytes(4)))) : null;
 
+        $this->executeImmediateTransaction(function () use ($userId, $enabled, $method, $secret): void {
+            $stmt = $this->db->prepare("
+                UPDATE users
+                SET two_factor_enabled = :enabled,
+                    two_factor_method = :method,
+                    two_factor_secret = COALESCE(:secret, two_factor_secret),
+                    otp_code = CASE WHEN :clear_otp = 1 THEN NULL ELSE otp_code END,
+                    otp_expires_at = CASE WHEN :clear_otp = 1 THEN NULL ELSE otp_expires_at END
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                'enabled'   => $enabled ? 1 : 0,
+                'method'    => $enabled ? $method : 'totp',
+                'secret'    => $secret,
+                'clear_otp' => ($enabled && $method === 'email') ? 1 : 0,
+                'id'        => $userId
+            ]);
+
+            $methodLabel = $method === 'email' ? 'par e-mail' : 'par application mobile';
+            $this->db->prepare("
+                INSERT INTO app_logs (user_id, action, target_type, target_id, details)
+                VALUES (:uid, :act, 'user', :uid, :det)
+            ")->execute([
+                'uid' => $userId,
+                'act' => $enabled ? '2FA_ENABLED' : '2FA_DISABLED',
+                'det' => $enabled ? "Double authentification activée ({$methodLabel})" : 'Double authentification désactivée'
+            ]);
+        });
+
+        $methodText = $method === 'email' ? 'par e-mail' : 'par application d\'authentification';
         return [
             'status'  => 'success',
             'code'    => 200,
-            'message' => $enabled ? 'Double authentification (2FA) activée sur votre compte !' : 'Double authentification (2FA) désactivée.',
-            'data'    => ['two_factor_enabled' => $enabled]
+            'message' => $enabled
+                ? "Double authentification ({$methodText}) activée sur votre compte !"
+                : 'Double authentification désactivée.',
+            'data'    => [
+                'two_factor_enabled' => $enabled,
+                'two_factor_method'  => $enabled ? $method : 'totp'
+            ]
         ];
     }
 
     /**
-     * Modifie le mot de passe après vérification de l'ancien.
+     * Modifie le mot de passe après vérification de l'ancien et de la confirmation éventuelle.
      *
      * @param int                  $userId  Identifiant de l'utilisateur.
-     * @param array<string, mixed> $payload Contient current_password et new_password.
-     * @return array<string, mixed> Réponse JSend.
+     * @param array<string, mixed> $payload Contient current_password, new_password et optionnellement confirm_password.
+     * @return array<string, mixed> Réponse normalisée.
      */
     public function updatePassword(int $userId, array $payload): array
     {
         $currentPassword = (string) ($payload['current_password'] ?? '');
-        $newPassword = (string) ($payload['new_password'] ?? '');
+        $newPassword     = (string) ($payload['new_password'] ?? '');
+        $hasConfirm      = array_key_exists('confirm_password', $payload);
+        $confirmPassword = (string) ($payload['confirm_password'] ?? '');
 
         if ($currentPassword === '' || strlen($newPassword) < 8) {
             return [
                 'status'  => 'error',
                 'code'    => 422,
-                'message' => 'Mot de passe actuel requis et nouveau mot de passe d\'au moins 8 caractères.',
+                'message' => 'Le mot de passe actuel est requis et le nouveau mot de passe doit contenir au moins 8 caractères.',
+                'data'    => null
+            ];
+        }
+
+        if ($hasConfirm && $newPassword !== $confirmPassword) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Les deux saisies du nouveau mot de passe ne correspondent pas.',
+                'data'    => null
+            ];
+        }
+
+        if (
+            !preg_match('/[A-Z]/', $newPassword)
+            || !preg_match('/[a-z]/', $newPassword)
+            || !preg_match('/[0-9]/', $newPassword)
+            || !preg_match('/[^A-Za-z0-9]/', $newPassword)
+        ) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Le nouveau mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial.',
                 'data'    => null
             ];
         }
@@ -381,11 +646,13 @@ final class AuthController
         }
 
         $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-        $stmtUpdate = $this->db->prepare("UPDATE users SET password_hash = :hash WHERE id = :id");
-        $stmtUpdate->execute([
-            'hash' => $newHash,
-            'id'   => $userId
-        ]);
+        $this->executeImmediateTransaction(function () use ($newHash, $userId): void {
+            $stmtUpdate = $this->db->prepare("UPDATE users SET password_hash = :hash WHERE id = :id");
+            $stmtUpdate->execute([
+                'hash' => $newHash,
+                'id'   => $userId
+            ]);
+        });
 
         return [
             'status'  => 'success',

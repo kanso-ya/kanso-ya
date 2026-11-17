@@ -1003,13 +1003,21 @@ function initArticleForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         syncCanvasToTextarea();
-        setButtonLoading(saveBtn, true, 'Enregistrer l\'article');
         const editId = document.getElementById('art-edit-id').value.trim();
         const title = document.getElementById('art-title').value.trim();
         const categoryId = parseInt(document.getElementById('art-category').value, 10);
         const visibility = document.getElementById('art-visibility').value;
         const status = document.getElementById('art-status').value;
         const content = document.getElementById('art-content').value.trim();
+        if (!title || title.length < 3) {
+            showToast('Veuillez saisir un titre d\'article d\'au moins 3 caractères.', 'error');
+            return;
+        }
+        if (!content) {
+            showToast('Le contenu de l\'article ne peut pas être vide.', 'error');
+            return;
+        }
+        setButtonLoading(saveBtn, true, 'Enregistrer l\'article');
         const endpoint = editId ? `/api/v1/articles/${editId}` : '/api/v1/articles';
         const method = editId ? 'PUT' : 'POST';
         try {
@@ -1053,15 +1061,25 @@ function initLegalPagesEditor() {
     loadSelectedPage();
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const titleVal = titleInput.value.trim();
+        const contentVal = contentArea.value.trim();
+        if (!titleVal) {
+            showToast('Veuillez saisir un titre pour cette page.', 'error');
+            return;
+        }
+        if (!contentVal) {
+            showToast('Le contenu de la page ne peut pas être vide.', 'error');
+            return;
+        }
         setButtonLoading(saveBtn, true, 'Sauvegarder la page');
         const slug = slugSelect.value;
         try {
             const res = await fetchApi(`/api/v1/pages/${slug}`, {
                 method: 'PUT',
                 body: JSON.stringify({
-                    title: titleInput.value.trim(),
+                    title: titleVal,
                     status: statusSelect.value,
-                    content: contentArea.value.trim()
+                    content: contentVal
                 })
             });
             if (res.status === 'success') {

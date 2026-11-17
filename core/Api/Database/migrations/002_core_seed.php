@@ -64,6 +64,8 @@ function runCoreSeed(): void
             ('discount_type', 'percent'),
             ('discount_value', '10.0'),
             ('medical_cert_mode', 'health_questionnaire'),
+            ('default_course_capacity', '30'),
+            ('demo_mode_enabled', '0'),
             ('allowed_installment_methods', '[\"cheque\"]'),
             ('registration_confirmation_text', 'Votre dossier d''inscription a bien été transmis au bureau. Dès réception et validation de votre règlement par le Trésorier, vous recevrez un email contenant un lien d''activation sécurisé (OTP valable 48h) vous permettant de créer votre mot de passe et d''accéder à votre espace personnel.');
     ");

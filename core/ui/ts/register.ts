@@ -435,6 +435,7 @@ function initPublicRegistrationWizard(): void {
         const fn = (document.getElementById('reg-first-name') as HTMLInputElement).value.trim();
         const ln = (document.getElementById('reg-last-name') as HTMLInputElement).value.trim();
         const bd = birthInput.value.trim();
+        const em = (document.getElementById('reg-email') as HTMLInputElement | null)?.value.trim() || '';
 
         if (!fn || !ln || !bd) {
             showToast('Veuillez renseigner le prénom, le nom et la date de naissance.', 'error');
@@ -442,6 +443,15 @@ function initPublicRegistrationWizard(): void {
         }
 
         const age = calculateAgeFromInput(bd);
+        if (age < 0 || age > 120) {
+            showToast('Veuillez saisir une date de naissance valide.', 'error');
+            return;
+        }
+        if (age >= 18 && em !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+            showToast('Veuillez saisir une adresse e-mail valide.', 'error');
+            return;
+        }
+
         isMinorFlow = age < 18 || familyCart.some((m) => calculateAgeFromInput(m.birth_date) < 18);
         updateBreadcrumbLayout(isMinorFlow);
         goToStep(isMinorFlow ? 'tutors' : 'emergency');
@@ -450,9 +460,18 @@ function initPublicRegistrationWizard(): void {
     document.getElementById('btn-next-from-tutors')?.addEventListener('click', () => {
         const t1Email = (document.getElementById('tutor1-email') as HTMLInputElement).value.trim();
         const t1Birth = (document.getElementById('tutor1-birth') as HTMLInputElement).value.trim();
+        const t2Email = (document.getElementById('tutor2-email') as HTMLInputElement | null)?.value.trim() || '';
 
         if (!t1Email) {
-            showToast('L\'email du Responsable Légal 1 est obligatoire pour inscrire un mineur.', 'error');
+            showToast('L\'adresse e-mail du Responsable Légal 1 est obligatoire pour inscrire un mineur.', 'error');
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t1Email)) {
+            showToast('L\'adresse e-mail du Responsable Légal 1 n\'est pas valide.', 'error');
+            return;
+        }
+        if (t2Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t2Email)) {
+            showToast('L\'adresse e-mail du Responsable Légal 2 n\'est pas valide.', 'error');
             return;
         }
         if (t1Birth && calculateAgeFromInput(t1Birth) < 18) {

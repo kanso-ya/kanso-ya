@@ -615,12 +615,37 @@ final class RegistrationController
     {
         $otpCode = trim((string) ($payload['otp_code'] ?? ''));
         $newPassword = (string) ($payload['new_password'] ?? '');
+        $hasConfirm = array_key_exists('confirm_password', $payload);
+        $confirmPassword = (string) ($payload['confirm_password'] ?? '');
 
         if ($otpCode === '' || strlen($newPassword) < 8) {
             return [
                 'status'  => 'error',
                 'code'    => 422,
-                'message' => 'Jeton OTP requis et mot de passe de 8 caractères minimum.',
+                'message' => 'Le code de sécurité et un mot de passe d\'au moins 8 caractères sont obligatoires.',
+                'data'    => null
+            ];
+        }
+
+        if ($hasConfirm && $newPassword !== $confirmPassword) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Les deux saisies du nouveau mot de passe ne correspondent pas.',
+                'data'    => null
+            ];
+        }
+
+        if (
+            !preg_match('/[A-Z]/', $newPassword)
+            || !preg_match('/[a-z]/', $newPassword)
+            || !preg_match('/[0-9]/', $newPassword)
+            || !preg_match('/[^A-Za-z0-9]/', $newPassword)
+        ) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Le mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial.',
                 'data'    => null
             ];
         }
@@ -638,7 +663,7 @@ final class RegistrationController
                     return [
                         'status'  => 'error',
                         'code'    => 400,
-                        'message' => 'Jeton OTP invalide ou déjà utilisé.',
+                        'message' => 'Code de sécurité invalide ou déjà utilisé.',
                         'data'    => null
                     ];
                 }
@@ -650,7 +675,7 @@ final class RegistrationController
                         return [
                             'status'  => 'error',
                             'code'    => 400,
-                            'message' => 'Ce jeton OTP a expiré (délai de 48h dépassé).',
+                            'message' => 'Ce code de sécurité a expiré. Veuillez demander un nouveau lien.',
                             'data'    => null
                         ];
                     }
@@ -669,7 +694,7 @@ final class RegistrationController
                 return [
                     'status'  => 'success',
                     'code'    => 200,
-                    'message' => 'Compte activé et mot de passe défini avec succès.',
+                    'message' => 'Compte activé et mot de passe enregistré avec succès.',
                     'data'    => ['user_id' => (int) $user['id']]
                 ];
             });
@@ -677,7 +702,7 @@ final class RegistrationController
             return [
                 'status'  => 'error',
                 'code'    => 500,
-                'message' => 'Erreur lors de l\'activation OTP : ' . $e->getMessage(),
+                'message' => 'Erreur lors de la validation du compte : ' . $e->getMessage(),
                 'data'    => null
             ];
         }

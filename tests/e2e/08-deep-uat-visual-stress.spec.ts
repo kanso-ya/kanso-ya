@@ -230,6 +230,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await expect(page.locator('#otp-code-input')).toHaveValue(otpCode!);
 
         await page.fill('#otp-new-password', 'Secret123!');
+        await page.fill('#otp-confirm-password', 'Secret123!');
         await page.click('#btn-submit-otp');
 
         // Redirection ou toast de confirmation

@@ -214,6 +214,11 @@ try {
         sendJson($controller->login($payload));
     }
 
+    if ($method === 'POST' && $uri === '/api/v1/auth/forgot-password') {
+        $controller = new \Core\Api\Endpoints\AuthController();
+        sendJson($controller->forgotPassword($payload));
+    }
+
     if ($method === 'POST' && in_array($uri, ['/api/v1/sys/auth/login', '/api/v1/sys/login', '/api/v1/auth/sys-login'], true)) {
         $controller = new \Core\Api\Endpoints\AuthController();
         sendJson($controller->sysLogin($payload));
@@ -270,6 +275,14 @@ try {
     if ($method === 'POST' && $uri === '/api/v1/users/me/2fa') {
         $controller = new \Core\Api\Endpoints\AuthController();
         sendJson($controller->toggleTwoFactor($currentUserId, $payload));
+    }
+
+    if ($method === 'POST' && $uri === '/api/v1/users/me/2fa/send-email-code') {
+        if (!$isAuthenticated) {
+            sendJson(['status' => 'error', 'code' => 401, 'message' => 'Veuillez vous connecter pour demander un code de vérification.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\AuthController();
+        sendJson($controller->sendTwoFactorEmailCode($currentUserId));
     }
 
     if ($method === 'PATCH' && $uri === '/api/v1/users/me/password') {
@@ -394,7 +407,7 @@ try {
     if ($method === 'PATCH' && preg_match('#^/api/v1/registrations/(\d+)/validate$#', $uri, $m)) {
         if (!in_array('finances.manage', $permissions, true)) {
             $logUnauthorizedAttempt($uri);
-            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : droit finances.manage requis.', 'data' => null]);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : vous ne disposez pas des droits de gestion des cotisations.', 'data' => null]);
         }
         $controller = new \Core\Api\Endpoints\RegistrationController();
         sendJson($controller->validateRegistration((int) $m[1], $currentUserId, $payload));
@@ -458,7 +471,7 @@ try {
     if ($method === 'POST' && $uri === '/api/v1/articles') {
         if (!in_array('articles.write', $permissions, true) && !in_array('articles.publish', $permissions, true)) {
             $logUnauthorizedAttempt($uri);
-            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : droit articles.write requis.', 'data' => null]);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : vous ne disposez pas des droits de rédaction d\'articles.', 'data' => null]);
         }
         $controller = new \Core\Api\Endpoints\CmsController();
         sendJson($controller->createArticle($payload, $currentUserId, $permissions));
@@ -476,7 +489,7 @@ try {
     if ($method === 'DELETE' && preg_match('#^/api/v1/articles/(\d+)$#', $uri, $m)) {
         if (!in_array('articles.publish', $permissions, true)) {
             $logUnauthorizedAttempt($uri);
-            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : droit articles.publish requis.', 'data' => null]);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : vous ne disposez pas des droits de publication d\'articles.', 'data' => null]);
         }
         $controller = new \Core\Api\Endpoints\CmsController();
         sendJson($controller->deleteArticle((int) $m[1], $currentUserId));
@@ -485,7 +498,7 @@ try {
     if ($method === 'PATCH' && preg_match('#^/api/v1/articles/(\d+)/status$#', $uri, $m)) {
         if (!in_array('articles.publish', $permissions, true)) {
             $logUnauthorizedAttempt($uri);
-            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : droit articles.publish requis.', 'data' => null]);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : vous ne disposez pas des droits de publication d\'articles.', 'data' => null]);
         }
         $controller = new \Core\Api\Endpoints\CmsController();
         sendJson($controller->updateArticleStatus((int) $m[1], $payload, $currentUserId));
@@ -503,7 +516,7 @@ try {
     if ($method === 'POST' && $uri === '/api/v1/articles/media/cleanup') {
         if (!in_array('articles.publish', $permissions, true) && !$isSuperadmin) {
             $logUnauthorizedAttempt($uri);
-            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : droit articles.publish requis.', 'data' => null]);
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé : vous ne disposez pas des droits de gestion de la médiathèque.', 'data' => null]);
         }
         $controller = new \Core\Api\Endpoints\CmsController();
         sendJson($controller->cleanupOrphanMedia());
@@ -693,7 +706,7 @@ try {
     }
 
     // 6. TÂCHES SYSTÈME & CHANGEMENT DE SAISON / ROLLOVER (US 5.1)
-    if ($method === 'POST' && in_array($uri, ['/api/v1/tasks/rollover-season', '/api/v1/tasks/rollover'], true)) {
+    if ($method === 'POST' && in_array($uri, ['/api/v1/tasks/rollover-season', '/api/v1/tasks/rollover', '/api/v1/rollover'], true)) {
         if (!$isSuperadmin && $currentRole !== 'Président') {
             $logUnauthorizedAttempt($uri);
             sendJson([

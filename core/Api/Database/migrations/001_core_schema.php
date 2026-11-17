@@ -83,6 +83,7 @@ function runCoreSchemaMigration(): void
         role_id INTEGER NOT NULL DEFAULT 1,
         is_active INTEGER NOT NULL DEFAULT 1,
         two_factor_enabled INTEGER NOT NULL DEFAULT 0,
+        two_factor_method VARCHAR(20) NOT NULL DEFAULT 'totp',
         two_factor_secret VARCHAR(64) NULL,
         otp_code VARCHAR(100) NULL,
         otp_expires DATETIME NULL,

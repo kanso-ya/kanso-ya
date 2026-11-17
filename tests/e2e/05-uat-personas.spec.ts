@@ -227,6 +227,7 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
             // 4. Le parent active son compte via /activate-otp.php
             await page.goto(`/activate-otp.php?otp=${otpCode}`);
             await page.fill('#otp-new-password', 'MonSuperMotDePasse2026!');
+            await page.fill('#otp-confirm-password', 'MonSuperMotDePasse2026!');
             await page.click('#btn-submit-otp');
 
             await expect(page.locator('#toast-container')).toContainText('succès');

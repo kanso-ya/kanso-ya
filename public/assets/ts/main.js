@@ -221,7 +221,7 @@ function initPersonaSwitcher() {
  * @param {string} message Message d'avertissement.
  * @param {() => Promise<void>} onConfirm Callback asynchrone exécuté au clic sur le bouton rouge.
  */
-export function openConfirmModal(title, message, onConfirm) {
+export function openConfirmModal(title, message, onConfirm, confirmLabel = 'Confirmer la suppression') {
     const modal = document.getElementById('confirm-modal');
     const titleEl = document.getElementById('confirm-modal-title');
     const msgEl = document.getElementById('confirm-modal-message');
@@ -231,6 +231,7 @@ export function openConfirmModal(title, message, onConfirm) {
         return;
     titleEl.textContent = title;
     msgEl.textContent = message;
+    acceptBtn.textContent = confirmLabel;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     const closeModal = () => {
@@ -239,12 +240,12 @@ export function openConfirmModal(title, message, onConfirm) {
     };
     cancelBtn.onclick = closeModal;
     acceptBtn.onclick = async () => {
-        setButtonLoading(acceptBtn, true, 'Confirmer');
+        setButtonLoading(acceptBtn, true, confirmLabel);
         try {
             await onConfirm();
         }
         finally {
-            setButtonLoading(acceptBtn, false, 'Confirmer');
+            setButtonLoading(acceptBtn, false, confirmLabel);
             closeModal();
         }
     };
@@ -290,10 +291,14 @@ function initQuickAddMemberModal() {
     });
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const submitBtn = form.querySelector('button[type="submit"]');
-        setButtonLoading(submitBtn, true, 'Enregistrer');
         const formData = new FormData(form);
         const payload = Object.fromEntries(formData.entries());
+        if (!String(payload.first_name || '').trim() || !String(payload.last_name || '').trim() || !String(payload.birth_date || '').trim()) {
+            showToast('Veuillez renseigner le prénom, le nom et la date de naissance de l\'adhérent.', 'error');
+            return;
+        }
+        const submitBtn = form.querySelector('button[type="submit"]');
+        setButtonLoading(submitBtn, true, 'Enregistrer');
         try {
             const res = await fetch('/api/v1/members', {
                 method: 'POST',
@@ -323,7 +328,7 @@ function initQuickAddMemberModal() {
 function initModalEscapeHandler() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            const modals = document.querySelectorAll('#confirm-modal, #modal-add-member, #document-preview-modal, #read-article-modal, #sys-rollover-modal');
+            const modals = document.querySelectorAll('#confirm-modal, #password-confirm-modal, #modal-add-member, #document-preview-modal, #read-article-modal, #sys-rollover-modal');
             modals.forEach((m) => {
                 if (!m.classList.contains('hidden')) {
                     m.classList.add('hidden');
@@ -344,6 +349,8 @@ export function showToast(message, type = 'info') {
     if (!container)
         return;
     const toast = document.createElement('div');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    toast.setAttribute('data-testid', `toast-${type}`);
     toast.className = 'px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium transform transition-all duration-300 translate-y-10 opacity-0 pointer-events-auto';
     if (type === 'success')
         toast.classList.add('bg-green-600');
@@ -359,5 +366,5 @@ export function showToast(message, type = 'info') {
     setTimeout(() => {
         toast.classList.add('opacity-0');
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 3500);
 }

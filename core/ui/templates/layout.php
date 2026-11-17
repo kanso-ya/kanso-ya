@@ -131,8 +131,27 @@ $logoUrl       = (string) ($sysConfig['site_logo_url'] ?? '');
 $watermarkUrl  = (string) ($sysConfig['site_watermark_url'] ?? '');
 $watermarkOpac = (float) ($sysConfig['site_watermark_opacity'] ?? 0.05);
 $primaryColor  = (string) ($sysConfig['theme_primary_color'] ?: '#059669');
+$accentColor   = (string) ($sysConfig['theme_accent_color'] ?: $primaryColor);
+if ($accentColor === '#10b981' && $primaryColor !== '#059669') {
+    $accentColor = $primaryColor;
+}
 $sidebarColor  = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_sidebar_color'] ?: '#0f172a');
 $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_color'] ?: '#ffffff');
+
+$darkenHex = static function (string $hex, int $percent = 14): string {
+    $clean = ltrim(trim($hex), '#');
+    if (strlen($clean) === 3) {
+        $clean = $clean[0] . $clean[0] . $clean[1] . $clean[1] . $clean[2] . $clean[2];
+    }
+    if (!preg_match('/^[0-9a-fA-F]{6}$/', $clean)) {
+        return '#047857';
+    }
+    $r = max(0, (int) round(hexdec(substr($clean, 0, 2)) * (100 - $percent) / 100));
+    $g = max(0, (int) round(hexdec(substr($clean, 2, 2)) * (100 - $percent) / 100));
+    $b = max(0, (int) round(hexdec(substr($clean, 4, 2)) * (100 - $percent) / 100));
+    return sprintf('#%02x%02x%02x', $r, $g, $b);
+};
+$primaryHoverColor = $darkenHex($primaryColor, 14);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -150,20 +169,38 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
     <?php endif; ?>
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?> — <?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
+    <style id="kanso-dynamic-theme" data-testid="kanso-dynamic-theme">
         :root {
             --brand-primary: <?= htmlspecialchars($primaryColor, ENT_QUOTES, 'UTF-8') ?>;
+            --brand-primary-hover: <?= htmlspecialchars($primaryHoverColor, ENT_QUOTES, 'UTF-8') ?>;
             --brand-sidebar: <?= htmlspecialchars($sidebarColor, ENT_QUOTES, 'UTF-8') ?>;
             --brand-header: <?= htmlspecialchars($headerColor, ENT_QUOTES, 'UTF-8') ?>;
-            --brand-accent: <?= htmlspecialchars((string) ($sysConfig['theme_accent_color'] ?: '#10b981'), ENT_QUOTES, 'UTF-8') ?>;
+            --brand-accent: <?= htmlspecialchars($accentColor, ENT_QUOTES, 'UTF-8') ?>;
         }
-        .brand-sidebar-bg { background-color: var(--brand-sidebar); }
-        .brand-header-bg { background-color: var(--brand-header); }
-        .brand-primary-bg { background-color: var(--brand-primary); }
-        .brand-primary-text { color: var(--brand-primary); }
-        .brand-accent-bg { background-color: var(--brand-accent); }
-        .brand-accent-text { color: var(--brand-accent); }
-        .brand-primary-border { border-color: var(--brand-primary); }
+        .brand-sidebar-bg { background-color: var(--brand-sidebar) !important; }
+        .brand-header-bg { background-color: var(--brand-header) !important; }
+        .brand-primary-bg, .bg-brand-primary { background-color: var(--brand-primary) !important; }
+        .brand-primary-bg:hover, .bg-brand-primary:hover { background-color: var(--brand-primary-hover) !important; }
+        .brand-primary-text, .text-brand-primary { color: var(--brand-primary) !important; }
+        .brand-primary-border, .border-brand-primary { border-color: var(--brand-primary) !important; }
+        .brand-accent-bg, .bg-brand-accent { background-color: var(--brand-accent) !important; }
+        .brand-accent-text, .text-brand-accent { color: var(--brand-accent) !important; }
+        .brand-accent-border, .border-brand-accent { border-color: var(--brand-accent) !important; }
+
+        /* Surcharge réelle des utilitaires de marque afin que /sys-branding s'applique partout */
+        .bg-emerald-600 { background-color: var(--brand-primary) !important; }
+        .hover\:bg-emerald-700:hover, .hover\:bg-emerald-500:hover { background-color: var(--brand-primary-hover) !important; }
+        .bg-emerald-500 { background-color: var(--brand-accent) !important; }
+        .text-emerald-600, .text-emerald-700 { color: var(--brand-primary) !important; }
+        .hover\:text-emerald-800:hover { color: var(--brand-primary-hover) !important; }
+        .text-emerald-400, .text-emerald-500 { color: var(--brand-accent) !important; }
+        .border-emerald-500, .border-emerald-600, .border-emerald-300 { border-color: var(--brand-primary) !important; }
+        .bg-emerald-50, .bg-emerald-50\/70, .bg-emerald-50\/50 { background-color: color-mix(in srgb, var(--brand-primary) 10%, white) !important; }
+        .bg-emerald-100 { background-color: color-mix(in srgb, var(--brand-primary) 16%, white) !important; }
+        .text-emerald-800, .text-emerald-900 { color: var(--brand-primary-hover) !important; }
+        .peer:checked ~ .peer-checked\:bg-emerald-600 { background-color: var(--brand-primary) !important; }
+        .focus\:ring-emerald-500:focus { --tw-ring-color: var(--brand-primary) !important; }
+        .focus\:border-emerald-400:focus, .focus\:border-emerald-500:focus { border-color: var(--brand-primary) !important; }
     </style>
     <script type="module" src="/assets/ts/main.js" defer></script>
     <?php if ($accessDeniedReason === null): ?>
@@ -180,12 +217,13 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
     <?php endif; ?>
 
     <!-- LOGO À CHEVAL SUR LE BANDEAU SUPÉRIEUR ET LA SIDEBAR -->
-    <a href="/" id="overlapping-logo-badge" class="hidden lg:flex fixed top-2.5 left-4 w-56 h-[88px] z-40 rounded-2xl shadow-xl border-2 <?= $isSuperadmin ? 'bg-slate-900 border-red-700/80' : 'bg-slate-900 brand-primary-border' ?> flex-col items-center justify-center overflow-hidden hover:scale-[1.02] transition">
+    <a href="/" id="overlapping-logo-badge" data-testid="overlapping-logo-badge"
+       class="hidden lg:flex fixed top-2.5 left-4 <?= $logoUrl !== '' ? 'w-auto min-w-[88px] max-w-[224px] h-[88px] p-0' : 'w-56 h-[88px] px-3' ?> z-40 rounded-2xl shadow-xl border-2 <?= $isSuperadmin ? 'bg-slate-900 border-red-700/80' : 'bg-slate-900 border-brand-primary' ?> flex-col items-center justify-center overflow-hidden hover:scale-[1.02] transition">
         <?php if ($logoUrl !== ''): ?>
-            <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Logo" class="max-h-16 max-w-[180px] object-contain">
+            <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Logo <?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?>" class="block h-full w-auto max-w-[224px] object-cover rounded-2xl">
         <?php else: ?>
-            <span class="text-lg font-black tracking-widest text-white">KANSO-YA</span>
-            <span class="text-[10px] uppercase tracking-wider brand-accent-text font-semibold">Dojo & Arts Martiaux</span>
+            <span class="text-base font-black tracking-wide text-white text-center leading-tight line-clamp-2"><?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="text-[10px] uppercase tracking-wider text-brand-accent font-semibold mt-0.5">Espace Associatif</span>
         <?php endif; ?>
     </a>
 

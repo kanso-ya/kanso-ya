@@ -16,7 +16,7 @@ if (!empty($_SESSION['is_superadmin']) || isset($_SESSION['sys_admin_id'])) {
     exit;
 }
 
-$pageTitle     = 'Articles & Publications (CMS)';
+$pageTitle     = 'Articles & Publications';
 $activeNav     = 'cms';
 $requireAuth   = true;
 $requiredPerms = ['articles.write', 'articles.publish', 'pages.manage'];
@@ -76,7 +76,7 @@ ob_start();
             </div>
         </div>
 
-        <form id="article-form" class="space-y-5">
+        <form id="article-form" class="space-y-5" novalidate>
             <input type="hidden" id="art-edit-id" value="">
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -258,12 +258,12 @@ ob_start();
 
         <section id="legal-pages-section" class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200 space-y-4">
             <div>
-                <span class="text-xs font-bold uppercase text-purple-600">Pages Institutionnelles (US 4.1)</span>
-                <h2 class="text-xl font-bold text-slate-900">Éditeur des Pages Fixes (/rgpd, /cgv, /mentions-legales, /horaires)</h2>
-                <p class="text-xs text-slate-500">Une page placée en statut "Brouillon" est automatiquement masquée (404) aux visiteurs.</p>
+                <span class="text-xs font-bold uppercase text-purple-600">Pages Institutionnelles</span>
+                <h2 class="text-xl font-bold text-slate-900">Éditeur des Pages Fixes (RGPD, CGV, Mentions légales, Horaires)</h2>
+                <p class="text-xs text-slate-500">Une page placée en statut "Brouillon" est automatiquement masquée aux visiteurs.</p>
             </div>
 
-            <form id="legal-page-form" class="space-y-4">
+            <form id="legal-page-form" class="space-y-4" novalidate>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label for="page-slug-select" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Page cible</label>

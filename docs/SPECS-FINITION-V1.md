@@ -2,20 +2,21 @@
 
 **Projet :** Kanso-ya CMS Associatif (Core & Extensibilité)  
 **Rôle :** @po (Product Owner / Spécifications Fonctionnelles & Recette Utilisateur)  
-**Version :** 1.0 (Phase de Finition & Clôture Production — Sprints 7 à 10)  
-**Date :** 17 novembre 2026  
+**Version :** 1.1 (Phase de Finition v1.0, Correctifs Post-Recette & Finitions UX/Polissage v1.1 — Sprints 7 à 14)  
+**Date :** 18 novembre 2026  
 **Statut :** Document de Référence Métier & Recette Fonctionnelle  
 
 ---
 
 ## 1. Introduction, Vision Produit & Périmètre
 
-Ce document formalise les spécifications fonctionnelles détaillées issues des **35 retours de recette manuelle** capitalisés après les campagnes initiales. Il structure la trajectoire d'industrialisation du CMS Kanso-ya en 4 sprints opérationnels :
-
-1. **Sprint 7 (Achevé & Validé) :** Socle, Ergonomie Header, Navigation sans `.php`, Auth 2FA SVG 30s, Thème dynamique & Backup BDD.
-2. **Sprint 8 (Prêt à l'Exécution) :** Inscriptions intelligentes, Remises paramétrables (% ou fixe), Questionnaire de santé Cerfa & RGPD santé.
-3. **Sprint 9 (Planifié) :** CRM avancé, Studio CMS traçable (`created_by`/`updated_by`), Reçus de cotisation/CSE, Exports et tris.
-4. **Sprint 10 (Planifié) :** Découpage de la console Superadmin, Hook SDK `stats_tabs`, Templates de mails, Accessibilité WCAG AA & Pack SEO/Production.
+Ce document formalise les spécifications fonctionnelles détaillées des phases de finition du CMS Kanso-ya :
+- Les **35 retours initiaux** de recette manuelle (Sprints 7 à 10 — ✅ Validés) ;
+- Les **17 correctifs post-recette** (Blocs 1 à 3 — ✅ Validés) ;
+- Les **21 nouveaux points de finition UX & Polissage v1.1** découpés en **Sprints 12, 13 et 14** (Section 8) :
+  - **Sprint 12 :** Langage humain non-technique, Toasts obligatoires sur les erreurs de validation, Thème dynamique CSS réel (`--brand-*`), Rollover harmonisé & Mode Démo/Production.
+  - **Sprint 13 :** Mot de passe oublié par e-mail + code à usage unique avec double saisie, 2FA multi-méthode (QR Code 30s, Clé manuelle, Code e-mail), Inscription vierge / `?discipline=ID` & Réinscription intégralement pré-remplie.
+  - **Sprint 14 :** Tableaux compacts sans débordement avec icônes d'action sur 2 lignes (`/members`, `/registrations`), Onglets fonctionnels (`/stats`, `/sys-smtp`, tableaux multi-disciplines) & verrouillage E2E v1.1.
 
 ---
 
@@ -418,3 +419,153 @@ Ce document formalise les spécifications fonctionnelles détaillées issues des
     - **Auteur Initial :** Prénom et Nom de l'utilisateur ayant créé le brouillon (`created_by`), accompagné de la date et l'heure de création.
     - **Dernier Éditeur / Relecteur :** Prénom et Nom du dernier utilisateur ayant modifié le contenu ou changé le statut de publication (`updated_by`), accompagné du timestamp de révision.
   - Si l'article n'a jamais été modifié après sa création, la mention "Aucune modification ultérieure" est affichée sobrement.
+
+---
+
+## 8. Spécifications Détaillées — Finitions UX & Polissage v1.1 (Sprints 12, 13 et 14 — 21 Points)
+
+### 8.1. Sprint 12 : Langage Humain, Toasts Universels, Thème Dynamique & Exploitation (Points 1 à 7)
+
+#### Règle S12-01 — Langage Humain Non-Technique Partout dans l'Interface (Points 1 & 2)
+- **Exigence Métier :** Aucune clé interne, nom de table SQL ou acronyme informatique brut ne doit apparaître dans un libellé visible par les adhérents, bénévoles du bureau ou administrateurs (titres, en-têtes de colonnes, badges, infobulles, messages d'erreur ou onglets). Les attributs techniques (`data-*`, `name`, valeurs d'API) restent inchangés côté code.
+- **Table de correspondance obligatoire :**
+
+| Jargon / Clé technique proscrit à l'affichage | Libellé humain obligatoire dans l'UI |
+| :--- | :--- |
+| `members.view` / `members.edit` | *Consulter l'annuaire* / *Gérer les fiches adhérents* |
+| `finances.manage` | *Gérer les inscriptions et la trésorerie* |
+| `articles.write` / `articles.publish` | *Rédiger des articles* / *Publier des articles* |
+| `pages.manage` / `settings.manage` | *Gérer les pages du site* / *Paramétrer le club* |
+| `roles.manage` / `stats.view` / `logs.view` | *Gérer les rôles et accès* / *Consulter les statistiques* / *Consulter le journal d'activité* |
+| `rbac` / `Matrice RBAC` | *Rôles et permissions* / *Droits d'accès* |
+| `app_logs` | *Journal d'activité du club* |
+| `sys_logs` | *Journal d'audit technique* |
+| `email_logs` | *Historique des e-mails envoyés* |
+| `otp` / `Jeton OTP` / `Renvoi OTP` | *Code de sécurité à usage unique* / *Renvoyer le lien d'activation* |
+| `totp` | *Application d'authentification* |
+| `smtp` (hors titre technique Superadmin) | *Serveur d'envoi d'e-mails* |
+
+#### Règle S12-02 — Toasts Obligatoires sur Toutes les Erreurs de Validation de Formulaire (Point 3)
+- **Exigence Métier :** Tout échec de validation — qu'il survienne avant l'envoi (validation client : champ obligatoire vide, e-mail invalide, mot de passe trop faible, confirmation différente, aucune discipline choisie) ou en retour d'API (`status: "error"`) — **doit impérativement déclencher un Toast d'erreur explicite** (`showToast(message, 'error')`).
+- **Comportement Attendu :**
+  - Les attributs HTML natifs bloquants silencieux (`novalidate` géré en TS sur les formulaires pilotés par JS) ne doivent pas masquer le retour Toast.
+  - Les champs en erreur reçoivent une mise en évidence visuelle (`aria-invalid="true"`, bordure rouge) tout en conservant les valeurs saisies par l'utilisateur.
+
+#### Règle S12-03 — Thème Dynamique CSS Réel & États Interactifs (Points 4 & 7)
+- **Exigence Métier :** Les couleurs configurées dans `/sys-branding` doivent recolorer instantanément et intégralement l'interface, sans résidu vert `emerald-*` figé.
+- **Règles d'implémentation :**
+  - Injection dans `<head>` des 5 variables CSS maîtresses : `--brand-primary`, `--brand-primary-hover`, `--brand-sidebar`, `--brand-header`, `--brand-accent`.
+  - Remplacement des utilitaires figés (`bg-emerald-*`, `text-emerald-*`, `border-emerald-*`) par les classes dédiées (`.bg-brand-primary`, `.text-brand-primary`, `.border-brand-primary`) et règles CSS `!important` centralisées.
+  - Conservation d'un contraste lisible (WCAG AA) sur tous les boutons primaires, états `:hover`, onglets actifs et indicateurs de focus.
+
+#### Règle S12-04 — Harmonisation Rollover & Mode Démo / Production (Points 5 & 6)
+- **Rollover :** Les appels UI depuis `/settings` et `/sys-console` ciblent `POST /api/v1/tasks/rollover-season`, tandis que `POST /api/v1/rollover` reste accepté comme alias officiel sur le backend.
+- **Mode Démo / Production :** Sur `/sys-console`, la vue d'ensemble affiche une carte/badge d'état piloté par `sys_settings.demo_mode_enabled` (*Mode Démonstration* en ambre ou *Mode Production* en vert/marque) avec contrôle de bascule réservé au Superadmin.
+
+#### Sélecteurs `data-testid` — Sprint 12
+- `data-testid="toast-container"` / `data-testid="toast-error"` : Conteneur et notification Toast d'erreur de validation.
+- `data-testid="kanso-dynamic-theme"` (`#kanso-dynamic-theme`) : Balise `<style>` injectant les variables `--brand-*`.
+- `data-testid="sys-demo-mode-badge"` : Badge d'état Mode Démo / Production dans `/sys-console`.
+- `data-testid="sys-demo-mode-toggle"` : Interrupteur de bascule `demo_mode_enabled` dans `/sys-console`.
+- `data-testid="btn-trigger-rollover"` : Bouton de lancement du basculement de saison sur `/settings`.
+
+---
+
+### 8.2. Sprint 13 : Mot de Passe Oublié, 2FA Multi-Méthode & Inscription / Réinscription (Points 8 à 14)
+
+#### Règle S13-01 — Parcours Complet "Mot de Passe Oublié" avec Double Saisie (Points 8 & 9)
+- **Étape 1 — Demande de réinitialisation :**
+  - Sur `/login`, un lien explicite *"Mot de passe oublié ?"* ouvre le formulaire dédié (modale ou vue `/forgot-password`).
+  - L'utilisateur saisit son adresse e-mail et soumet vers `POST /api/v1/auth/forgot-password`.
+  - **Anti-énumération stricte :** le message de retour (Toast + encadré d'information) est strictement identique que l'adresse existe ou non en base.
+- **Étape 2 — Saisie du code à usage unique & Nouveau mot de passe avec double saisie :**
+  - L'utilisateur saisit le code de sécurité reçu par e-mail, son nouveau mot de passe (affiché sous l'encadré pédagogique des règles de complexité) et une **seconde saisie de confirmation** (`confirm_password`).
+  - Si les deux mots de passe ne concordent pas ou ne respectent pas les critères de sécurité, la soumission est bloquée avec un **Toast d'erreur explicite**.
+  - En cas de succès (`POST /api/v1/auth/activate-otp`), le code est immédiatement invalidé (usage unique) et l'utilisateur est redirigé vers `/login` avec un Toast de confirmation.
+
+#### Règle S13-02 — Double Authentification (2FA) au Choix : QR Code (30s), Clé Manuelle ou Code E-mail (Points 10 & 11)
+- **Exigence Métier :** Dans l'onglet Sécurité du profil (`/dashboard`), tout utilisateur connecté peut choisir sa méthode de double authentification :
+  1. **Application d'authentification (QR Code 30s) :** Affichage d'un QR Code SVG vectoriel renouvelé automatiquement toutes les 30 secondes avec compte à rebours visible.
+  2. **Clé secrète manuelle :** Option d'affichage/masquage (`#btn-toggle-secret`) et bouton de copie rapide de la clé secrète textuelle pour saisie manuelle dans l'application d'authentification.
+  3. **Code par E-mail :** Bouton permettant d'envoyer un code temporaire à 6 chiffres sur l'adresse e-mail du compte via `POST /api/v1/users/me/2fa/send-email-code`, puis validation pour activer la méthode `email` via `POST /api/v1/users/me/2fa`.
+- **Défi à la connexion :** Lors d'une connexion ultérieure sur `/login` pour un compte protégé par 2FA, l'interface adapte le défi selon la méthode active (`totp` ou `email`, avec bouton *"Renvoyer un code par e-mail"* si méthode e-mail).
+
+#### Règle S13-03 — Inscription Vierge par Défaut & Pré-Sélection via `?discipline=ID` (Points 12 & 13)
+- **Absence de pré-sélection par défaut :** Lors d'un accès direct à `/register` sans paramètre d'URL, **aucune discipline n'est cochée par défaut**. Si l'utilisateur tente de passer à l'étape suivante sans avoir sélectionné au moins une discipline, un Toast d'erreur l'en informe clairement.
+- **Pré-sélection depuis `/horaires` :** Chaque bloc discipline sur `/horaires` expose un bouton *"S'inscrire"* redirigeant vers `/register?discipline=<ID>`. Le tunnel d'inscription lit le paramètre `discipline` de l'URL et pré-coche exclusivement la discipline correspondante (si l'ID est valide et actif).
+
+#### Règle S13-04 — Pré-Remplissage Intégral lors de la Réinscription (Point 14)
+- **Exigence Métier :** Lorsqu'un adhérent ou tuteur connecté accède à `/register` (mode réinscription), le formulaire pré-remplit automatiquement l'intégralité des informations connues de la saison précédente afin de limiter la ressaisie :
+  - Coordonnées et identité du ou des pratiquants rattachés ;
+  - **Niveau technique actuel** (ceinture / grade technique en cours) ;
+  - **Contact d'urgence complet** (nom, téléphone principal, téléphone secondaire, lien de parenté) ;
+  - **Tuteurs légaux** (pour les pratiquants mineurs : Tuteur 1 et éventuel Co-tuteur 2 avec leurs coordonnées).
+- Les champs restent intégralement modifiables avant soumission si une donnée a évolué (changement d'adresse, nouveau numéro d'urgence, etc.).
+
+#### Sélecteurs `data-testid` — Sprint 13
+- `data-testid="link-forgot-password"` : Lien *"Mot de passe oublié ?"* sur `/login`.
+- `data-testid="forgot-password-form"` / `data-testid="forgot-email-input"` / `data-testid="btn-send-reset-code"` : Formulaire de demande de code.
+- `data-testid="reset-password-form"` / `data-testid="reset-otp-input"` / `data-testid="reset-new-password"` / `data-testid="reset-confirm-password"` / `data-testid="btn-confirm-reset-password"` : Formulaire de réinitialisation avec double saisie.
+- `data-testid="2fa-method-totp"` / `data-testid="2fa-method-email"` : Sélecteurs de méthode 2FA (Application vs E-mail).
+- `data-testid="btn-copy-totp-secret"` : Bouton de copie de la clé secrète manuelle.
+- `data-testid="btn-send-2fa-email-code"` / `data-testid="input-2fa-email-code"` : Envoi et saisie du code 2FA par e-mail.
+- `data-testid="horaires-register-discipline-btn"` (avec `data-discipline-id`) : Bouton *"S'inscrire"* sur `/horaires` redirigeant vers `/register?discipline=ID`.
+- `data-testid="reg-discipline-checkbox"` (avec `data-discipline-id`) : Cases de sélection de discipline sur `/register`.
+- `data-testid="reg-reenroll-prefilled-banner"` : Indicateur discret confirmant le pré-remplissage des données de réinscription.
+
+---
+
+### 8.3. Sprint 14 : Tableaux Compacts, Actions sur 2 Lignes, Onglets & Verrouillage E2E v1.1 (Points 15 à 21)
+
+#### Règle S14-01 — Colonnes Compactes Sans Élargir le Conteneur & Actions sur 2 Lignes (Points 15, 16 & 17)
+- **Contrainte de mise en page stricte :** Les tableaux de gestion de `/members` et `/registrations` doivent tenir dans 100 % de la largeur disponible de `#main-workspace` sur écran Desktop (≥ 1280px) sans jamais forcer l'élargissement du conteneur parent ni imposer de défilement horizontal parasite (`table.scrollWidth <= container.clientWidth`).
+- **Disposition des icônes d'action sur 2 lignes :**
+  - Dans la colonne finale `Actions` de `/members` et `/registrations`, les boutons d'action icônes sont agencés en **grille compacte sur 2 lignes** (`grid grid-cols-3 gap-1 w-max`, ou `grid-cols-2` selon le nombre d'actions visibles pour le rôle).
+  - Chaque bouton conserve une zone cliquable confortable (28×28 px minimum), une icône SVG lisible, ainsi que les attributs `title` et `aria-label` en français naturel.
+
+#### Règle S14-02 — Onglets Fonctionnels sur `/stats`, `/sys-smtp` et Tableaux Multi-Disciplines (Points 18, 19 & 20)
+- **Standard d'accessibilité et d'interaction des onglets :**
+  - Chaque barre d'onglets utilise `role="tablist"`, chaque bouton `role="tab"` + `aria-selected="true|false"` + `aria-controls`, et chaque panneau `role="tabpanel"`.
+  - L'onglet actif utilise les classes de thème dynamique (`.border-brand-primary`, `.text-brand-primary`).
+- **Couverture par vue :**
+  - **`/stats` :** Onglets fonctionnels (*Vue d'ensemble*, *Démographie*, *Occupation des cours*, *Finances* masqué pour Entraîneur/RGPD, plus les onglets dynamiques injectés via le hook `stats_tabs`).
+  - **`/sys-smtp` :** Onglets fonctionnels (*Configuration du serveur*, *Modèles d'e-mails*, *Test d'envoi & Historique*).
+  - **Tableaux multi-disciplines (`/disciplines`, `/horaires`, vues filtrées) :** Bascule fluide entre *"Toutes les disciplines"* et chaque discipline active avec compteurs d'effectifs synchronisés et affichage instantané des données filtrées.
+
+#### Règle S14-03 — Verrouillage E2E v1.1 (Point 21)
+- **Exigence Qualité :** Création d'une suite de tests Playwright dédiée (`tests/e2e/14-v11-ux-polish.spec.ts`) validant à 100 % sur Desktop Chrome et Mobile Chrome Pixel 5 les 21 points des Sprints 12, 13 et 14, sans aucune régression sur les 222 tests existants.
+
+#### Sélecteurs `data-testid` — Sprint 14
+- `data-testid="members-table"` / `data-testid="member-actions-grid"` : Tableau compact de l'annuaire et grille d'icônes d'action sur 2 lignes.
+- `data-testid="registrations-table"` / `data-testid="registration-actions-grid"` : Tableau compact de trésorerie et grille d'icônes d'action sur 2 lignes.
+- `data-testid="stats-tabs"` / `data-testid="stats-tab-overview"` / `data-testid="stats-tab-demographics"` / `data-testid="stats-tab-occupancy"` / `data-testid="stats-tab-finances"` : Barre et onglets de `/stats`.
+- `data-testid="smtp-tabs"` / `data-testid="smtp-tab-config"` / `data-testid="smtp-tab-templates"` / `data-testid="smtp-tab-history"` : Barre et onglets de `/sys-smtp`.
+- `data-testid="discipline-tabs"` / `data-testid="discipline-tab-item"` : Barre d'onglets standardisée des tableaux multi-disciplines.
+
+---
+
+### 8.4. Matrice Récapitulative des 21 Points de Finition v1.1 (Sprints 12 à 14)
+
+| Point | Domaine | Sprint | Description & Exigence Fonctionnelle | Attribut Clé / Route API |
+| :---: | :--- | :---: | :--- | :--- |
+| **1** | UX / RBAC | **S12** | Langage humain non-technique sur les rôles & permissions (zéro clé `members.view`, `rbac`) | `/roles`, libellés français |
+| **2** | UX / Libellés | **S12** | Langage humain sur journaux, messagerie & sécurité (zéro `app_logs`, `sys_logs`, `otp` brut) | `/settings`, `/sys-logs`, `/dashboard` |
+| **3** | UX / Forms | **S12** | Toasts obligatoires sur toutes les erreurs de validation de formulaire | `data-testid="toast-error"` |
+| **4** | Thème CSS | **S12** | Injection `--brand-*` dans `<head>` + classes `.bg-brand-primary` remplaçant `emerald-*` | `#kanso-dynamic-theme` |
+| **5** | API / Saison | **S12** | Harmonisation endpoint Rollover (`/api/v1/tasks/rollover-season` + alias `/api/v1/rollover`) | `POST /api/v1/rollover` |
+| **6** | Exploitation | **S12** | Suivi Mode Démo / Production (`demo_mode_enabled`) dans la vue d'ensemble Superadmin | `data-testid="sys-demo-mode-badge"` |
+| **7** | UI / Contrastes | **S12** | Harmonisation `--brand-primary-hover`, focus rings et badges d'accentuation | `.border-brand-primary` |
+| **8** | Auth | **S13** | Demande "Mot de passe oublié" par e-mail avec garantie anti-énumération | `POST /api/v1/auth/forgot-password` |
+| **9** | Auth | **S13** | Réinitialisation par code temporaire avec double saisie de confirmation | `data-testid="reset-confirm-password"` |
+| **10** | Sécurité 2FA | **S13** | 2FA Application : QR Code SVG (30s) + affichage/copie clé secrète manuelle | `data-testid="2fa-method-totp"` |
+| **11** | Sécurité 2FA | **S13** | 2FA par Code E-mail (activation, envoi temporaire et défi connexion) | `POST /api/v1/users/me/2fa/send-email-code` |
+| **12** | Inscription | **S13** | Aucune discipline pré-cochée par défaut sur `/register` | `data-testid="reg-discipline-checkbox"` |
+| **13** | Inscription | **S13** | Pré-sélection contextuelle via `?discipline=ID` depuis `/horaires` | `/register?discipline=ID` |
+| **14** | Réinscription | **S13** | Pré-remplissage intégral (niveau technique, contact d'urgence, tuteurs légaux) | `data-testid="reg-reenroll-prefilled-banner"` |
+| **15** | Tableaux | **S14** | Colonnes compactes sur `/members` sans élargir le conteneur parent | `data-testid="members-table"` |
+| **16** | Tableaux | **S14** | Grille d'icônes d'action sur 2 lignes dans `/members` | `data-testid="member-actions-grid"` |
+| **17** | Trésorerie | **S14** | Tableau compact et grille d'icônes d'action sur 2 lignes dans `/registrations` | `data-testid="registration-actions-grid"` |
+| **18** | Statistiques | **S14** | Onglets fonctionnels sur `/stats` avec respect strict RGPD Entraîneur | `data-testid="stats-tabs"` |
+| **19** | Messagerie | **S14** | Onglets fonctionnels sur `/sys-smtp` (Configuration, Modèles, Test & Historique) | `data-testid="smtp-tabs"` |
+| **20** | Multi-vues | **S14** | Onglets fonctionnels standardisés sur tous les tableaux multi-disciplines | `data-testid="discipline-tabs"` |
+| **21** | QA / E2E | **S14** | Suite Playwright v1.1 Desktop & Mobile Pixel 5 (100 % non-régression) | `tests/e2e/14-v11-ux-polish.spec.ts` |

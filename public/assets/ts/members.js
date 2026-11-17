@@ -211,7 +211,7 @@ function renderMembersRows() {
                 : `<span class="text-[11px] text-slate-400 block mt-1">Majeur autonome</span>`);
         const buttons = [];
         if (canResendOtp) {
-            buttons.push(`<button type="button" class="btn-resend-otp px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition" title="Renvoyer le lien d'activation OTP (48h)">✉️</button>`);
+            buttons.push(`<button type="button" class="btn-resend-otp px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition" title="Renvoyer le lien d'activation par e-mail (48h)">✉️</button>`);
         }
         buttons.push(`<button type="button" class="btn-medical-member px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition" title="Certificat médical & Santé">📄</button>`);
         if (canEdit) {
@@ -333,17 +333,17 @@ function renderMembersRows() {
         memberTr.querySelector('.btn-resend-otp')?.addEventListener('click', async (e) => {
             e.stopPropagation();
             const btn = e.currentTarget;
-            setButtonLoading(btn, true, '✉️ OTP');
+            setButtonLoading(btn, true, '✉️');
             try {
                 const res = await fetchApi(`/api/v1/members/${member.id}/resend-otp`, {
                     method: 'POST'
                 });
                 if (res.status === 'success' && res.data) {
-                    showToast(`Nouveau lien OTP envoyé à ${res.data.recipient_email} !`, 'success');
+                    showToast(`Nouveau lien d'activation envoyé à ${res.data.recipient_email} !`, 'success');
                 }
             }
             finally {
-                setButtonLoading(btn, false, '✉️ OTP');
+                setButtonLoading(btn, false, '✉️');
             }
         });
         memberTr.querySelector('.btn-medical-member')?.addEventListener('click', (e) => {
@@ -523,13 +523,13 @@ function initBulkActions() {
                 body: JSON.stringify({ member_ids: Array.from(selectedMemberIds) })
             });
             if (res.status === 'success' && res.data) {
-                showToast(`${res.data.sent_count} lien(s) OTP renvoyé(s) avec succès !`, 'success');
+                showToast(`${res.data.sent_count} lien(s) d'activation renvoyé(s) avec succès !`, 'success');
                 selectedMemberIds.clear();
                 updateBulkUi();
             }
         }
         finally {
-            setButtonLoading(btn, false, '📧 Relancer OTP');
+            setButtonLoading(btn, false, '📧 Renvoyer l\'invitation');
         }
     });
 }
@@ -674,6 +674,13 @@ function initEditMemberModal() {
     });
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const firstName = document.getElementById('edit-first-name').value.trim();
+        const lastName = document.getElementById('edit-last-name').value.trim();
+        const birthDate = document.getElementById('edit-birth-date').value.trim();
+        if (!firstName || !lastName || !birthDate) {
+            showToast('Veuillez renseigner le prénom, le nom et la date de naissance de l\'adhérent.', 'error');
+            return;
+        }
         setButtonLoading(submitBtn, true, 'Enregistrer les modifications');
         const id = document.getElementById('edit-member-id').value;
         const practices = [];
@@ -688,9 +695,9 @@ function initEditMemberModal() {
             });
         });
         const payload = {
-            first_name: document.getElementById('edit-first-name').value.trim(),
-            last_name: document.getElementById('edit-last-name').value.trim(),
-            birth_date: document.getElementById('edit-birth-date').value.trim(),
+            first_name: firstName,
+            last_name: lastName,
+            birth_date: birthDate,
             phone: document.getElementById('edit-phone').value.trim(),
             address: document.getElementById('edit-address').value.trim(),
             emergency_contact_name: document.getElementById('edit-emerg-name').value.trim(),
@@ -742,8 +749,10 @@ function initMedicalUploadModal() {
         const id = document.getElementById('medical-member-id').value;
         const fileInput = document.getElementById('medical-file-input');
         const file = fileInput.files?.[0];
-        if (!file)
+        if (!file) {
+            showToast('Veuillez sélectionner un fichier PDF ou image pour le certificat médical.', 'error');
             return;
+        }
         setButtonLoading(submitBtn, true, 'Téléverser');
         try {
             const formData = new FormData();
