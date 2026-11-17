@@ -7,11 +7,12 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 $currentRole = (string) ($_SESSION['role_name'] ?? 'Visiteur');
 
-$pageTitle     = $currentRole === 'Adhérent' ? 'Mes rattachements' : 'Adhérents';
-$activeNav     = 'members';
-$requireAuth   = true;
-$requiredPerms = ['members.view', 'profile.view'];
-$pageScripts   = ['/assets/ts/members.js'];
+$pageTitle       = $currentRole === 'Adhérent' ? 'Mes rattachements' : 'Adhérents';
+$activeNav       = 'members';
+$requireAuth     = true;
+$requiredPerms   = ['members.view', 'profile.view'];
+$pageScripts     = ['/assets/ts/members.js'];
+$contentMaxWidth = 'max-w-[1600px]';
 
 ob_start();
 ?>

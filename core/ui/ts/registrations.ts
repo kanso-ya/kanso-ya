@@ -191,23 +191,27 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
                 <span class="block text-[11px] text-slate-500 uppercase">${reg.payment_method} (${reg.installments}x)</span>
             </td>
             <td class="p-4">${statusBadge}</td>
-            <td class="p-4 text-right space-x-1.5 action-cell"></td>
+            <td class="p-4 text-right whitespace-nowrap">
+                <div class="inline-flex items-center gap-1.5 justify-end action-cell"></div>
+            </td>
         `;
 
         const actionCell = tr.querySelector('.action-cell');
         if (actionCell) {
             const btnInspect = document.createElement('button');
             btnInspect.type = 'button';
-            btnInspect.className = 'bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition';
-            btnInspect.textContent = '🔍 Inspecter & Cours';
+            btnInspect.className = 'bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
+            btnInspect.textContent = '🔍 Inspecter';
+            btnInspect.title = 'Inspecter le dossier et les détails des cours';
             btnInspect.addEventListener('click', () => openInspectionModal(reg));
             actionCell.appendChild(btnInspect);
 
             if (reg.status === 'pending') {
                 const btnVal = document.createElement('button');
                 btnVal.type = 'button';
-                btnVal.className = 'bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition';
-                btnVal.textContent = 'Valider';
+                btnVal.className = 'bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
+                btnVal.textContent = '✓ Valider';
+                btnVal.title = 'Valider le paiement et le dossier d\'adhésion';
                 btnVal.addEventListener('click', async () => {
                     await triggerValidation(reg.id, btnVal, []);
                 });
@@ -217,10 +221,11 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
             if (reg.status === 'validated') {
                 const btnReceipt = document.createElement('button');
                 btnReceipt.type = 'button';
-                btnReceipt.className = 'btn-download-receipt bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition';
+                btnReceipt.className = 'btn-download-receipt bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1.5 rounded-lg transition inline-flex items-center gap-1';
                 btnReceipt.setAttribute('data-reg-id', String(reg.id));
                 btnReceipt.setAttribute('data-testid', `btn-receipt-${reg.id}`);
                 btnReceipt.textContent = '📄 Reçu';
+                btnReceipt.title = 'Télécharger le reçu de cotisation';
                 btnReceipt.addEventListener('click', async () => {
                     const res = await fetchApi<{ receipt_text: string }>(`/api/v1/registrations/${reg.id}/receipt`);
                     if (res.status === 'success' && res.data) {
@@ -231,10 +236,11 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
 
                 const btnCse = document.createElement('button');
                 btnCse.type = 'button';
-                btnCse.className = 'btn-download-cse bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition';
+                btnCse.className = 'btn-download-cse bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1.5 rounded-lg transition inline-flex items-center gap-1';
                 btnCse.setAttribute('data-reg-id', String(reg.id));
                 btnCse.setAttribute('data-testid', `btn-cse-${reg.id}`);
-                btnCse.textContent = '🏢 Attestation CSE';
+                btnCse.textContent = '🏢 CSE';
+                btnCse.title = 'Télécharger l\'attestation employeur / CSE';
                 btnCse.addEventListener('click', async () => {
                     const res = await fetchApi<{ attestation_text: string }>(`/api/v1/registrations/${reg.id}/cse-attestation`);
                     if (res.status === 'success' && res.data) {
@@ -247,8 +253,9 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
             if (reg.status === 'radiated') {
                 const btnRestore = document.createElement('button');
                 btnRestore.type = 'button';
-                btnRestore.className = 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-3 py-1.5 rounded-lg transition';
+                btnRestore.className = 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
                 btnRestore.textContent = '↩️ Restaurer';
+                btnRestore.title = 'Restaurer ce dossier radié en attente';
                 btnRestore.addEventListener('click', async () => {
                     const res = await fetchApi(`/api/v1/registrations/${reg.id}/status`, {
                         method: 'PATCH',
@@ -263,8 +270,9 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
             } else {
                 const btnRadiate = document.createElement('button');
                 btnRadiate.type = 'button';
-                btnRadiate.className = 'bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition';
-                btnRadiate.textContent = 'Radier';
+                btnRadiate.className = 'bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
+                btnRadiate.textContent = '🚫 Radier';
+                btnRadiate.title = 'Radier ce dossier (archivage réversible)';
                 btnRadiate.addEventListener('click', () => {
                     openConfirmModal(
                         'Radier ce dossier (Archivage réversible)',
@@ -286,8 +294,9 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
 
             const btnDel = document.createElement('button');
             btnDel.type = 'button';
-            btnDel.className = 'bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition';
-            btnDel.textContent = 'Supprimer';
+            btnDel.className = 'bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-2 py-1.5 rounded-lg transition inline-flex items-center gap-1';
+            btnDel.textContent = '🗑️ Supprimer';
+            btnDel.title = 'Supprimer définitivement ce dossier';
             btnDel.addEventListener('click', () => {
                 openConfirmModal(
                     'Supprimer définitivement le dossier',
@@ -437,13 +446,17 @@ async function triggerValidation(
             if (otp) {
                 const tbody = document.getElementById('registrations-tbody');
                 const banner = document.createElement('tr');
+                banner.id = `otp-banner-${regId}`;
+                banner.setAttribute('data-testid', `otp-banner-${regId}`);
                 banner.className = 'bg-emerald-50 border-b border-emerald-200';
                 banner.innerHTML = `
-                    <td colspan="6" class="p-3 text-xs text-emerald-900 flex items-center justify-between">
-                        <span>📧 <strong>Lien d'activation OTP généré (Dossier #${regId}) :</strong> <code>${otp}</code></span>
-                        <a href="/activate-otp?otp=${otp}" class="px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition">
-                            Tester l'activation du compte →
-                        </a>
+                    <td colspan="6" class="p-3 text-xs text-emerald-900">
+                        <div class="flex items-center justify-between">
+                            <span>📧 <strong>Lien d'activation OTP généré (Dossier #${regId}) :</strong> <code id="otp-code-${regId}">${otp}</code></span>
+                            <a href="/activate-otp?otp=${otp}" class="px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition">
+                                Tester l'activation du compte →
+                            </a>
+                        </div>
                     </td>
                 `;
                 tbody?.prepend(banner);

@@ -46,9 +46,6 @@ ob_start();
             </table>
         </div>
     </div>
-
-    <!-- Conteneur synchronisé pour compatibilité Playwright (US 2.1 CA2) -->
-    <div id="roles-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2"></div>
 </div>
 <?php
 $pageContent = ob_get_clean();

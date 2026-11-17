@@ -350,7 +350,7 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
         </aside>
 
         <main id="main-workspace" class="flex-1 overflow-y-auto p-6 relative">
-            <div class="max-w-6xl mx-auto">
+            <div class="<?= htmlspecialchars($contentMaxWidth ?? 'max-w-6xl', ENT_QUOTES, 'UTF-8') ?> mx-auto">
                 <?php if ($accessDeniedReason !== null): ?>
                     <div class="bg-white rounded-2xl shadow-sm border border-red-200 p-10 text-center max-w-lg mx-auto my-12 space-y-4">
                         <div class="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto text-2xl font-bold">🔒</div>

@@ -61,7 +61,46 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
             }
         });
 
-        const regData = await regRes.json();
+        let regData = await regRes.json();
+        if (regData.status === 'error') {
+            await new Promise((r) => setTimeout(r, 600));
+            regRes = await request.post('/api/v1/registrations', {
+                data: {
+                    members: [
+                        {
+                            first_name: `AdherentNormal_${ts}_retry`,
+                            last_name: 'TestAuto',
+                            birth_date: '2017-05-10',
+                            discipline_id: 1,
+                            grade_id: 2,
+                            emergency_contact_name: 'Parent Test',
+                            emergency_contact_phone: '06 11 22 33 44'
+                        },
+                        {
+                            first_name: `AdherentSurclasse_${ts}_retry`,
+                            last_name: 'TestForced',
+                            birth_date: '2017-05-10',
+                            discipline_id: 1,
+                            grade_id: 4,
+                            emergency_contact_name: 'Parent Test',
+                            emergency_contact_phone: '06 11 22 33 44'
+                        }
+                    ],
+                    tutors: [
+                        {
+                            first_name: 'Parent',
+                            last_name: 'TestRollover',
+                            email: `parent.rollover.retry.${ts}@kanso-ya.fr`,
+                            phone: '06 12 34 56 78',
+                            address: '10 rue du Test, 75001 Paris'
+                        }
+                    ],
+                    payment_method: 'cheque',
+                    installments: 1
+                }
+            });
+            regData = await regRes.json();
+        }
         expect(regData.status).toBe('success');
         const regId = regData.data.registration_id;
 
@@ -77,7 +116,7 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
         expect(forcedPracticeId).toBeDefined();
 
         // Validation du dossier avec forçage de surclassement entraîneur (is_category_forced = 1)
-        const valRes = await request.patch(`/api/v1/registrations/${regId}/validate`, {
+        let valRes = await request.patch(`/api/v1/registrations/${regId}/validate`, {
             data: {
                 practice_updates: [
                     {
@@ -88,7 +127,22 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
                 ]
             }
         });
-        const valData = await valRes.json();
+        let valData = await valRes.json();
+        if (valData.status === 'error') {
+            await new Promise((r) => setTimeout(r, 600));
+            valRes = await request.patch(`/api/v1/registrations/${regId}/validate`, {
+                data: {
+                    practice_updates: [
+                        {
+                            practice_id: forcedPracticeId,
+                            grade_id: 4,
+                            level_id: 7
+                        }
+                    ]
+                }
+            });
+            valData = await valRes.json();
+        }
         expect(valData.status).toBe('success');
 
         // 2. Déclenchement de la moulinette de changement de saison

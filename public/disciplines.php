@@ -24,8 +24,11 @@ ob_start();
         </button>
     </div>
 
-    <!-- Grille des disciplines avec Grades, Niveaux et Badges numérotés -->
-    <div id="disciplines-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+    <!-- Barre d'onglets par discipline (Point 15) -->
+    <div id="disciplines-tabs-bar" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200" data-testid="disciplines-tabs-bar"></div>
+
+    <!-- Affichage de la discipline sélectionnée avec Grades, Niveaux et Badges cliquables -->
+    <div id="disciplines-list" class="space-y-6"></div>
 </div>
 
 <!-- Modale Création / Édition distinguant Grade (Âge) et Niveau (Ceinture/Gant) -->

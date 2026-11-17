@@ -12,6 +12,14 @@ const familyCart = [];
 let disciplinesCatalog = [];
 let isMinorFlow = false;
 let connectedUserProfile = null;
+let currentStep = 'identity';
+let goToStepRef = null;
+function navigateWizardToStep(step) {
+    currentStep = step;
+    if (goToStepRef) {
+        goToStepRef(step);
+    }
+}
 document.addEventListener('DOMContentLoaded', async () => {
     initPublicRegistrationWizard();
     await loadDisciplinesCatalog();
@@ -267,6 +275,7 @@ function initPublicRegistrationWizard() {
         }
     };
     const goToStep = (step) => {
+        currentStep = step;
         document.getElementById('step-panel-identity')?.classList.toggle('hidden', step !== 'identity');
         stepPanelTutors?.classList.toggle('hidden', step !== 'tutors');
         document.getElementById('step-panel-emergency')?.classList.toggle('hidden', step !== 'emergency');
@@ -286,7 +295,9 @@ function initPublicRegistrationWizard() {
         if (step === 'payment') {
             renderFamilyCart();
         }
+        saveDraftToStorage();
     };
+    goToStepRef = goToStep;
     birthInput.addEventListener('change', () => {
         const age = calculateAgeFromInput(birthInput.value);
         const cartHasMinor = familyCart.some((m) => calculateAgeFromInput(m.birth_date) < 18);
@@ -468,20 +479,29 @@ function initPublicRegistrationWizard() {
         preSubmitModal?.classList.add('hidden');
         document.getElementById('btn-submit-registration')?.click();
     });
-    // Gestion du brouillon (Point 16)
+    // Gestion du brouillon (Points 8 & 9)
     form.addEventListener('input', () => saveDraftToStorage());
     form.addEventListener('change', () => saveDraftToStorage());
+    // Sauvegarde avant d'ouvrir le questionnaire de santé
+    document.querySelectorAll('a[href*="questionnaire-sante"]').forEach((link) => {
+        link.addEventListener('click', () => {
+            saveDraftToStorage();
+        });
+    });
     document.getElementById('btn-restore-draft')?.addEventListener('click', () => {
-        restoreDraftFromStorage();
+        restoreDraftFromStorage(false);
         document.getElementById('draft-restore-banner')?.classList.add('hidden');
         showToast('Votre brouillon d\'inscription a été restauré.', 'success');
     });
     document.getElementById('btn-clear-draft')?.addEventListener('click', () => {
         localStorage.removeItem('kanso_reg_draft');
+        sessionStorage.removeItem('kanso_health_attestation');
+        sessionStorage.removeItem('kanso_health_attestation_date');
         document.getElementById('draft-restore-banner')?.classList.add('hidden');
         form.reset();
         familyCart.length = 0;
         renderFamilyCart();
+        navigateWizardToStep('identity');
         showToast('Brouillon effacé.', 'info');
     });
     form.addEventListener('submit', async (e) => {
@@ -715,8 +735,48 @@ function renderFamilyCart() {
         });
     }
 }
+function getFirstIncompleteStep() {
+    const fn = document.getElementById('reg-first-name')?.value.trim();
+    const ln = document.getElementById('reg-last-name')?.value.trim();
+    const bd = document.getElementById('reg-birth-date')?.value.trim();
+    if (!fn || !ln || !bd)
+        return 'identity';
+    const age = calculateAgeFromInput(bd);
+    if (age >= 18) {
+        const em = document.getElementById('reg-email')?.value.trim();
+        if (!em)
+            return 'identity';
+    }
+    const hasMinor = age < 18 || familyCart.some((m) => calculateAgeFromInput(m.birth_date) < 18);
+    if (hasMinor) {
+        const t1Email = document.getElementById('tutor1-email')?.value.trim();
+        if (!t1Email)
+            return 'tutors';
+    }
+    const emergName = document.getElementById('reg-emerg-name')?.value.trim();
+    const emergPhone = document.getElementById('reg-emerg-phone')?.value.trim();
+    if (!emergName || !emergPhone)
+        return 'emergency';
+    return 'payment';
+}
 function saveDraftToStorage() {
     try {
+        const practices = [];
+        document.querySelectorAll('.practice-selector-row').forEach((row) => {
+            const discSelect = row.querySelector('.prac-discipline');
+            const gradeSelect = row.querySelector('.prac-grade');
+            const levelSelect = row.querySelector('.prac-level');
+            if (discSelect && discSelect.value) {
+                practices.push({
+                    discipline_id: parseInt(discSelect.value, 10),
+                    grade_id: gradeSelect?.value ? parseInt(gradeSelect.value, 10) : null,
+                    level_id: levelSelect?.value ? parseInt(levelSelect.value, 10) : null
+                });
+            }
+        });
+        const payMethod = document.getElementById('reg-payment-method')?.value || 'cheque';
+        const installments = document.getElementById('reg-installments')?.value || '1';
+        const healthCertChoice = document.getElementById('choice-health-cert')?.checked ? 'medical_cert' : 'attestation';
         const formData = {
             first_name: document.getElementById('reg-first-name')?.value || '',
             last_name: document.getElementById('reg-last-name')?.value || '',
@@ -732,10 +792,14 @@ function saveDraftToStorage() {
             t1_phone: document.getElementById('tutor1-phone')?.value || '',
             t1_address: document.getElementById('tutor1-address')?.value || '',
             t1_birth: document.getElementById('tutor1-birth')?.value || '',
-            t2_email: document.getElementById('tutor2-email')?.value || ''
+            t2_email: document.getElementById('tutor2-email')?.value || '',
+            practices,
+            payment_method: payMethod,
+            installments,
+            health_cert_choice: healthCertChoice
         };
-        if (formData.first_name || formData.last_name || familyCart.length > 0) {
-            localStorage.setItem('kanso_reg_draft', JSON.stringify({ form: formData, familyCart }));
+        if (formData.first_name || formData.last_name || formData.emerg_name || formData.t1_email || familyCart.length > 0) {
+            localStorage.setItem('kanso_reg_draft', JSON.stringify({ form: formData, familyCart, currentStep }));
         }
     }
     catch {
@@ -743,21 +807,20 @@ function saveDraftToStorage() {
     }
 }
 function checkAndRestoreDraft() {
-    const banner = document.getElementById('draft-restore-banner');
     const raw = localStorage.getItem('kanso_reg_draft');
-    if (!banner || !raw)
+    if (!raw)
         return;
     try {
         const data = JSON.parse(raw);
-        if (data && (data.form?.first_name || data.form?.last_name || (data.familyCart && data.familyCart.length > 0))) {
-            banner.classList.remove('hidden');
+        if (data && (data.form?.first_name || data.form?.last_name || data.form?.emerg_name || (data.familyCart && data.familyCart.length > 0))) {
+            restoreDraftFromStorage(true);
         }
     }
     catch {
         localStorage.removeItem('kanso_reg_draft');
     }
 }
-function restoreDraftFromStorage() {
+function restoreDraftFromStorage(isAuto = false) {
     const raw = localStorage.getItem('kanso_reg_draft');
     if (!raw)
         return;
@@ -785,15 +848,56 @@ function restoreDraftFromStorage() {
             setVal('tutor1-address', f.t1_address);
             setVal('tutor1-birth', f.t1_birth);
             setVal('tutor2-email', f.t2_email);
+            if (f.payment_method)
+                setVal('reg-payment-method', f.payment_method);
+            if (f.installments)
+                setVal('reg-installments', f.installments);
+            if (f.health_cert_choice === 'medical_cert') {
+                const mc = document.getElementById('choice-health-cert');
+                if (mc)
+                    mc.checked = true;
+            }
+            else {
+                const att = document.getElementById('choice-health-attestation');
+                if (att)
+                    att.checked = true;
+            }
+            // Retour depuis questionnaire santé ?
+            if (sessionStorage.getItem('kanso_health_attestation') === '1') {
+                const att = document.getElementById('choice-health-attestation');
+                if (att)
+                    att.checked = true;
+            }
             if (data.familyCart && Array.isArray(data.familyCart)) {
                 familyCart.length = 0;
                 familyCart.push(...data.familyCart);
+            }
+            // Restauration des pratiques sélectionnées
+            if (f.practices && Array.isArray(f.practices) && f.practices.length > 0) {
+                const pContainer = document.getElementById('reg-practices-container');
+                if (pContainer) {
+                    pContainer.innerHTML = '';
+                    f.practices.forEach((p) => {
+                        appendPracticeSelectorRow(p.discipline_id, p.grade_id, p.level_id);
+                    });
+                }
             }
             const birthEl = document.getElementById('reg-birth-date');
             if (birthEl && birthEl.value) {
                 birthEl.dispatchEvent(new Event('change'));
             }
             renderFamilyCart();
+            // Positionne le wizard sur la première étape incomplète
+            const nextStep = getFirstIncompleteStep();
+            navigateWizardToStep(nextStep);
+            const banner = document.getElementById('draft-restore-banner');
+            if (banner) {
+                banner.classList.remove('hidden');
+                const titleEl = banner.querySelector('span.block');
+                if (titleEl) {
+                    titleEl.textContent = `Brouillon restauré automatiquement (reprise à l'étape : ${nextStep})`;
+                }
+            }
         }
     }
     catch {

@@ -23,15 +23,15 @@ ob_start();
 ?>
 <div class="max-w-4xl mx-auto space-y-6">
 
-    <!-- Bandeau Restauration de Brouillon Local (Sprint 8 - Point 16) -->
+    <!-- Bandeau Restauration de Brouillon Local (Sprint 8 - Points 8 & 9) -->
     <div id="draft-restore-banner" class="hidden p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs" data-testid="draft-restore-banner">
-        <div>
-            <span class="font-bold block">Brouillon d'inscription détecté</span>
-            <span>Vous avez un dossier d'adhésion en cours de saisie sur cet appareil. Souhaitez-vous reprendre là où vous en étiez ?</span>
+        <div id="reg-draft-auto-restored-indicator" data-testid="reg-draft-auto-restored-indicator">
+            <span class="font-bold block">Brouillon d'inscription restauré automatiquement</span>
+            <span class="text-amber-800">Votre progression et vos choix ont été automatiquement rechargés. Vous pouvez poursuivre votre saisie ou effacer pour recommencer.</span>
         </div>
         <div class="flex items-center gap-2 shrink-0">
             <button type="button" id="btn-restore-draft" data-testid="btn-restore-draft" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition">
-                Restaurer le dossier
+                Confirmer la reprise
             </button>
             <button type="button" id="btn-clear-draft" data-testid="btn-clear-draft" class="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-800 font-bold hover:bg-amber-50 transition">
                 Effacer

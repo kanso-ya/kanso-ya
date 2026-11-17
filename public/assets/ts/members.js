@@ -12,6 +12,8 @@ let allMembers = [];
 let disciplinesCatalog = [];
 let activeStatusFilter = 'all';
 let activeDisciplineFilter = 'all';
+let activeGradeFilter = null;
+let activeLevelFilter = null;
 let activeAgeFilter = '';
 let activeHealthFilter = '';
 let activeSearchQuery = '';
@@ -19,6 +21,20 @@ let activeSortColumn = 'name';
 let activeSortDirection = 'asc';
 const selectedMemberIds = new Set();
 document.addEventListener('DOMContentLoaded', async () => {
+    // Lecture des paramètres URL (ex: /members?discipline=1&grade=2)
+    const urlParams = new URLSearchParams(window.location.search);
+    const discParam = urlParams.get('discipline');
+    const gradeParam = urlParams.get('grade');
+    const levelParam = urlParams.get('level');
+    if (discParam) {
+        activeDisciplineFilter = discParam;
+    }
+    if (gradeParam) {
+        activeGradeFilter = parseInt(gradeParam, 10);
+    }
+    if (levelParam) {
+        activeLevelFilter = parseInt(levelParam, 10);
+    }
     await loadDisciplinesCatalog();
     await loadMembersTable();
     initStatusTabs();
@@ -29,6 +45,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     initExportCsv();
     initEditMemberModal();
     initMedicalUploadModal();
+    if (discParam) {
+        const sel = document.getElementById('member-discipline-filter');
+        if (sel)
+            sel.value = discParam;
+    }
     window.addEventListener('kanso:members-updated', () => loadMembersTable());
     window.addEventListener('kanso:auth-ready', (e) => {
         const ctx = e.detail;
@@ -112,7 +133,13 @@ function renderMembersRows() {
         const matchHealth = activeHealthFilter === ''
             || (activeHealthFilter === 'signed' && hasSigned)
             || (activeHealthFilter === 'pending' && !hasSigned);
-        return matchStatus && matchDisc && matchAge && matchHealth;
+        // Filtre Grade / Cours spécifique
+        const matchGrade = activeGradeFilter === null
+            || (m.practices || []).some((p) => Number(p.grade_id) === activeGradeFilter);
+        // Filtre Niveau / Ceinture spécifique
+        const matchLevel = activeLevelFilter === null
+            || (m.practices || []).some((p) => Number(p.level_id) === activeLevelFilter);
+        return matchStatus && matchDisc && matchGrade && matchLevel && matchAge && matchHealth;
     });
     // Tri multi-colonnes interactif (Point 26)
     filtered.sort((a, b) => {
@@ -184,15 +211,15 @@ function renderMembersRows() {
                 : `<span class="text-[11px] text-slate-400 block mt-1">Majeur autonome</span>`);
         const buttons = [];
         if (canResendOtp) {
-            buttons.push(`<button type="button" class="btn-resend-otp text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1.5 rounded-lg font-semibold transition" title="Renvoyer le lien d'activation OTP (48h)">✉️ OTP</button>`);
+            buttons.push(`<button type="button" class="btn-resend-otp px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition" title="Renvoyer le lien d'activation OTP (48h)">✉️</button>`);
         }
-        buttons.push(`<button type="button" class="btn-medical-member text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-semibold transition" title="Certificat médical">📄</button>`);
+        buttons.push(`<button type="button" class="btn-medical-member px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition" title="Certificat médical & Santé">📄</button>`);
         if (canEdit) {
-            buttons.push(`<button type="button" class="btn-edit-member text-xs bg-slate-900 hover:bg-slate-800 text-white px-2.5 py-1.5 rounded-lg font-semibold transition">✏️ Cours / Modifier</button>`);
+            buttons.push(`<button type="button" class="btn-edit-member px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1" title="Modifier la fiche adhérent & les cours">✏️ <span>Modifier</span></button>`);
         }
         if (canDeleteOrRadiate) {
-            buttons.push(`<button type="button" class="btn-radiate-member text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1.5 rounded-lg font-semibold transition">Radier</button>`);
-            buttons.push(`<button type="button" class="btn-delete-member text-xs bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 rounded-lg font-semibold transition">✕</button>`);
+            buttons.push(`<button type="button" class="btn-radiate-member px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition" title="Radier cet adhérent (Archivage réversible)">🚫</button>`);
+            buttons.push(`<button type="button" class="btn-delete-member px-2 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition" title="Supprimer définitivement la fiche">🗑️</button>`);
         }
         const addressLine = (!isTeacher && member.address)
             ? `<div class="text-[11px] text-slate-400 truncate max-w-[180px]">📍 ${member.address}</div>`
@@ -227,7 +254,9 @@ function renderMembersRows() {
                 ${healthBadge}
                 ${tutorSummary}
             </td>
-            <td class="p-3.5 text-right space-x-1 action-buttons whitespace-nowrap">${buttons.join('')}</td>
+            <td class="p-3.5 text-right action-buttons whitespace-nowrap">
+                <div class="inline-flex items-center gap-1 justify-end">${buttons.join('')}</div>
+            </td>
         `;
         // Sous-ligne Accordéon : Détails & Partage RGPD entre co-tuteurs
         const accordionTr = document.createElement('tr');

@@ -61,8 +61,7 @@ async function loadRolesMatrix() {
     const thead = document.getElementById('rbac-matrix-thead');
     const tbody = document.getElementById('rbac-matrix-tbody');
     const tfoot = document.getElementById('rbac-matrix-tfoot');
-    const cardsContainer = document.getElementById('roles-container');
-    if (!thead || !tbody || !tfoot || !cardsContainer)
+    if (!thead || !tbody || !tfoot)
         return;
     const response = await fetchApi('/api/v1/roles');
     if (response.status !== 'success' || !response.data)
@@ -174,38 +173,4 @@ async function loadRolesMatrix() {
     });
     tfoot.innerHTML = '';
     tfoot.appendChild(footRow);
-    cardsContainer.innerHTML = '';
-    roles.forEach((role) => {
-        const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between space-y-3 text-xs';
-        const boxesHtml = PERMISSION_CATALOG.map((p) => {
-            const chk = role.is_system || role.perms.includes(p.key);
-            return `<label class="flex items-center gap-1.5 text-slate-600"><input type="checkbox" value="${p.key}" ${chk ? 'checked' : ''} ${role.is_system ? 'disabled' : ''}><span>${p.key}</span></label>`;
-        }).join('');
-        card.innerHTML = `
-            <div>
-                <div class="font-bold text-slate-900 text-sm mb-2">${role.name}</div>
-                <div class="space-y-1">${boxesHtml}</div>
-            </div>
-        `;
-        if (!role.is_system) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'w-full bg-slate-900 text-white py-2 rounded-lg font-bold';
-            btn.textContent = 'Enregistrer les droits';
-            btn.addEventListener('click', async () => {
-                const checked = Array.from(card.querySelectorAll('input[type="checkbox"]:checked')).map((c) => c.value);
-                const res = await fetchApi(`/api/v1/roles/${role.id}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ permissions: checked })
-                });
-                if (res.status === 'success') {
-                    showToast('Permissions mises à jour avec succès.', 'success');
-                    await loadRolesMatrix();
-                }
-            });
-            card.appendChild(btn);
-        }
-        cardsContainer.appendChild(card);
-    });
 }

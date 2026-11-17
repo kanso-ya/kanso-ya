@@ -26,111 +26,166 @@ interface DisciplineItem {
     niveaux?: LevelItem[];
 }
 
+let disciplinesData: DisciplineItem[] = [];
+let activeDisciplineId: number | null = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     loadDisciplinesList();
     initDisciplineModal();
 });
 
-async function loadDisciplinesList(): Promise<void> {
-    const container = document.getElementById('disciplines-list');
-    if (!container) return;
+function cleanLabel(name: string): string {
+    return name.replace(/\s*\([^)]*\)/g, '').trim();
+}
 
+async function loadDisciplinesList(): Promise<void> {
     const res = await fetchApi<DisciplineItem[]>('/api/v1/disciplines');
     if (res.status !== 'success' || !Array.isArray(res.data)) return;
 
+    disciplinesData = res.data;
+    if (disciplinesData.length > 0 && (activeDisciplineId === null || !disciplinesData.some(d => d.id === activeDisciplineId))) {
+        activeDisciplineId = disciplinesData[0].id;
+    }
+
+    renderDisciplinesView(disciplinesData);
+}
+
+function renderDisciplinesView(disciplines: DisciplineItem[]): void {
+    const tabsBar = document.getElementById('disciplines-tabs-bar');
+    const container = document.getElementById('disciplines-list');
+    if (!tabsBar || !container) return;
+
+    tabsBar.innerHTML = '';
     container.innerHTML = '';
 
-    res.data.forEach((disc) => {
-        const card = document.createElement('div');
-        card.className = 'bg-white p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col justify-between space-y-5';
+    if (disciplines.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">Aucune discipline configurée. Cliquez sur "+ Nouvelle Discipline" pour démarrer.</div>`;
+        return;
+    }
 
-        const allLevels = disc.levels || [];
-        const grades = allLevels.filter((l) => (l.level_type || 'grade') === 'grade');
-        const niveaux = allLevels.filter((l) => l.level_type === 'niveau');
+    // 1. Génération de la barre d'onglets
+    disciplines.forEach((disc) => {
+        const isSelected = disc.id === activeDisciplineId;
+        const tabBtn = document.createElement('button');
+        tabBtn.type = 'button';
+        tabBtn.className = `px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
+            isSelected
+                ? 'brand-primary-bg text-white shadow-xs'
+                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+        }`;
+        tabBtn.innerHTML = `<span>🥋 ${disc.name}</span> <span class="px-2 py-0.5 rounded-full text-[10px] ${
+            isSelected ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-600 font-mono'
+        }">${disc.member_count ?? 0}</span>`;
+        tabBtn.addEventListener('click', () => {
+            activeDisciplineId = disc.id;
+            renderDisciplinesView(disciplines);
+        });
+        tabsBar.appendChild(tabBtn);
+    });
 
-        const gradesHtml = grades.length > 0
-            ? grades.map((g) => `
-                <li class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
-                    <div>
-                        <strong class="text-slate-900">${g.name}</strong>
-                        <span class="text-[11px] text-slate-400 ml-1">(${g.age_min ?? 0} - ${g.age_max ?? 99} ans)</span>
-                    </div>
-                    <span class="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-extrabold" title="Nombre d'adhérents inscrits dans ce grade">
-                        ${g.member_count ?? 0} inscrit(s)
-                    </span>
-                </li>
-            `).join('')
-            : `<li class="text-xs text-slate-400 italic">Aucun grade d'âge configuré.</li>`;
+    // 2. Affichage de la discipline sélectionnée uniquement
+    const activeDisc = disciplines.find((d) => d.id === activeDisciplineId) || disciplines[0];
+    if (!activeDisc) return;
 
-        const niveauxHtml = niveaux.length > 0
-            ? niveaux.map((n) => `
-                <li class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="w-3.5 h-3.5 rounded-full border border-slate-300 inline-block" style="background-color: ${n.color_hex || '#10b981'};"></span>
-                        <strong class="text-slate-900">${n.name}</strong>
-                    </div>
-                    <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-extrabold" title="Nombre d'adhérents ayant ce niveau">
-                        ${n.member_count ?? 0} inscrit(s)
-                    </span>
-                </li>
-            `).join('')
-            : `<li class="text-xs text-slate-400 italic">Aucun niveau (ceinture/gant) configuré.</li>`;
+    const card = document.createElement('div');
+    card.className = 'bg-white p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col justify-between space-y-6';
 
-        card.innerHTML = `
-            <div class="space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div class="flex items-center gap-3">
-                        <h3 class="font-extrabold text-slate-900 text-xl">${disc.name}</h3>
-                        <span class="px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-extrabold shadow-2xs" title="Total des adhérents inscrits dans cette discipline">
-                            👥 ${disc.member_count ?? 0} adhérent(s)
-                        </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button type="button" class="btn-edit-disc text-xs bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl font-semibold transition">
-                            ✏️ Modifier / Grades
-                        </button>
-                        <button type="button" class="btn-del-disc text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-xl font-semibold transition">
-                            Supprimer
-                        </button>
-                    </div>
+    const allLevels = activeDisc.levels || [];
+    const grades = allLevels.filter((l) => (l.level_type || 'grade') === 'grade');
+    const niveaux = allLevels.filter((l) => l.level_type === 'niveau');
+
+    const gradesHtml = grades.length > 0
+        ? grades.map((g) => {
+            const displayName = cleanLabel(g.name);
+            const ageText = (g.age_min !== null || g.age_max !== null)
+                ? `${g.age_min ?? 0} à ${g.age_max ?? 99} ans`
+                : 'Tous âges';
+            return `
+            <li class="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
+                <div>
+                    <strong class="text-slate-900 font-bold">${displayName}</strong>
+                    <span class="text-[11px] text-slate-500 ml-2">${ageText}</span>
                 </div>
+                <a href="/members?discipline=${activeDisc.id}&grade=${g.id}" class="px-3 py-1 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] font-extrabold transition cursor-pointer" title="Voir les adhérents inscrits dans ce cours">
+                    ${g.member_count ?? 0} inscrit(s)
+                </a>
+            </li>
+        `;
+        }).join('')
+        : `<li class="text-xs text-slate-400 italic p-3">Aucun grade d'âge configuré pour cette discipline.</li>`;
 
-                <!-- Section 1 : Les Grades (Catégories d'âge : Poussin, Benjamin, Minime) -->
-                <div class="space-y-2">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 block">
-                        A. Grades / Catégories d'âge (Poussin, Benjamin, Minime...)
-                    </span>
-                    <ul class="space-y-1.5">${gradesHtml}</ul>
+    const niveauxHtml = niveaux.length > 0
+        ? niveaux.map((n) => {
+            const displayName = cleanLabel(n.name);
+            return `
+            <li class="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3.5 h-3.5 rounded-full border border-slate-300 inline-block shrink-0" style="background-color: ${n.color_hex || '#10b981'};"></span>
+                    <strong class="text-slate-900 font-bold">${displayName}</strong>
                 </div>
+                <a href="/members?discipline=${activeDisc.id}&level=${n.id}" class="px-3 py-1 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[11px] font-extrabold transition cursor-pointer" title="Voir les adhérents ayant ce niveau">
+                    ${n.member_count ?? 0} inscrit(s)
+                </a>
+            </li>
+        `;
+        }).join('')
+        : `<li class="text-xs text-slate-400 italic p-3">Aucun niveau technique configuré pour cette discipline.</li>`;
 
-                <!-- Section 2 : Les Niveaux (Couleur de ceinture, gant...) -->
-                <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block">
-                        B. Niveaux Techniques (Couleur de ceinture, de gant...)
-                    </span>
-                    <ul class="space-y-1.5">${niveauxHtml}</ul>
+    card.innerHTML = `
+        <div class="space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <h3 class="font-extrabold text-slate-900 text-2xl">${activeDisc.name}</h3>
+                    <a href="/members?discipline=${activeDisc.id}" class="px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-2xs transition" title="Filtrer l'annuaire sur cette discipline">
+                        👥 ${activeDisc.member_count ?? 0} adhérent(s)
+                    </a>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="btn-edit-disc text-xs bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl font-semibold transition">
+                        ✏️ Modifier / Grades
+                    </button>
+                    <button type="button" class="btn-del-disc text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3.5 py-2 rounded-xl font-semibold transition">
+                        Supprimer
+                    </button>
                 </div>
             </div>
-        `;
 
-        card.querySelector('.btn-edit-disc')?.addEventListener('click', () => openModalForEdit(disc));
+            <!-- Section 1 : Les Grades (Catégories d'âge : Poussin, Benjamin, Minime...) -->
+            <div class="space-y-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-blue-700 block">
+                    A. Grades & Cours par Catégorie d'Âge
+                </span>
+                <ul class="space-y-2">${gradesHtml}</ul>
+            </div>
 
-        card.querySelector('.btn-del-disc')?.addEventListener('click', () => {
-            openConfirmModal(
-                'Supprimer la discipline',
-                `Confirmez-vous la suppression de "${disc.name}" et de tous ses grades et niveaux associés ?`,
-                async () => {
-                    const delRes = await fetchApi(`/api/v1/disciplines/${disc.id}`, { method: 'DELETE' });
-                    if (delRes.status === 'success') {
-                        showToast(`Discipline "${disc.name}" supprimée.`, 'info');
-                        await loadDisciplinesList();
-                    }
+            <!-- Section 2 : Les Niveaux Techniques (Ceintures, Gants...) -->
+            <div class="space-y-2 pt-2 border-t border-slate-100">
+                <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 block">
+                    B. Niveaux Techniques & Ceintures
+                </span>
+                <ul class="space-y-2">${niveauxHtml}</ul>
+            </div>
+        </div>
+    `;
+
+    card.querySelector('.btn-edit-disc')?.addEventListener('click', () => openModalForEdit(activeDisc));
+
+    card.querySelector('.btn-del-disc')?.addEventListener('click', () => {
+        openConfirmModal(
+            'Supprimer la discipline',
+            `Confirmez-vous la suppression de "${activeDisc.name}" et de tous ses grades et niveaux associés ?`,
+            async () => {
+                const delRes = await fetchApi(`/api/v1/disciplines/${activeDisc.id}`, { method: 'DELETE' });
+                if (delRes.status === 'success') {
+                    showToast(`Discipline "${activeDisc.name}" supprimée.`, 'info');
+                    activeDisciplineId = null;
+                    await loadDisciplinesList();
                 }
-            );
-        });
-
-        container.appendChild(card);
+            }
+        );
     });
+
+    container.appendChild(card);
 }
 
 function appendLevelRow(

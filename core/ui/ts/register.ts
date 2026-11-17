@@ -61,6 +61,15 @@ const familyCart: CartMember[] = [];
 let disciplinesCatalog: DisciplineCatalogItem[] = [];
 let isMinorFlow = false;
 let connectedUserProfile: any = null;
+let currentStep: 'identity' | 'tutors' | 'emergency' | 'payment' = 'identity';
+let goToStepRef: ((step: 'identity' | 'tutors' | 'emergency' | 'payment') => void) | null = null;
+
+function navigateWizardToStep(step: 'identity' | 'tutors' | 'emergency' | 'payment'): void {
+    currentStep = step;
+    if (goToStepRef) {
+        goToStepRef(step);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     initPublicRegistrationWizard();
@@ -338,6 +347,7 @@ function initPublicRegistrationWizard(): void {
     };
 
     const goToStep = (step: 'identity' | 'tutors' | 'emergency' | 'payment'): void => {
+        currentStep = step;
         document.getElementById('step-panel-identity')?.classList.toggle('hidden', step !== 'identity');
         stepPanelTutors?.classList.toggle('hidden', step !== 'tutors');
         document.getElementById('step-panel-emergency')?.classList.toggle('hidden', step !== 'emergency');
@@ -359,7 +369,10 @@ function initPublicRegistrationWizard(): void {
         if (step === 'payment') {
             renderFamilyCart();
         }
+        saveDraftToStorage();
     };
+
+    goToStepRef = goToStep;
 
     birthInput.addEventListener('change', () => {
         const age = calculateAgeFromInput(birthInput.value);
@@ -569,22 +582,32 @@ function initPublicRegistrationWizard(): void {
         document.getElementById('btn-submit-registration')?.click();
     });
 
-    // Gestion du brouillon (Point 16)
+    // Gestion du brouillon (Points 8 & 9)
     form.addEventListener('input', () => saveDraftToStorage());
     form.addEventListener('change', () => saveDraftToStorage());
 
+    // Sauvegarde avant d'ouvrir le questionnaire de santé
+    document.querySelectorAll('a[href*="questionnaire-sante"]').forEach((link) => {
+        link.addEventListener('click', () => {
+            saveDraftToStorage();
+        });
+    });
+
     document.getElementById('btn-restore-draft')?.addEventListener('click', () => {
-        restoreDraftFromStorage();
+        restoreDraftFromStorage(false);
         document.getElementById('draft-restore-banner')?.classList.add('hidden');
         showToast('Votre brouillon d\'inscription a été restauré.', 'success');
     });
 
     document.getElementById('btn-clear-draft')?.addEventListener('click', () => {
         localStorage.removeItem('kanso_reg_draft');
+        sessionStorage.removeItem('kanso_health_attestation');
+        sessionStorage.removeItem('kanso_health_attestation_date');
         document.getElementById('draft-restore-banner')?.classList.add('hidden');
         form.reset();
         familyCart.length = 0;
         renderFamilyCart();
+        navigateWizardToStep('identity');
         showToast('Brouillon effacé.', 'info');
     });
 
@@ -842,8 +865,51 @@ function renderFamilyCart(): void {
     }
 }
 
+function getFirstIncompleteStep(): 'identity' | 'tutors' | 'emergency' | 'payment' {
+    const fn = (document.getElementById('reg-first-name') as HTMLInputElement | null)?.value.trim();
+    const ln = (document.getElementById('reg-last-name') as HTMLInputElement | null)?.value.trim();
+    const bd = (document.getElementById('reg-birth-date') as HTMLInputElement | null)?.value.trim();
+    if (!fn || !ln || !bd) return 'identity';
+
+    const age = calculateAgeFromInput(bd);
+    if (age >= 18) {
+        const em = (document.getElementById('reg-email') as HTMLInputElement | null)?.value.trim();
+        if (!em) return 'identity';
+    }
+
+    const hasMinor = age < 18 || familyCart.some((m) => calculateAgeFromInput(m.birth_date) < 18);
+    if (hasMinor) {
+        const t1Email = (document.getElementById('tutor1-email') as HTMLInputElement | null)?.value.trim();
+        if (!t1Email) return 'tutors';
+    }
+
+    const emergName = (document.getElementById('reg-emerg-name') as HTMLInputElement | null)?.value.trim();
+    const emergPhone = (document.getElementById('reg-emerg-phone') as HTMLInputElement | null)?.value.trim();
+    if (!emergName || !emergPhone) return 'emergency';
+
+    return 'payment';
+}
+
 function saveDraftToStorage(): void {
     try {
+        const practices: { discipline_id: number; grade_id: number | null; level_id: number | null }[] = [];
+        document.querySelectorAll<HTMLElement>('.practice-selector-row').forEach((row) => {
+            const discSelect = row.querySelector('.prac-discipline') as HTMLSelectElement | null;
+            const gradeSelect = row.querySelector('.prac-grade') as HTMLSelectElement | null;
+            const levelSelect = row.querySelector('.prac-level') as HTMLSelectElement | null;
+            if (discSelect && discSelect.value) {
+                practices.push({
+                    discipline_id: parseInt(discSelect.value, 10),
+                    grade_id: gradeSelect?.value ? parseInt(gradeSelect.value, 10) : null,
+                    level_id: levelSelect?.value ? parseInt(levelSelect.value, 10) : null
+                });
+            }
+        });
+
+        const payMethod = (document.getElementById('reg-payment-method') as HTMLSelectElement | null)?.value || 'cheque';
+        const installments = (document.getElementById('reg-installments') as HTMLSelectElement | null)?.value || '1';
+        const healthCertChoice = (document.getElementById('choice-health-cert') as HTMLInputElement | null)?.checked ? 'medical_cert' : 'attestation';
+
         const formData = {
             first_name: (document.getElementById('reg-first-name') as HTMLInputElement)?.value || '',
             last_name: (document.getElementById('reg-last-name') as HTMLInputElement)?.value || '',
@@ -859,10 +925,14 @@ function saveDraftToStorage(): void {
             t1_phone: (document.getElementById('tutor1-phone') as HTMLInputElement)?.value || '',
             t1_address: (document.getElementById('tutor1-address') as HTMLInputElement)?.value || '',
             t1_birth: (document.getElementById('tutor1-birth') as HTMLInputElement)?.value || '',
-            t2_email: (document.getElementById('tutor2-email') as HTMLInputElement)?.value || ''
+            t2_email: (document.getElementById('tutor2-email') as HTMLInputElement)?.value || '',
+            practices,
+            payment_method: payMethod,
+            installments,
+            health_cert_choice: healthCertChoice
         };
-        if (formData.first_name || formData.last_name || familyCart.length > 0) {
-            localStorage.setItem('kanso_reg_draft', JSON.stringify({ form: formData, familyCart }));
+        if (formData.first_name || formData.last_name || formData.emerg_name || formData.t1_email || familyCart.length > 0) {
+            localStorage.setItem('kanso_reg_draft', JSON.stringify({ form: formData, familyCart, currentStep }));
         }
     } catch {
         // Ignorer les erreurs localStorage
@@ -870,21 +940,20 @@ function saveDraftToStorage(): void {
 }
 
 function checkAndRestoreDraft(): void {
-    const banner = document.getElementById('draft-restore-banner');
     const raw = localStorage.getItem('kanso_reg_draft');
-    if (!banner || !raw) return;
+    if (!raw) return;
 
     try {
         const data = JSON.parse(raw);
-        if (data && (data.form?.first_name || data.form?.last_name || (data.familyCart && data.familyCart.length > 0))) {
-            banner.classList.remove('hidden');
+        if (data && (data.form?.first_name || data.form?.last_name || data.form?.emerg_name || (data.familyCart && data.familyCart.length > 0))) {
+            restoreDraftFromStorage(true);
         }
     } catch {
         localStorage.removeItem('kanso_reg_draft');
     }
 }
 
-function restoreDraftFromStorage(): void {
+function restoreDraftFromStorage(isAuto = false): void {
     const raw = localStorage.getItem('kanso_reg_draft');
     if (!raw) return;
 
@@ -913,9 +982,37 @@ function restoreDraftFromStorage(): void {
             setVal('tutor1-birth', f.t1_birth);
             setVal('tutor2-email', f.t2_email);
 
+            if (f.payment_method) setVal('reg-payment-method', f.payment_method);
+            if (f.installments) setVal('reg-installments', f.installments);
+
+            if (f.health_cert_choice === 'medical_cert') {
+                const mc = document.getElementById('choice-health-cert') as HTMLInputElement | null;
+                if (mc) mc.checked = true;
+            } else {
+                const att = document.getElementById('choice-health-attestation') as HTMLInputElement | null;
+                if (att) att.checked = true;
+            }
+
+            // Retour depuis questionnaire santé ?
+            if (sessionStorage.getItem('kanso_health_attestation') === '1') {
+                const att = document.getElementById('choice-health-attestation') as HTMLInputElement | null;
+                if (att) att.checked = true;
+            }
+
             if (data.familyCart && Array.isArray(data.familyCart)) {
                 familyCart.length = 0;
                 familyCart.push(...data.familyCart);
+            }
+
+            // Restauration des pratiques sélectionnées
+            if (f.practices && Array.isArray(f.practices) && f.practices.length > 0) {
+                const pContainer = document.getElementById('reg-practices-container');
+                if (pContainer) {
+                    pContainer.innerHTML = '';
+                    f.practices.forEach((p: any) => {
+                        appendPracticeSelectorRow(p.discipline_id, p.grade_id, p.level_id);
+                    });
+                }
             }
 
             const birthEl = document.getElementById('reg-birth-date') as HTMLInputElement | null;
@@ -923,6 +1020,19 @@ function restoreDraftFromStorage(): void {
                 birthEl.dispatchEvent(new Event('change'));
             }
             renderFamilyCart();
+
+            // Positionne le wizard sur la première étape incomplète
+            const nextStep = getFirstIncompleteStep();
+            navigateWizardToStep(nextStep);
+
+            const banner = document.getElementById('draft-restore-banner');
+            if (banner) {
+                banner.classList.remove('hidden');
+                const titleEl = banner.querySelector('span.block');
+                if (titleEl) {
+                    titleEl.textContent = `Brouillon restauré automatiquement (reprise à l'étape : ${nextStep})`;
+                }
+            }
         }
     } catch {
         // En cas d'erreur de parse

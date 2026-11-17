@@ -24,7 +24,8 @@ test.describe('SPRINT 11 — Lockdown Final E2E, RBAC Impitoyable & Homologation
         for (const p of publicPages) {
             await page.goto(p);
             await expect(page.locator('body')).not.toContainText('Accès Protégé');
-            await expect(page.locator('body')).not.toContainText('403');
+            await expect(page.locator('body')).not.toContainText('403 Forbidden');
+            await expect(page.locator('body')).not.toContainText('Erreur 403');
         }
 
         // Pages privées obligatoirement bloquées

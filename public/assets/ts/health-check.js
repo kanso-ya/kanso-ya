@@ -59,9 +59,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         sessionStorage.setItem('kanso_health_attestation', '1');
         sessionStorage.setItem('kanso_health_attestation_date', new Date().toISOString());
+        // Met à jour le brouillon d'inscription dans localStorage s'il existe
+        try {
+            const rawDraft = localStorage.getItem('kanso_reg_draft');
+            if (rawDraft) {
+                const draft = JSON.parse(rawDraft);
+                if (draft && draft.form) {
+                    draft.form.health_cert_choice = 'attestation';
+                    draft.healthAttestation = true;
+                    localStorage.setItem('kanso_reg_draft', JSON.stringify(draft));
+                }
+            }
+        }
+        catch {
+            // Ignorer les erreurs localStorage
+        }
         showToast('Attestation de santé validée avec succès !', 'success');
         setTimeout(() => {
             window.location.href = '/register';
-        }, 600);
+        }, 500);
     });
 });

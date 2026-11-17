@@ -74,28 +74,42 @@ test.describe('Sprint 9 : Traçabilité Éditoriale CMS, Attestations Trésoreri
         await expect(page.locator('#toast-container')).toContainText('Nettoyage terminé');
     });
 
-    test('US 9.3 - Reçu de Cotisation & Attestation CE / CSE (Point 20)', async ({ page }) => {
+    test('US 9.3 - Reçu de Cotisation & Attestation CE / CSE (Point 20)', async ({ page, request }) => {
+        // 1. Créer et valider un dossier dédié via API pour garantir sa présence même après rollover
+        const regRes = await request.post('/api/v1/registrations', {
+            data: {
+                members: [{
+                    first_name: 'Adherent',
+                    last_name: 'Attestation',
+                    birth_date: '1995-03-12',
+                    email: `attestation.${Date.now()}@kanso-ya.fr`,
+                    discipline_id: 1,
+                    emergency_contact_name: 'Contact Urgence',
+                    emergency_contact_phone: '0611223344'
+                }],
+                payment_method: 'cheque',
+                installments: 1
+            }
+        });
+        const regData = await regRes.json();
+        const regId = regData.data?.registration_id;
+        if (regId) {
+            await request.patch(`/api/v1/registrations/${regId}/validate`, {
+                headers: { 'Authorization': 'Bearer stub-tresorier-token' }
+            });
+        }
+
         await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'tresorier' } });
         await page.goto('/registrations');
 
         await page.waitForSelector('#registrations-tbody tr');
-
-        // S'assurer qu'au moins un dossier est validé pour l'inspection des attestations
-        const hasReceiptBtn = await page.locator('.btn-download-receipt').first().count() > 0;
-        if (!hasReceiptBtn) {
-            const valBtn = page.locator('button:has-text("Valider")').first();
-            if (await valBtn.isVisible()) {
-                await valBtn.click();
-                await page.waitForTimeout(400);
-            }
-        }
 
         // Filtrer sur les dossiers validés
         await page.selectOption('#filter-reg-status', 'validated');
 
         // Vérifier présence du bouton Reçu
         const receiptBtn = page.locator('.btn-download-receipt').first();
-        await expect(receiptBtn).toBeVisible();
+        await expect(receiptBtn).toBeVisible({ timeout: 10000 });
         await receiptBtn.click();
 
         // Modale document officiel

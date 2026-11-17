@@ -4,6 +4,12 @@ test.describe('Sprint 8 : Inscriptions intelligentes, Remises paramétrables, Sa
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
+        await page.evaluate(() => {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+            } catch {}
+        });
     });
 
     test('US 8.1 - Questionnaire de santé Cerfa QS-Sport (/questionnaire-sante)', async ({ page }) => {
