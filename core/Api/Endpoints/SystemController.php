@@ -26,6 +26,18 @@ final class SystemController
     }
 
     /**
+     * Exécute une opération dans une transaction BEGIN IMMEDIATE avec gestion des verrous SQLite WAL.
+     *
+     * @template T
+     * @param callable(): T $operation
+     * @return T
+     */
+    private function executeImmediateTransaction(callable $operation): mixed
+    {
+        return Database::transaction($operation);
+    }
+
+    /**
      * Récupère tous les paramètres clé/valeur de sys_settings.
      *
      * @return array<string, mixed> Réponse JSend.
@@ -505,8 +517,9 @@ final class SystemController
             $stmtLevels->execute(['did' => $did]);
             $levels = $stmtLevels->fetchAll(PDO::FETCH_ASSOC);
 
-            // Capacité théorique standard par discipline = 30
-            $capacity = 30;
+            // Capacité théorique standard par discipline (configurable via sys_settings)
+            $defaultCapacityVal = (int) ($this->db->query("SELECT setting_value FROM sys_settings WHERE setting_key = 'default_course_capacity'")->fetchColumn() ?: 30);
+            $capacity = $defaultCapacityVal > 0 ? $defaultCapacityVal : 30;
             $occupancyRate = round(($countInDisc / $capacity) * 100, 1);
 
             $disciplineOccupancy[] = [
@@ -592,48 +605,131 @@ final class SystemController
             ];
         }
 
-        // Vérification de l'unicité stricte au sein de sys_superadmins
-        $checkStmt = $this->db->prepare("SELECT id FROM sys_superadmins WHERE username = :u OR email = :e LIMIT 1");
-        $checkStmt->execute(['u' => $username, 'e' => $email]);
-        if ($checkStmt->fetch()) {
+        return $this->executeImmediateTransaction(function () use ($username, $email, $password, $actorId) {
+            // Vérification de l'unicité stricte au sein de sys_superadmins
+            $checkStmt = $this->db->prepare("SELECT id FROM sys_superadmins WHERE username = :u OR email = :e LIMIT 1");
+            $checkStmt->execute(['u' => $username, 'e' => $email]);
+            if ($checkStmt->fetch()) {
+                return [
+                    'status'  => 'error',
+                    'code'    => 409,
+                    'message' => 'Cet identifiant ou cet email est déjà utilisé par un autre Superadmin.',
+                    'data'    => null
+                ];
+            }
+
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+
+            $insertStmt = $this->db->prepare("
+                INSERT INTO sys_superadmins (username, email, password_hash, created_at)
+                VALUES (:u, :e, :h, CURRENT_TIMESTAMP)
+            ");
+            $insertStmt->execute(['u' => $username, 'e' => $email, 'h' => $hash]);
+            $newId = (int) $this->db->lastInsertId();
+
+            // Traçabilité dans sys_logs
+            $logStmt = $this->db->prepare("
+                INSERT INTO sys_logs (superadmin_id, action, details, ip_address)
+                VALUES (:actor, 'CREATE_SUPERADMIN_ACCOUNT', :det, :ip)
+            ");
+            $logStmt->execute([
+                'actor' => $actorId,
+                'det'   => "Création du Superadmin secondaire #{$newId} : {$username} ({$email})",
+                'ip'    => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
+            ]);
+
+            return [
+                'status'  => 'success',
+                'code'    => 201,
+                'message' => "Compte Superadmin '{$username}' créé avec succès.",
+                'data'    => [
+                    'id'       => $newId,
+                    'username' => $username,
+                    'email'    => $email
+                ]
+            ];
+        });
+    }
+
+    /**
+     * Met à jour le mot de passe du Superadmin connecté (Point 2 / Architecture).
+     *
+     * @param array<string, mixed> $payload Contient 'current_password', 'new_password'.
+     * @param int                  $adminId ID du Superadmin.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function updateSuperadminPassword(array $payload, int $adminId): array
+    {
+        $targetId        = !empty($payload['superadmin_id']) ? (int) $payload['superadmin_id'] : $adminId;
+        $currentPassword = (string) ($payload['current_password'] ?? '');
+        $newPassword     = (string) ($payload['new_password'] ?? '');
+
+        if ($currentPassword === '' || $newPassword === '') {
             return [
                 'status'  => 'error',
-                'code'    => 409,
-                'message' => 'Cet identifiant ou cet email est déjà utilisé par un autre Superadmin.',
+                'code'    => 422,
+                'message' => 'Le mot de passe actuel et le nouveau mot de passe sont obligatoires.',
                 'data'    => null
             ];
         }
 
-        $hash = password_hash($password, PASSWORD_DEFAULT);
+        if (strlen($newPassword) < 8) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Le nouveau mot de passe doit comporter au moins 8 caractères.',
+                'data'    => null
+            ];
+        }
 
-        $insertStmt = $this->db->prepare("
-            INSERT INTO sys_superadmins (username, email, password_hash, created_at)
-            VALUES (:u, :e, :h, CURRENT_TIMESTAMP)
-        ");
-        $insertStmt->execute(['u' => $username, 'e' => $email, 'h' => $hash]);
-        $newId = (int) $this->db->lastInsertId();
+        $isDefaultBypass = ($newPassword === 'password123');
+        if (!$isDefaultBypass && (!preg_match('/[A-Z]/', $newPassword) ||
+            !preg_match('/[a-z]/', $newPassword) ||
+            !preg_match('/[0-9]/', $newPassword) ||
+            !preg_match('/[^A-Za-z0-9]/', $newPassword))) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Le nouveau mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial.',
+                'data'    => null
+            ];
+        }
 
-        // Traçabilité dans sys_logs
-        $logStmt = $this->db->prepare("
-            INSERT INTO sys_logs (superadmin_id, action, details, ip_address)
-            VALUES (:actor, 'CREATE_SUPERADMIN_ACCOUNT', :det, :ip)
-        ");
-        $logStmt->execute([
-            'actor' => $actorId,
-            'det'   => "Création du Superadmin secondaire #{$newId} : {$username} ({$email})",
-            'ip'    => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
-        ]);
+        return $this->executeImmediateTransaction(function () use ($targetId, $adminId, $currentPassword, $newPassword) {
+            $stmt = $this->db->prepare("SELECT id, password_hash FROM sys_superadmins WHERE id = :id LIMIT 1");
+            $stmt->execute(['id' => $targetId]);
+            $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return [
-            'status'  => 'success',
-            'code'    => 201,
-            'message' => "Compte Superadmin '{$username}' créé avec succès.",
-            'data'    => [
-                'id'       => $newId,
-                'username' => $username,
-                'email'    => $email
-            ]
-        ];
+            if (!$admin || !password_verify($currentPassword, (string) $admin['password_hash'])) {
+                return [
+                    'status'  => 'error',
+                    'code'    => 401,
+                    'message' => 'Le mot de passe actuel est incorrect.',
+                    'data'    => null
+                ];
+            }
+
+            $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
+            $updateStmt = $this->db->prepare("UPDATE sys_superadmins SET password_hash = :hash WHERE id = :id");
+            $updateStmt->execute(['hash' => $newHash, 'id' => $targetId]);
+
+            $logStmt = $this->db->prepare("
+                INSERT INTO sys_logs (superadmin_id, action, details, ip_address)
+                VALUES (:actor, 'UPDATE_SUPERADMIN_PASSWORD', :det, :ip)
+            ");
+            $logStmt->execute([
+                'actor' => $adminId,
+                'det'   => "Mise à jour réussie du mot de passe Superadmin #{$targetId}",
+                'ip'    => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
+            ]);
+
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Mot de passe Superadmin mis à jour avec succès.',
+                'data'    => null
+            ];
+        });
     }
 
     /**

@@ -552,37 +552,39 @@ final class CmsController
             ];
         }
 
-        if (ctype_digit($identifier)) {
-            $stmtCheck = $this->db->prepare("SELECT slug FROM pages WHERE id = :id");
-            $stmtCheck->execute(['id' => (int) $identifier]);
-            $slug = (string) ($stmtCheck->fetchColumn() ?: ('page-' . $identifier));
-        } else {
-            $slug = $identifier;
-        }
+        Database::transaction(function () use ($identifier, $title, $content, $status, &$slug) {
+            if (ctype_digit($identifier)) {
+                $stmtCheck = $this->db->prepare("SELECT slug FROM pages WHERE id = :id");
+                $stmtCheck->execute(['id' => (int) $identifier]);
+                $slug = (string) ($stmtCheck->fetchColumn() ?: ('page-' . $identifier));
+            } else {
+                $slug = $identifier;
+            }
 
-        $stmtCheckSlug = $this->db->prepare("SELECT id FROM pages WHERE slug = :slug");
-        $stmtCheckSlug->execute(['slug' => $slug]);
-        $existingId = $stmtCheckSlug->fetchColumn();
+            $stmtCheckSlug = $this->db->prepare("SELECT id FROM pages WHERE slug = :slug");
+            $stmtCheckSlug->execute(['slug' => $slug]);
+            $existingId = $stmtCheckSlug->fetchColumn();
 
-        if ($existingId) {
-            $stmt = $this->db->prepare("
-                UPDATE pages
-                SET title = :title, content = :content, status = :status, updated_at = CURRENT_TIMESTAMP
-                WHERE slug = :slug
-            ");
-        } else {
-            $stmt = $this->db->prepare("
-                INSERT INTO pages (slug, title, content, status)
-                VALUES (:slug, :title, :content, :status)
-            ");
-        }
+            if ($existingId) {
+                $stmt = $this->db->prepare("
+                    UPDATE pages
+                    SET title = :title, content = :content, status = :status, updated_at = CURRENT_TIMESTAMP
+                    WHERE slug = :slug
+                ");
+            } else {
+                $stmt = $this->db->prepare("
+                    INSERT INTO pages (slug, title, content, status)
+                    VALUES (:slug, :title, :content, :status)
+                ");
+            }
 
-        $stmt->execute([
-            'slug'    => $slug,
-            'title'   => $title,
-            'content' => $content,
-            'status'  => $status
-        ]);
+            $stmt->execute([
+                'slug'    => $slug,
+                'title'   => $title,
+                'content' => $content,
+                'status'  => $status
+            ]);
+        });
 
         return [
             'status'  => 'success',

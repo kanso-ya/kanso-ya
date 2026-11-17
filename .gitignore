@@ -10,6 +10,8 @@ AGENTS.md
 # Données persistantes et Fichiers Sensibles[cite: 5]
 /storage/db/*.sqlite
 !/storage/db/.gitkeep
+/storage/backups/*.sqlite
+!/storage/backups/.gitkeep
 /storage/private_uploads/*
 !/storage/private_uploads/.gitkeep
 

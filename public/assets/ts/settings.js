@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initClubSettingsForm();
     initModulesManagement();
     initRolloverControls();
+    initInstitutionalPagesEditor();
     window.addEventListener('kanso:auth-ready', async (e) => {
         const ctx = e.detail;
         if (ctx.role === 'Président') {
@@ -26,7 +27,8 @@ function initSettingsTabs() {
         { btn: document.getElementById('tab-btn-club-general'), panel: document.getElementById('tab-panel-club-general') },
         { btn: document.getElementById('tab-btn-club-modules'), panel: document.getElementById('tab-panel-club-modules') },
         { btn: document.getElementById('tab-btn-club-rollover'), panel: document.getElementById('tab-panel-club-rollover') },
-        { btn: document.getElementById('tab-btn-club-logs'), panel: document.getElementById('tab-panel-club-logs') }
+        { btn: document.getElementById('tab-btn-club-logs'), panel: document.getElementById('tab-panel-club-logs') },
+        { btn: document.getElementById('tab-btn-club-pages'), panel: document.getElementById('tab-panel-club-pages') }
     ];
     tabs.forEach(({ btn, panel }) => {
         if (!btn || !panel)
@@ -45,6 +47,9 @@ function initSettingsTabs() {
             }
             else if (panel.id === 'tab-panel-club-logs') {
                 loadAuditLogs();
+            }
+            else if (panel.id === 'tab-panel-club-pages') {
+                loadInstitutionalPage();
             }
         });
     });
@@ -201,5 +206,70 @@ async function loadAuditLogs() {
             <td class="p-3 text-slate-400 font-mono">${log.created_at || ''}</td>
         `;
         tbody.appendChild(tr);
+    });
+}
+async function loadInstitutionalPage() {
+    const select = document.getElementById('select-institutional-page');
+    const titleInput = document.getElementById('page-title-input');
+    const statusSelect = document.getElementById('page-status-select');
+    const contentInput = document.getElementById('page-content-input');
+    if (!select || !titleInput || !statusSelect || !contentInput)
+        return;
+    const slug = select.value;
+    try {
+        const res = await fetchApi(`/api/v1/pages/${slug}`);
+        if (res.status === 'success' && res.data) {
+            titleInput.value = res.data.title || '';
+            statusSelect.value = res.data.status || 'published';
+            contentInput.value = res.data.content || '';
+        }
+        else {
+            titleInput.value = slug;
+            statusSelect.value = 'published';
+            contentInput.value = '';
+        }
+    }
+    catch {
+        showToast('Erreur lors du chargement de la page', 'error');
+    }
+}
+function initInstitutionalPagesEditor() {
+    const select = document.getElementById('select-institutional-page');
+    const form = document.getElementById('form-institutional-page');
+    const btn = document.getElementById('btn-save-institutional-page');
+    select?.addEventListener('change', () => {
+        loadInstitutionalPage();
+    });
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!select)
+            return;
+        const slug = select.value;
+        const titleInput = document.getElementById('page-title-input');
+        const statusSelect = document.getElementById('page-status-select');
+        const contentInput = document.getElementById('page-content-input');
+        if (!titleInput || !statusSelect || !contentInput)
+            return;
+        setButtonLoading(btn, true, 'Enregistrement...');
+        try {
+            const payload = {
+                title: titleInput.value.trim(),
+                status: statusSelect.value,
+                content: contentInput.value
+            };
+            const res = await fetchApi(`/api/v1/pages/${slug}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+            if (res.status === 'success') {
+                showToast(`Page « ${payload.title} » enregistrée avec succès !`, 'success');
+            }
+            else {
+                showToast(res.message || 'Erreur lors de l\'enregistrement', 'error');
+            }
+        }
+        finally {
+            setButtonLoading(btn, false, 'Enregistrer la page institutionnelle');
+        }
     });
 }

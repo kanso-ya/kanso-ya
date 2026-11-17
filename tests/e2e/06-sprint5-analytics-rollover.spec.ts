@@ -239,7 +239,8 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
             body: JSON.stringify({ persona: 'president' })
         }));
 
-        await page.goto('/dashboard.php');
+        await page.goto('/settings');
+        await page.click('#tab-btn-club-rollover');
 
         const btnOpen = page.locator('#btn-open-rollover-modal');
         const modal = page.locator('#rollover-confirm-modal');

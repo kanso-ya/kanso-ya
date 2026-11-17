@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Interdiction stricte de l'espace éditorial pour le Superadmin (Point 1 / Architecture)
+if (!empty($_SESSION['is_superadmin']) || isset($_SESSION['sys_admin_id'])) {
+    http_response_code(403);
+    $accessDeniedReason = "Accès refusé (403) : Le compte Superadmin technique n'a pas accès au module éditorial du club.";
+    $pageTitle = 'Accès Refusé - Kanso-ya';
+    $pageContent = '';
+    require_once __DIR__ . '/../core/ui/templates/layout.php';
+    exit;
+}
+
 $pageTitle     = 'Articles & Publications (CMS)';
 $activeNav     = 'cms';
 $requireAuth   = true;

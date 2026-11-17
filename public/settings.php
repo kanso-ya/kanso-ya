@@ -61,6 +61,9 @@ ob_start();
                 <button type="button" id="tab-btn-club-logs" class="px-4 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">
                     📋 4. Journal d'Audit
                 </button>
+                <button type="button" id="tab-btn-club-pages" class="px-4 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                    📄 5. Pages Pied de Page
+                </button>
             <?php endif; ?>
         </div>
     </div>
@@ -96,6 +99,11 @@ ob_start();
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Cotisation annuelle de base (€) *</label>
                     <input type="number" step="0.01" name="membership_base_price" value="<?= htmlspecialchars($basePrice, ENT_QUOTES, 'UTF-8') ?>" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Capacité théorique par cours (Stats) *</label>
+                    <input type="number" min="1" max="500" name="default_course_capacity" id="setting-default-capacity" value="<?= htmlspecialchars((string) ($settings['default_course_capacity'] ?? '30'), ENT_QUOTES, 'UTF-8') ?>" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white">
                 </div>
             </div>
 
@@ -279,6 +287,57 @@ ob_start();
                     </thead>
                     <tbody id="audit-logs-tbody" class="divide-y divide-slate-100"></tbody>
                 </table>
+            </div>
+        </section>
+        <!-- =====================================================================
+             ONGLET 5 : ÉDITEUR DES PAGES DU PIED DE PAGE (Point 16b)
+             - /horaires, /mentions-legales, /rgpd, /cgv
+             ===================================================================== -->
+        <section id="tab-panel-club-pages" class="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-slate-200 space-y-6 hidden">
+            <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <span class="text-xs font-bold uppercase text-emerald-600">Pages Institutionnelles & Légales</span>
+                    <h2 class="text-lg font-bold text-slate-900">Éditeur des Pages du Pied de Page</h2>
+                    <p class="text-xs text-slate-500">Personnalisez le contenu affiché sur les pages publiques /horaires, /mentions-legales, /rgpd et /cgv.</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Sélectionner la page à éditer *</label>
+                    <select id="select-institutional-page" class="w-full sm:w-80 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white">
+                        <option value="horaires">Horaires des Cours & Tarifs (/horaires)</option>
+                        <option value="mentions-legales">Mentions Légales (/mentions-legales)</option>
+                        <option value="rgpd">Politique de Confidentialité (/rgpd)</option>
+                        <option value="cgv">Conditions Générales d'Adhésion (/cgv)</option>
+                    </select>
+                </div>
+
+                <form id="form-institutional-page" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Titre de la Page *</label>
+                        <input type="text" id="page-title-input" required class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Statut de la Page *</label>
+                        <select id="page-status-select" class="w-full sm:w-48 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white">
+                            <option value="published">Publiée</option>
+                            <option value="draft">Brouillon</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Contenu HTML / Texte *</label>
+                        <textarea id="page-content-input" rows="10" required class="w-full border border-slate-300 rounded-xl p-3.5 text-sm font-mono"></textarea>
+                    </div>
+
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" id="btn-save-institutional-page" class="brand-primary-bg hover:opacity-95 text-white px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
+                            Enregistrer la page institutionnelle
+                        </button>
+                    </div>
+                </form>
             </div>
         </section>
     <?php endif; ?>

@@ -22,9 +22,9 @@ function navigateWizardToStep(step) {
 }
 document.addEventListener('DOMContentLoaded', async () => {
     initPublicRegistrationWizard();
+    checkAndRestoreDraft();
     await loadDisciplinesCatalog();
     checkConnectedUserForReEnrollment();
-    checkAndRestoreDraft();
     window.addEventListener('kanso:auth-ready', () => {
         checkConnectedUserForReEnrollment();
     });
@@ -806,7 +806,11 @@ function saveDraftToStorage() {
         // Ignorer les erreurs localStorage
     }
 }
+let hasDraftBeenChecked = false;
 function checkAndRestoreDraft() {
+    if (hasDraftBeenChecked)
+        return;
+    hasDraftBeenChecked = true;
     const raw = localStorage.getItem('kanso_reg_draft');
     if (!raw)
         return;
@@ -887,8 +891,10 @@ function restoreDraftFromStorage(isAuto = false) {
                 birthEl.dispatchEvent(new Event('change'));
             }
             renderFamilyCart();
-            // Positionne le wizard sur la première étape incomplète
-            const nextStep = getFirstIncompleteStep();
+            // Positionne le wizard sur l'étape enregistrée ou la première étape incomplète
+            const nextStep = (data.currentStep && ['identity', 'tutors', 'emergency', 'payment'].includes(data.currentStep))
+                ? data.currentStep
+                : getFirstIncompleteStep();
             navigateWizardToStep(nextStep);
             const banner = document.getElementById('draft-restore-banner');
             if (banner) {

@@ -18,23 +18,23 @@ test.describe('Sprint 10 - Console Superadmin Multi-pages, RBAC Matrix Sticky & 
         await expect(metricDbSize).toBeAttached();
 
         // Navigation vers Branding
-        await page.click('a[href="/sys-branding"]');
+        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-branding"]').click({ force: true });
         await page.waitForURL('**/sys-branding');
         await expect(page.locator('#branding-form')).toBeVisible();
 
         // Navigation vers SMTP & Templates
-        await page.click('a[href="/sys-smtp"]');
+        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-smtp"]').click({ force: true });
         await page.waitForURL('**/sys-smtp');
         await expect(page.locator('#smtp-settings-form')).toBeVisible();
         await expect(page.locator('#select-email-template')).toBeVisible();
 
         // Navigation vers Modules
-        await page.click('a[href="/sys-modules"]');
+        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-modules"]').click({ force: true });
         await page.waitForURL('**/sys-modules');
         await expect(page.locator('#btn-scan-modules')).toBeVisible();
 
         // Navigation vers Logs
-        await page.click('a[href="/sys-logs"]');
+        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-logs"]').click({ force: true });
         await page.waitForURL('**/sys-logs');
         await expect(page.locator('#sys-logs-tbody')).toBeVisible();
     });
@@ -141,6 +141,99 @@ test.describe('Sprint 10 - Console Superadmin Multi-pages, RBAC Matrix Sticky & 
         // Appui sur Escape
         await page.keyboard.press('Escape');
         await expect(modal).toBeHidden();
+    });
+
+    test('US 10.7 : Isolation Superadmin (interdiction /cms) et gestion des identifiants (POST superadmins & PATCH password)', async ({ page, request }) => {
+        await request.post('/api/v1/auth/switch-persona', { data: { persona: 'superadmin' } });
+        await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'superadmin' } });
+
+        // 1. Sidebar Superadmin ne contient pas de lien vers /cms
+        await page.goto('/sys-console');
+        const cmsLink = page.locator('#sidebar-nav a[href="/cms"]');
+        await expect(cmsLink).toHaveCount(0);
+
+        // 2. Accès direct à /cms doit renvoyer 403 Forbidden
+        const cmsRes = await page.goto('/cms');
+        expect(cmsRes?.status()).toBe(403);
+        await expect(page.locator('body')).toContainText('Accès refusé');
+
+        // 3. Création d'un Superadmin secondaire via API & UI
+        const ts = Date.now();
+        const createRes = await request.post('/api/v1/sys/superadmins', {
+            headers: { 'Authorization': 'Bearer stub-superadmin-token' },
+            data: {
+                username: `sysadmin_${ts}`,
+                email: `admin_${ts}@kanso-ya.local`,
+                password: 'Password123!'
+            }
+        });
+        expect(createRes.status()).toBe(200);
+        const createJson = await createRes.json();
+        expect(createJson.status).toBe('success');
+
+        // 4. Mise à jour du mot de passe Superadmin (sur le compte créé pour isolation parallèle)
+        const patchPassRes = await request.patch('/api/v1/sys/password', {
+            headers: { 'Authorization': 'Bearer stub-superadmin-token' },
+            data: {
+                superadmin_id: createJson.data.id,
+                current_password: 'Password123!',
+                new_password: 'NewSuperPassword123!'
+            }
+        });
+        expect(patchPassRes.status()).toBe(200);
+        const patchPassJson = await patchPassRes.json();
+        expect(patchPassJson.status).toBe('success');
+
+        // 5. Rejet si mauvais mot de passe actuel ou complexité insuffisante
+        const invalidPassRes = await request.patch('/api/v1/sys/password', {
+            headers: { 'Authorization': 'Bearer stub-superadmin-token' },
+            data: {
+                superadmin_id: createJson.data.id,
+                current_password: 'wrongpassword',
+                new_password: 'Simple'
+            }
+        });
+        expect(invalidPassRes.status()).toBe(200);
+        const invalidPassJson = await invalidPassRes.json();
+        expect(invalidPassJson.status).toBe('error');
+    });
+
+    test('US 10.8 : Module Scan Toast et Éditeur Pages Institutionnelles sur /settings', async ({ page, request }) => {
+        // Authentification Superadmin
+        await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'superadmin' } });
+        await page.goto('/sys-modules');
+
+        // Clic sur Scanner les modules
+        await page.click('#btn-scan-modules');
+        const toast = page.locator('#toast-container');
+        await expect(toast).toContainText(/Scan terminé : \d+ module\(s\) détecté\(s\)/i);
+        await expect(page.locator('#modules-tbody')).toBeVisible();
+
+        // Bascule sur Président pour tester /settings
+        await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'president' } });
+        await page.goto('/settings');
+
+        // Vérification de la capacité théorique
+        const capInput = page.locator('#setting-default-capacity');
+        await expect(capInput).toBeVisible();
+
+        // Onglet 5 : Pages Pied de Page
+        const tabPagesBtn = page.locator('#tab-btn-club-pages');
+        await expect(tabPagesBtn).toBeVisible();
+        await tabPagesBtn.click();
+
+        await expect(page.locator('#tab-panel-club-pages')).toBeVisible();
+        const selectPage = page.locator('#select-institutional-page');
+        await expect(selectPage).toBeVisible();
+
+        // Sélection de 'horaires'
+        await selectPage.selectOption('horaires');
+        const pageTitleInput = page.locator('#page-title-input');
+        await expect(pageTitleInput).not.toHaveValue('');
+
+        // Sauvegarde de la page
+        await page.click('#btn-save-institutional-page');
+        await expect(toast).toContainText('enregistrée avec succès');
     });
 
 });

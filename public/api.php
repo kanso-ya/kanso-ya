@@ -630,6 +630,14 @@ try {
         sendJson($controller->createSuperadmin($payload, $currentUserId));
     }
 
+    if ($method === 'PATCH' && $uri === '/api/v1/sys/password') {
+        if (!$isSuperadmin) {
+            sendJson(['status' => 'error', 'code' => 403, 'message' => 'Réservé au Superadmin.', 'data' => null]);
+        }
+        $controller = new \Core\Api\Endpoints\SystemController();
+        sendJson($controller->updateSuperadminPassword($payload, $currentUserId > 0 ? $currentUserId : 1));
+    }
+
     if ($method === 'GET' && in_array($uri, ['/api/v1/app-logs', '/api/v1/app_logs'], true)) {
         if (!in_array('roles.manage', $permissions, true) && !in_array('logs.view', $permissions, true) && !$isSuperadmin) {
             sendJson(['status' => 'error', 'code' => 403, 'message' => 'Accès refusé.', 'data' => null]);

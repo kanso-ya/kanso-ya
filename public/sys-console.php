@@ -278,20 +278,40 @@ ob_start();
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Identifiant *</label>
-                    <input type="text" id="new-admin-username" required placeholder="admin_technique" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                    <input type="text" id="new-admin-username" name="username" required placeholder="admin_technique" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Email *</label>
-                    <input type="email" id="new-admin-email" required placeholder="admin@kanso-ya.local" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                    <input type="email" id="new-admin-email" name="email" required placeholder="admin@kanso-ya.local" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Mot de passe (8+ car.) *</label>
-                    <input type="password" id="new-admin-password" required minlength="8" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                    <input type="password" id="new-admin-password" name="password" required minlength="8" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
                 </div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" id="btn-cancel-add-admin" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-xl font-semibold">Annuler</button>
                 <button type="submit" id="btn-submit-add-admin" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition">Créer le compte</button>
+            </div>
+        </form>
+
+        <!-- Formulaire de modification de son propre mot de passe Superadmin (Point 2) -->
+        <form id="form-update-sys-password" class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+            <h3 class="text-sm font-bold text-amber-400">Modifier mon mot de passe Superadmin</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Mot de passe actuel *</label>
+                    <input type="password" id="sys-current-password" name="current_password" required placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Nouveau mot de passe (8+ car., Maj, Min, Chiffre, Symbole) *</label>
+                    <input type="password" id="sys-new-password" name="new_password" required minlength="8" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                </div>
+            </div>
+            <div class="flex justify-end pt-1">
+                <button type="submit" id="btn-submit-sys-password" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition">
+                    Mettre à jour mon mot de passe
+                </button>
             </div>
         </form>
 

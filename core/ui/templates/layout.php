@@ -103,10 +103,15 @@ try {
 } catch (Throwable) {
 }
 
-$accessDeniedReason = null;
-if ($requireAuth && !$isLoggedIn) {
+$accessDeniedReason = $accessDeniedReason ?? null;
+if ($accessDeniedReason !== null) {
+    if (http_response_code() === 200) {
+        http_response_code(403);
+    }
+} elseif ($requireAuth && !$isLoggedIn) {
+    http_response_code(401);
     $accessDeniedReason = 'Veuillez vous connecter avec vos identifiants pour accéder à cet espace.';
-} elseif (!empty($requiredPerms) && !$isSuperadmin) {
+} elseif (!empty($requiredPerms)) {
     $hasPerm = false;
     foreach ($requiredPerms as $p) {
         if (in_array($p, $userPerms, true)) {
@@ -115,7 +120,9 @@ if ($requireAuth && !$isLoggedIn) {
         }
     }
     if (!$hasPerm) {
-        $accessDeniedReason = "Accès restreint (403) : votre compte ({$currentRole}) ne dispose pas des permissions nécessaires.";
+        http_response_code(403);
+        $roleName = $isSuperadmin ? 'Superadmin' : $currentRole;
+        $accessDeniedReason = "Accès restreint (403) : votre compte ({$roleName}) ne dispose pas des permissions nécessaires.";
     }
 }
 
@@ -173,12 +180,12 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
     <?php endif; ?>
 
     <!-- LOGO À CHEVAL SUR LE BANDEAU SUPÉRIEUR ET LA SIDEBAR -->
-    <a href="/" id="overlapping-logo-badge" class="hidden lg:flex fixed top-2.5 left-4 w-56 h-[88px] z-40 rounded-2xl shadow-xl border-2 <?= $isSuperadmin ? 'bg-slate-900 border-red-700/80' : 'bg-slate-900 border-emerald-500/70' ?> flex-col items-center justify-center overflow-hidden hover:scale-[1.02] transition">
+    <a href="/" id="overlapping-logo-badge" class="hidden lg:flex fixed top-2.5 left-4 w-56 h-[88px] z-40 rounded-2xl shadow-xl border-2 <?= $isSuperadmin ? 'bg-slate-900 border-red-700/80' : 'bg-slate-900 brand-primary-border' ?> flex-col items-center justify-center overflow-hidden hover:scale-[1.02] transition">
         <?php if ($logoUrl !== ''): ?>
             <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Logo" class="max-h-16 max-w-[180px] object-contain">
         <?php else: ?>
             <span class="text-lg font-black tracking-widest text-white">KANSO-YA</span>
-            <span class="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Dojo & Arts Martiaux</span>
+            <span class="text-[10px] uppercase tracking-wider brand-accent-text font-semibold">Dojo & Arts Martiaux</span>
         <?php endif; ?>
     </a>
 
@@ -238,7 +245,7 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                 <a href="/" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'home' ? 'brand-primary-bg text-white font-semibold' : 'hover:bg-slate-800 hover:text-white' ?>">
                     Accueil & Actualités
                 </a>
-                <a href="/register" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'register' ? 'brand-primary-bg text-white font-semibold' : 'text-emerald-400 hover:bg-slate-800' ?>">
+                <a href="/register" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'register' ? 'brand-primary-bg text-white font-semibold' : 'brand-accent-text font-semibold hover:bg-slate-800' ?>">
                     Inscription en ligne
                 </a>
 
@@ -246,10 +253,19 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
                     <div class="pt-4 space-y-1">
                         <div class="text-[11px] font-bold uppercase tracking-wider text-red-400 px-3 pb-1">Console Technique</div>
                         <a href="/sys-console" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'sys-console' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-red-300' ?>">
-                            Configuration & SMTP
+                            Vue d'ensemble
                         </a>
-                        <a href="/cms" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'cms' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-slate-300' ?>">
-                            Articles & Pages
+                        <a href="/sys-branding" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'sys-branding' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-red-300' ?>">
+                            Identité & Thème
+                        </a>
+                        <a href="/sys-smtp" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'sys-smtp' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-red-300' ?>">
+                            Serveur SMTP
+                        </a>
+                        <a href="/sys-modules" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'sys-modules' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-red-300' ?>">
+                            Modules & SDK
+                        </a>
+                        <a href="/sys-logs" class="block px-3.5 py-2.5 rounded-xl transition <?= $activeNav === 'sys-logs' ? 'bg-red-700 text-white font-semibold' : 'hover:bg-slate-800 text-red-300' ?>">
+                            Journaux d'audit
                         </a>
                     </div>
                 <?php elseif ($isLoggedIn): ?>
@@ -337,10 +353,10 @@ $headerColor   = $isSuperadmin ? '#090d16' : (string) ($sysConfig['theme_header_
 
             <footer class="p-4 border-t border-slate-800 bg-slate-950/50 text-xs text-slate-400 space-y-2 shrink-0">
                 <div class="grid grid-cols-2 gap-1.5 font-medium">
-                    <a href="/horaires" class="hover:text-emerald-400 transition">Horaires & Tarifs</a>
-                    <a href="/mentions-legales" class="hover:text-emerald-400 transition">Mentions légales</a>
-                    <a href="/rgpd" class="hover:text-emerald-400 transition">Politique RGPD</a>
-                    <a href="/cgv" class="hover:text-emerald-400 transition">CGV</a>
+                    <a href="/horaires" class="hover:underline transition text-slate-300" style="--hover-color: var(--brand-accent);">Horaires & Tarifs</a>
+                    <a href="/mentions-legales" class="hover:underline transition text-slate-300" style="--hover-color: var(--brand-accent);">Mentions légales</a>
+                    <a href="/rgpd" class="hover:underline transition text-slate-300" style="--hover-color: var(--brand-accent);">Politique RGPD</a>
+                    <a href="/cgv" class="hover:underline transition text-slate-300" style="--hover-color: var(--brand-accent);">CGV</a>
                 </div>
                 <div class="text-[11px] text-slate-600 pt-1 border-t border-slate-800/80 flex justify-between">
                     <span><?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></span>

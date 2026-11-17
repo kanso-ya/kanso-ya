@@ -8,6 +8,7 @@
 import { fetchApi } from './api.js';
 import { setButtonLoading, showToast } from './main.js';
 let allSysLogs = [];
+let allAppLogs = [];
 let allModules = [];
 let allSuperadmins = [];
 let allEmailTemplates = [];
@@ -16,10 +17,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSystemMetrics();
     loadEmailLogs();
     loadSystemLogs();
+    loadAppLogs();
     loadModules();
     loadSuperadmins();
     initBackupButton();
     initSuperadminForm();
+    initSuperadminPasswordForm();
     initBrandingForm();
     initSmtpForm();
     initEmailTemplatesEditor();
@@ -203,13 +206,49 @@ function renderSysLogs(logs) {
         tr.className = 'hover:bg-slate-800/60 transition';
         tr.innerHTML = `
             <td class="p-3 text-slate-500">#${log.id}</td>
-            <td class="p-3 font-bold ${isAlert ? 'text-red-400' : 'text-emerald-400'}">${log.action}</td>
-            <td class="p-3 text-slate-300 font-sans text-xs">${log.details || '-'}</td>
-            <td class="p-3 text-slate-400">${log.ip_address || '127.0.0.1'}</td>
-            <td class="p-3 text-slate-500">${log.created_at || ''}</td>
+            <td class="p-3 font-bold ${isAlert ? 'text-red-400' : 'text-emerald-400'}">${escapeHtml(log.action)}</td>
+            <td class="p-3 text-slate-300 font-sans text-xs">${escapeHtml(log.details || '-')}</td>
+            <td class="p-3 text-slate-400">${escapeHtml(log.ip_address || '127.0.0.1')}</td>
+            <td class="p-3 text-slate-500">${escapeHtml(log.created_at || '')}</td>
         `;
         tbody.appendChild(tr);
     });
+}
+async function loadAppLogs() {
+    const tbody = document.getElementById('app-logs-tbody');
+    if (!tbody)
+        return;
+    try {
+        const res = await fetchApi('/api/v1/app-logs');
+        if (res.status === 'success' && Array.isArray(res.data)) {
+            allAppLogs = res.data;
+            renderAppLogs(allAppLogs);
+        }
+        else {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Aucun journal d'activité applicative.</td></tr>`;
+        }
+    }
+    catch {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-400">Erreur lors de la récupération des journaux.</td></tr>`;
+    }
+}
+function renderAppLogs(logs) {
+    const tbody = document.getElementById('app-logs-tbody');
+    if (!tbody)
+        return;
+    if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Aucun journal trouvé.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = logs.map(l => `
+        <tr class="hover:bg-slate-800/60 transition">
+            <td class="p-3 text-slate-500">#${l.id}</td>
+            <td class="p-3 text-slate-300 font-sans">${escapeHtml(l.user_name || `Utilisateur #${l.user_id}`)}</td>
+            <td class="p-3 font-bold text-emerald-400">${escapeHtml(l.action)}</td>
+            <td class="p-3 text-slate-300 font-sans text-xs">${escapeHtml(l.details || '-')}</td>
+            <td class="p-3 text-slate-500 font-mono text-[11px]">${escapeHtml(l.created_at || '')}</td>
+        </tr>
+    `).join('');
 }
 function initSysLogsFilter() {
     const input = document.getElementById('sys-logs-search');
@@ -220,6 +259,9 @@ function initSysLogsFilter() {
         renderSysLogs(allSysLogs.filter((l) => l.action.toLowerCase().includes(q) ||
             (l.details || '').toLowerCase().includes(q) ||
             (l.ip_address || '').toLowerCase().includes(q)));
+        renderAppLogs(allAppLogs.filter((l) => l.action.toLowerCase().includes(q) ||
+            (l.details || '').toLowerCase().includes(q) ||
+            (l.user_name || '').toLowerCase().includes(q)));
     });
 }
 function initSysRolloverControls() {
@@ -351,6 +393,20 @@ function renderModules(modules) {
         `;
         tbody.appendChild(tr);
     });
+    const safeBanner = document.getElementById('safe-mode-banner');
+    const safeDetails = document.getElementById('safe-mode-details');
+    const crashedMod = modules.find(m => m.status === 'crashed');
+    if (safeBanner) {
+        if (crashedMod) {
+            safeBanner.classList.remove('hidden');
+            if (safeDetails) {
+                safeDetails.textContent = crashedMod.last_error || `Le module ${crashedMod.name} a été isolé automatiquement sans impacter le CMS.`;
+            }
+        }
+        else {
+            safeBanner.classList.add('hidden');
+        }
+    }
 }
 function initModuleControls() {
     const btnScan = document.getElementById('btn-scan-modules');
@@ -361,7 +417,7 @@ function initModuleControls() {
             if (res.status === 'success' && Array.isArray(res.data)) {
                 allModules = res.data;
                 renderModules(allModules);
-                showToast('Scan des modules terminé.', 'success');
+                showToast(`Scan terminé : ${allModules.length} module(s) détecté(s)`, 'success');
                 await loadSystemLogs();
             }
             else {
@@ -477,12 +533,20 @@ function renderSuperadminsTable(admins) {
 }
 function initSuperadminForm() {
     const form = document.getElementById('form-create-superadmin');
-    const btn = document.getElementById('btn-submit-superadmin');
+    const btn = (document.getElementById('btn-submit-add-admin') || document.getElementById('btn-submit-superadmin'));
+    const btnToggle = document.getElementById('btn-toggle-add-admin');
+    const btnCancel = document.getElementById('btn-cancel-add-admin');
     if (!form)
         return;
+    btnToggle?.addEventListener('click', () => {
+        form.classList.toggle('hidden');
+    });
+    btnCancel?.addEventListener('click', () => {
+        form.classList.add('hidden');
+    });
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        setButtonLoading(btn, true, '+ Créer le Superadmin');
+        setButtonLoading(btn, true, 'Création...');
         try {
             const formData = new FormData(form);
             const payload = {
@@ -497,6 +561,7 @@ function initSuperadminForm() {
             if (res.status === 'success') {
                 showToast(res.message || 'Superadmin créé avec succès !', 'success');
                 form.reset();
+                form.classList.add('hidden');
                 await loadSuperadmins();
                 await loadSystemLogs();
             }
@@ -505,7 +570,39 @@ function initSuperadminForm() {
             }
         }
         finally {
-            setButtonLoading(btn, false, '+ Créer le Superadmin');
+            setButtonLoading(btn, false, 'Créer le compte');
+        }
+    });
+}
+function initSuperadminPasswordForm() {
+    const form = document.getElementById('form-update-sys-password');
+    const btn = document.getElementById('btn-submit-sys-password');
+    if (!form)
+        return;
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setButtonLoading(btn, true, 'Mise à jour...');
+        try {
+            const formData = new FormData(form);
+            const payload = {
+                current_password: (formData.get('current_password') || ''),
+                new_password: (formData.get('new_password') || '')
+            };
+            const res = await fetchApi('/api/v1/sys/password', {
+                method: 'PATCH',
+                body: JSON.stringify(payload)
+            });
+            if (res.status === 'success') {
+                showToast(res.message || 'Mot de passe Superadmin mis à jour avec succès !', 'success');
+                form.reset();
+                await loadSystemLogs();
+            }
+            else {
+                showToast(res.message || 'Erreur lors de la modification du mot de passe', 'error');
+            }
+        }
+        finally {
+            setButtonLoading(btn, false, 'Mettre à jour mon mot de passe');
         }
     });
 }

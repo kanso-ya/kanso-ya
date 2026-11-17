@@ -76,4 +76,44 @@ final class Database
 
         return self::$instance;
     }
+
+    /**
+     * Exécute une opération dans une transaction BEGIN IMMEDIATE avec gestion des verrous SQLite WAL.
+     *
+     * @template T
+     * @param callable(): T $operation
+     * @return T
+     */
+    public static function transaction(callable $operation): mixed
+    {
+        $db = self::getInstance();
+        $maxAttempts = 20;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                if ($db->inTransaction()) {
+                    $db->exec('ROLLBACK');
+                }
+                $db->exec('BEGIN IMMEDIATE');
+                $result = $operation();
+                $db->exec('COMMIT');
+                return $result;
+            } catch (\Throwable $e) {
+                try {
+                    if ($db->inTransaction()) {
+                        $db->exec('ROLLBACK');
+                    }
+                } catch (\Throwable) {
+                }
+
+                $msg = strtolower($e->getMessage());
+                if (($attempt < $maxAttempts) && (str_contains($msg, 'locked') || str_contains($msg, 'busy'))) {
+                    usleep(random_int(10000, 50000));
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        throw new RuntimeException('Transaction impossible après verrous répétés.');
+    }
 }

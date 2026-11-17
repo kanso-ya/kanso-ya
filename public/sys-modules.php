@@ -41,6 +41,26 @@ ob_start();
 
     <!-- Grille des Modules installés -->
     <div id="modules-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+    <!-- Tableau des Modules Installés -->
+    <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
+        <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-slate-950 text-slate-400 uppercase border-b border-slate-800">
+                <tr>
+                    <th class="p-3">Module</th>
+                    <th class="p-3">Version & Auteur</th>
+                    <th class="p-3">Compatibilité Core</th>
+                    <th class="p-3">Statut</th>
+                    <th class="p-3 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="modules-tbody" class="divide-y divide-slate-800/80">
+                <tr>
+                    <td colspan="5" class="p-4 text-center text-slate-500">Chargement des modules...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 <?php
 $pageContent = ob_get_clean();

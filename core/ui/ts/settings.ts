@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initClubSettingsForm();
     initModulesManagement();
     initRolloverControls();
+    initInstitutionalPagesEditor();
 
     window.addEventListener('kanso:auth-ready', async (e: Event) => {
         const ctx = (e as CustomEvent<AuthContext>).detail;
@@ -43,7 +44,8 @@ function initSettingsTabs(): void {
         { btn: document.getElementById('tab-btn-club-general'), panel: document.getElementById('tab-panel-club-general') },
         { btn: document.getElementById('tab-btn-club-modules'), panel: document.getElementById('tab-panel-club-modules') },
         { btn: document.getElementById('tab-btn-club-rollover'), panel: document.getElementById('tab-panel-club-rollover') },
-        { btn: document.getElementById('tab-btn-club-logs'), panel: document.getElementById('tab-panel-club-logs') }
+        { btn: document.getElementById('tab-btn-club-logs'), panel: document.getElementById('tab-panel-club-logs') },
+        { btn: document.getElementById('tab-btn-club-pages'), panel: document.getElementById('tab-panel-club-pages') }
     ];
 
     tabs.forEach(({ btn, panel }) => {
@@ -62,6 +64,8 @@ function initSettingsTabs(): void {
                 loadModulesList();
             } else if (panel.id === 'tab-panel-club-logs') {
                 loadAuditLogs();
+            } else if (panel.id === 'tab-panel-club-pages') {
+                loadInstitutionalPage();
             }
         });
     });
@@ -239,5 +243,82 @@ async function loadAuditLogs(): Promise<void> {
             <td class="p-3 text-slate-400 font-mono">${log.created_at || ''}</td>
         `;
         tbody.appendChild(tr);
+    });
+}
+
+interface PageData {
+    id?: number;
+    slug?: string;
+    title: string;
+    content: string;
+    status: 'draft' | 'published';
+}
+
+async function loadInstitutionalPage(): Promise<void> {
+    const select = document.getElementById('select-institutional-page') as HTMLSelectElement | null;
+    const titleInput = document.getElementById('page-title-input') as HTMLInputElement | null;
+    const statusSelect = document.getElementById('page-status-select') as HTMLSelectElement | null;
+    const contentInput = document.getElementById('page-content-input') as HTMLTextAreaElement | null;
+
+    if (!select || !titleInput || !statusSelect || !contentInput) return;
+
+    const slug = select.value;
+    try {
+        const res = await fetchApi<PageData>(`/api/v1/pages/${slug}`);
+        if (res.status === 'success' && res.data) {
+            titleInput.value = res.data.title || '';
+            statusSelect.value = res.data.status || 'published';
+            contentInput.value = res.data.content || '';
+        } else {
+            titleInput.value = slug;
+            statusSelect.value = 'published';
+            contentInput.value = '';
+        }
+    } catch {
+        showToast('Erreur lors du chargement de la page', 'error');
+    }
+}
+
+function initInstitutionalPagesEditor(): void {
+    const select = document.getElementById('select-institutional-page') as HTMLSelectElement | null;
+    const form = document.getElementById('form-institutional-page') as HTMLFormElement | null;
+    const btn = document.getElementById('btn-save-institutional-page') as HTMLButtonElement | null;
+
+    select?.addEventListener('change', () => {
+        loadInstitutionalPage();
+    });
+
+    form?.addEventListener('submit', async (e: Event) => {
+        e.preventDefault();
+        if (!select) return;
+
+        const slug = select.value;
+        const titleInput = document.getElementById('page-title-input') as HTMLInputElement | null;
+        const statusSelect = document.getElementById('page-status-select') as HTMLSelectElement | null;
+        const contentInput = document.getElementById('page-content-input') as HTMLTextAreaElement | null;
+
+        if (!titleInput || !statusSelect || !contentInput) return;
+
+        setButtonLoading(btn, true, 'Enregistrement...');
+        try {
+            const payload = {
+                title: titleInput.value.trim(),
+                status: statusSelect.value,
+                content: contentInput.value
+            };
+
+            const res = await fetchApi<PageData>(`/api/v1/pages/${slug}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 'success') {
+                showToast(`Page « ${payload.title} » enregistrée avec succès !`, 'success');
+            } else {
+                showToast(res.message || 'Erreur lors de l\'enregistrement', 'error');
+            }
+        } finally {
+            setButtonLoading(btn, false, 'Enregistrer la page institutionnelle');
+        }
     });
 }

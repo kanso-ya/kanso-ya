@@ -122,7 +122,8 @@ foreach ($disciplines as $d) {
     $stmtBreak->execute(['did' => $did]);
     $rows = $stmtBreak->fetchAll(PDO::FETCH_ASSOC);
 
-    $capacity = 30;
+    $defaultCapacityVal = (int) ($db->query("SELECT setting_value FROM sys_settings WHERE setting_key = 'default_course_capacity'")->fetchColumn() ?: 30);
+    $capacity = $defaultCapacityVal > 0 ? $defaultCapacityVal : 30;
     $occupancyPct = round(($countInDisc / $capacity) * 100, 1);
 
     $disciplineStats[] = [
