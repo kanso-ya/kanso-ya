@@ -196,22 +196,24 @@ final class CmsController
         $cleanTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
         $cleanContent = $this->sanitizeHtml($rawContent);
 
-        $stmt = $this->db->prepare("
-            INSERT INTO articles (title, content, category_id, author_id, created_by, updated_by, visibility, status)
-            VALUES (:title, :content, :cat, :author, :created_by, :updated_by, :vis, :status)
-        ");
-        $stmt->execute([
-            'title'      => $cleanTitle,
-            'content'    => $cleanContent,
-            'cat'        => $categoryId,
-            'author'     => $authorId,
-            'created_by' => $authorId,
-            'updated_by' => $authorId,
-            'vis'        => $visibility,
-            'status'     => $finalStatus
-        ]);
+        $articleId = Database::transaction(function () use ($cleanTitle, $cleanContent, $categoryId, $authorId, $visibility, $finalStatus): int {
+            $stmt = $this->db->prepare("
+                INSERT INTO articles (title, content, category_id, author_id, created_by, updated_by, visibility, status)
+                VALUES (:title, :content, :cat, :author, :created_by, :updated_by, :vis, :status)
+            ");
+            $stmt->execute([
+                'title'      => $cleanTitle,
+                'content'    => $cleanContent,
+                'cat'        => $categoryId,
+                'author'     => $authorId,
+                'created_by' => $authorId,
+                'updated_by' => $authorId,
+                'vis'        => $visibility,
+                'status'     => $finalStatus
+            ]);
 
-        $articleId = (int) $this->db->lastInsertId();
+            return (int) $this->db->lastInsertId();
+        });
 
         if ($finalStatus === 'published') {
             try {
@@ -283,12 +285,14 @@ final class CmsController
             $params['status'] = (string) $payload['status'];
         }
 
-        $stmt = $this->db->prepare("
-            UPDATE articles
-            SET title = :title, content = :content, category_id = :cat, visibility = :vis, updated_by = :uid $statusClause, updated_at = CURRENT_TIMESTAMP
-            WHERE id = :id
-        ");
-        $stmt->execute($params);
+        Database::transaction(function () use ($params, $statusClause) {
+            $stmt = $this->db->prepare("
+                UPDATE articles
+                SET title = :title, content = :content, category_id = :cat, visibility = :vis, updated_by = :uid $statusClause, updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+            ");
+            $stmt->execute($params);
+        });
 
         if (($params['status'] ?? '') === 'published') {
             try {
@@ -319,10 +323,23 @@ final class CmsController
      */
     public function deleteArticle(int $articleId, int $userId): array
     {
-        $stmt = $this->db->prepare("DELETE FROM articles WHERE id = :id");
-        $stmt->execute(['id' => $articleId]);
+        $deleted = Database::transaction(function () use ($articleId, $userId): bool {
+            $stmt = $this->db->prepare("DELETE FROM articles WHERE id = :id");
+            $stmt->execute(['id' => $articleId]);
 
-        if ($stmt->rowCount() === 0) {
+            if ($stmt->rowCount() === 0) {
+                return false;
+            }
+
+            $this->db->prepare("
+                INSERT INTO app_logs (user_id, action, target_type, target_id)
+                VALUES (:uid, 'ARTICLE_DELETED', 'article', :tid)
+            ")->execute(['uid' => $userId, 'tid' => $articleId]);
+
+            return true;
+        });
+
+        if (!$deleted) {
             return [
                 'status'  => 'error',
                 'code'    => 404,
@@ -330,11 +347,6 @@ final class CmsController
                 'data'    => null
             ];
         }
-
-        $this->db->prepare("
-            INSERT INTO app_logs (user_id, action, target_type, target_id)
-            VALUES (:uid, 'ARTICLE_DELETED', 'article', :tid)
-        ")->execute(['uid' => $userId, 'tid' => $articleId]);
 
         return [
             'status'  => 'success',
@@ -374,30 +386,32 @@ final class CmsController
             ];
         }
 
-        if ($visibility !== null) {
-            $stmt = $this->db->prepare("
-                UPDATE articles
-                SET status = :status, visibility = :vis, updated_by = :uid, updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-            $stmt->execute(['status' => $status, 'vis' => $visibility, 'uid' => $userId, 'id' => $articleId]);
-        } else {
-            $stmt = $this->db->prepare("
-                UPDATE articles
-                SET status = :status, updated_by = :uid, updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-            $stmt->execute(['status' => $status, 'uid' => $userId, 'id' => $articleId]);
-        }
+        Database::transaction(function () use ($articleId, $status, $visibility, $userId) {
+            if ($visibility !== null) {
+                $stmt = $this->db->prepare("
+                    UPDATE articles
+                    SET status = :status, visibility = :vis, updated_by = :uid, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = :id
+                ");
+                $stmt->execute(['status' => $status, 'vis' => $visibility, 'uid' => $userId, 'id' => $articleId]);
+            } else {
+                $stmt = $this->db->prepare("
+                    UPDATE articles
+                    SET status = :status, updated_by = :uid, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = :id
+                ");
+                $stmt->execute(['status' => $status, 'uid' => $userId, 'id' => $articleId]);
+            }
 
-        $stmtLog = $this->db->prepare("
-            INSERT INTO app_logs (user_id, action, target_type, target_id)
-            VALUES (:uid, 'ARTICLE_STATUS_UPDATED', 'article', :tid)
-        ");
-        $stmtLog->execute([
-            'uid' => $userId,
-            'tid' => $articleId
-        ]);
+            $stmtLog = $this->db->prepare("
+                INSERT INTO app_logs (user_id, action, target_type, target_id)
+                VALUES (:uid, 'ARTICLE_STATUS_UPDATED', 'article', :tid)
+            ");
+            $stmtLog->execute([
+                'uid' => $userId,
+                'tid' => $articleId
+            ]);
+        });
 
         return [
             'status'  => 'success',
@@ -442,14 +456,16 @@ final class CmsController
         $allowedMimes = [
             'image/jpeg' => 'jpg',
             'image/png'  => 'png',
-            'image/webp' => 'webp'
+            'image/webp' => 'webp',
+            'video/mp4'  => 'mp4',
+            'video/webm' => 'webm',
         ];
 
         if (!is_string($realMime) || !isset($allowedMimes[$realMime])) {
             return [
                 'status'  => 'error',
                 'code'    => 422,
-                'message' => 'Format d\'image non supporté (seuls JPEG, PNG et WEBP sont autorisés).',
+                'message' => 'Format de média non supporté (seuls JPEG, PNG, WEBP, MP4 et WEBM sont autorisés).',
                 'data'    => null
             ];
         }
@@ -647,7 +663,7 @@ final class CmsController
     private function sanitizeHtml(string $html): string
     {
         $clean = preg_replace('#<(script|iframe|object|embed|style)[^>]*>.*?</\1>#is', '', $html) ?? '';
-        $clean = strip_tags($clean, '<div><section><article><figure><figcaption><img><p><br><strong><b><em><i><u><ul><ol><li><h2><h3><h4><blockquote><a><span>');
+        $clean = strip_tags($clean, '<div><section><article><figure><figcaption><img><video><source><button><input><p><br><strong><b><em><i><u><ul><ol><li><h2><h3><h4><blockquote><a><span>');
         $clean = preg_replace('/\bon\w+\s*=\s*(["\']?).*?\1/i', '', $clean) ?? '';
         $clean = preg_replace('/javascript\s*:/i', '', $clean) ?? '';
 

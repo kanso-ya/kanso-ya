@@ -25,7 +25,7 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
         // Adhérent A : né en 2017 (9 ans en 2026 = Poussin, doit devenir Benjamin à 10 ans en sept 2027)
         // Adhérent B : né en 2017 mais surclassé manuellement (is_category_forced = 1, fixé à Minime id=4)
         const ts = Date.now();
-        const regRes = await request.post('/api/v1/registrations', {
+        let regRes = await request.post('/api/v1/registrations', {
             data: {
                 members: [
                     {

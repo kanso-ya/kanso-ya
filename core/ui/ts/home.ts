@@ -5,6 +5,7 @@
  */
 
 import { fetchApi } from './api.js';
+import { initCmsMediaInteractions } from './cms-media.js';
 
 interface ArticleCard {
     id: number;
@@ -114,6 +115,7 @@ function openArticleReader(art: ArticleCard): void {
     badge.textContent = art.category_name;
     title.innerHTML = art.title;
     content.innerHTML = art.content;
+    initCmsMediaInteractions(content);
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');

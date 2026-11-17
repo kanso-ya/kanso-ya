@@ -123,31 +123,38 @@ ob_start();
                         <button type="button" data-cols="2" class="btn-add-row px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-xs font-semibold transition" title="Ajouter une section divisée en 2 colonnes égales (50% / 50%)">
                             ◫ 2 Colonnes
                         </button>
+                        <button type="button" data-cols="asym" class="btn-add-row px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-xs font-semibold transition" title="Ajouter une section 2 colonnes asymétriques avec réglage de largeur au choix">
+                            ◫ 2 Col. Asymétriques
+                        </button>
                         <button type="button" data-cols="3" class="btn-add-row px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-xs font-semibold transition" title="Ajouter une section divisée en 3 colonnes (33% / 33% / 33%)">
                             ▤ 3 Colonnes
                         </button>
 
                         <span class="text-slate-600 mx-1">|</span>
-                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1" title="Ajoute un bloc dans la colonne sélectionnée">+ Bloc :</span>
-                        <button type="button" data-add-block="h2" class="btn-add-block px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition" title="Insérer un sous-titre de section">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1" title="Glissez-déposez un bloc dans une colonne ou cliquez dessus">+ Bloc :</span>
+                        <button type="button" draggable="true" data-add-block="h2" class="btn-add-block cursor-grab active:cursor-grabbing px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition select-none" title="Glisser ou cliquer pour insérer un titre">
                             + Titre
                         </button>
-                        <button type="button" data-add-block="p" class="btn-add-block px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition" title="Insérer un bloc de texte / paragraphe">
+                        <button type="button" draggable="true" data-add-block="p" class="btn-add-block cursor-grab active:cursor-grabbing px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition select-none" title="Glisser ou cliquer pour insérer un texte">
                             + Texte
                         </button>
-                        <button type="button" data-add-block="callout" class="btn-add-block px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition" title="Insérer un encadré vert mis en valeur">
+                        <button type="button" draggable="true" data-add-block="callout" class="btn-add-block cursor-grab active:cursor-grabbing px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition select-none" title="Glisser ou cliquer pour insérer un encadré info">
                             + Encadré Info
                         </button>
-                        <button type="button" data-add-block="list" class="btn-add-block px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition" title="Insérer une liste à puces">
+                        <button type="button" draggable="true" data-add-block="list" class="btn-add-block cursor-grab active:cursor-grabbing px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition select-none" title="Glisser ou cliquer pour insérer une liste">
                             + Liste
                         </button>
-                        <button type="button" data-add-block="quote" class="btn-add-block px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition" title="Insérer une citation ou un podium">
+                        <button type="button" draggable="true" data-add-block="quote" class="btn-add-block cursor-grab active:cursor-grabbing px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-xs font-semibold transition select-none" title="Glisser ou cliquer pour insérer une citation">
                             + Citation
                         </button>
-                        <label class="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-xs font-semibold transition cursor-pointer" title="Téléverser une photo depuis votre ordinateur">
+                        <button type="button" draggable="true" data-add-block="image" class="btn-add-block cursor-grab active:cursor-grabbing px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-xs font-semibold transition select-none" title="Glisser ou cliquer pour insérer une photo ou carrousel">
                             📷 + Photo
-                            <input type="file" id="art-media-upload" accept="image/jpeg,image/png,image/webp" class="hidden">
-                        </label>
+                        </button>
+                        <button type="button" draggable="true" data-add-block="video" class="btn-add-block cursor-grab active:cursor-grabbing px-2.5 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-xs font-semibold transition select-none" title="Glisser ou cliquer pour insérer une vidéo">
+                            🎥 + Vidéo
+                        </button>
+                        <input type="file" id="art-media-upload" accept="image/jpeg,image/png,image/webp" class="hidden">
+                        <input type="file" id="art-video-upload" accept="video/mp4,video/webm" class="hidden">
                     </div>
 
                     <button type="button" id="btn-toggle-html-source" class="text-[11px] font-mono px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:text-white" title="Afficher ou masquer le code HTML brut (avancé)">
@@ -214,6 +221,38 @@ ob_start();
                     </button>
                 </div>
             </div>
+
+            <!-- Filtres Multi-Critères (Statut, Catégorie, Auteur) (Exigence 5) -->
+            <div id="articles-filters-bar" class="p-3.5 rounded-xl bg-slate-100/80 border border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+                <span class="font-bold text-slate-700 flex items-center gap-1">🔍 Filtrer par :</span>
+                <div class="flex items-center gap-1.5">
+                    <label for="filter-article-status" class="font-semibold text-slate-600">Statut :</label>
+                    <select id="filter-article-status" data-testid="filter-article-status" class="border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-medium">
+                        <option value="all">Tous les statuts</option>
+                        <option value="published">Publié</option>
+                        <option value="draft">Brouillon</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <label for="filter-article-category" class="font-semibold text-slate-600">Catégorie :</label>
+                    <select id="filter-article-category" data-testid="filter-article-category" class="border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-medium">
+                        <option value="all">Toutes les catégories</option>
+                        <option value="1">Vie du club</option>
+                        <option value="2">Compétition</option>
+                        <option value="3">Événements</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <label for="filter-article-author" class="font-semibold text-slate-600">Auteur :</label>
+                    <select id="filter-article-author" data-testid="filter-article-author" class="border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-medium">
+                        <option value="all">Tous les auteurs</option>
+                    </select>
+                </div>
+                <button type="button" id="btn-reset-filters" data-testid="btn-reset-filters" class="px-2.5 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold transition">
+                    Réinitialiser
+                </button>
+            </div>
+
             <div id="articles-list" class="space-y-3"></div>
         </section>
 

@@ -4,6 +4,7 @@
  * permet le filtrage par catégorie et l'ouverture d'un article en modale de lecture.
  */
 import { fetchApi } from './api.js';
+import { initCmsMediaInteractions } from './cms-media.js';
 let allPublishedArticles = [];
 document.addEventListener('DOMContentLoaded', () => {
     loadHomeArticles();
@@ -91,6 +92,7 @@ function openArticleReader(art) {
     badge.textContent = art.category_name;
     title.innerHTML = art.title;
     content.innerHTML = art.content;
+    initCmsMediaInteractions(content);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
