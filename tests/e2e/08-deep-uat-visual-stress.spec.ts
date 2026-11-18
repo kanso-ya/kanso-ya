@@ -491,6 +491,9 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.goto('/stats.php');
         await expect(page.locator('#club-name-heading')).toBeVisible();
 
+        // Ouverture de l'onglet Démographie & Occupation (Sprint 14 - Point 11)
+        await page.locator('[data-testid="stats-tab-occupancy"]').click();
+
         // La discipline Judo (id: 1) a 40 inscrits pour une capacité standard de 30 élèves
         const capacityAlert = page.locator('[data-testid="capacity-alert-1"]');
         await expect(capacityAlert).toBeVisible();
@@ -517,6 +520,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
 
         // La page stats.php doit continuer de se charger sans régression
         await page.reload();
+        await page.locator('[data-testid="stats-tab-occupancy"]').click();
         await expect(capacityAlert).toBeVisible();
 
         // Nettoyage
@@ -613,8 +617,8 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await expect(sidebar).not.toHaveClass(/.*-translate-x-full.*/);
         await expect(backdrop).toBeVisible();
 
-        // Clic sur le fond assombri pour refermer le tiroir
-        await backdrop.click();
+        // Clic sur la partie exposée du fond assombri (à droite du tiroir w-64=256px) pour refermer le tiroir
+        await backdrop.click({ position: { x: 340, y: 400 } });
         await expect(sidebar).toHaveClass(/.*-translate-x-full.*/);
         await expect(backdrop).toBeHidden();
     });
@@ -661,21 +665,23 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
 
         await expect(page.locator('#club-name-heading')).toBeVisible();
 
-        // Vérification des éléments distinctifs de la console d'administration technique
-        const siteNameInput = page.locator('#sys-site-name');
-        await expect(siteNameInput).toBeVisible();
-        await expect(siteNameInput).toHaveClass(/.*bg-slate-950.*/);
-
-        const smtpHostInput = page.locator('#smtp-host');
-        await expect(smtpHostInput).toBeVisible();
-        await expect(smtpHostInput).toHaveClass(/.*bg-slate-950.*/);
-
-        // Ouverture de la modale de Rollover Superadmin pour inspecter les contrôles critiques
+        // Ouverture de la modale de Rollover Superadmin sur /sys-console pour inspecter les contrôles critiques
         await page.click('#btn-open-sys-rollover-modal');
         const targetSeasonInput = page.locator('#sys-target-season');
         await expect(targetSeasonInput).toBeVisible();
         await expect(targetSeasonInput).toHaveClass(/.*bg-slate-950.*/);
         await page.click('#btn-cancel-sys-rollover');
+
+        // Vérification des pages dédiées Identité & SMTP (isolation visuelle sombre bg-slate-950)
+        await page.goto('/sys-branding');
+        const siteNameInput = page.locator('#sys-site-name');
+        await expect(siteNameInput).toBeVisible();
+        await expect(siteNameInput).toHaveClass(/.*bg-slate-950.*/);
+
+        await page.goto('/sys-smtp');
+        const smtpHostInput = page.locator('#smtp-host');
+        await expect(smtpHostInput).toBeVisible();
+        await expect(smtpHostInput).toHaveClass(/.*bg-slate-950.*/);
     });
 
 });

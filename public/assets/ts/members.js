@@ -191,79 +191,79 @@ function renderMembersRows() {
         const practices = member.practices || [];
         const practicesHtml = practices.length > 0
             ? practices.map((p) => `
-                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] mr-1 mb-1">
+                <div class="inline-flex flex-wrap items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[11px] mr-1 mb-1">
                     <strong class="text-slate-900">${p.discipline_name}</strong>
                     <span class="text-slate-400">•</span>
                     <span class="font-semibold text-blue-700">${p.grade_name || 'Tous âges'}</span>
                     <span class="text-slate-400">•</span>
                     <span class="inline-flex items-center gap-1 text-emerald-800 font-medium">
-                        <span class="w-2.5 h-2.5 rounded-full border border-slate-300 inline-block" style="background-color: ${p.color_hex || '#10b981'};"></span>
+                        <span class="w-2 h-2 rounded-full border border-slate-300 inline-block" style="background-color: ${p.color_hex || '#10b981'};"></span>
                         ${p.niveau_name || 'Débutant'}
                     </span>
                 </div>
             `).join('')
-            : `<span class="text-xs text-slate-400 italic">Aucun cours affecté</span>`;
+            : `<span class="text-[11px] text-slate-400 italic">Aucun cours affecté</span>`;
         const tutors = member.tutors || [];
         const tutorSummary = isTeacher
-            ? `<span class="text-[11px] text-slate-400 block mt-1">🔒 Parents masqués (RGPD)</span>`
+            ? `<span class="text-[10px] text-slate-400 block mt-0.5">🔒 RGPD</span>`
             : (tutors.length > 0
-                ? `<span class="text-[11px] font-semibold text-emerald-700 underline block mt-1">${tutors.length} Responsable(s) ▾</span>`
-                : `<span class="text-[11px] text-slate-400 block mt-1">Majeur autonome</span>`);
+                ? `<span class="text-[10px] font-semibold text-emerald-700 underline block mt-0.5">${tutors.length} Resp. ▾</span>`
+                : `<span class="text-[10px] text-slate-400 block mt-0.5">Autonome</span>`);
         const buttons = [];
         if (canResendOtp) {
-            buttons.push(`<button type="button" class="btn-resend-otp px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition" title="Renvoyer le lien d'activation par e-mail (48h)">✉️</button>`);
+            buttons.push(`<button type="button" class="btn-resend-otp w-8 h-7 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition" title="Renvoyer le lien d'activation par e-mail (48h)" aria-label="Renvoyer le lien d'activation">✉️<span class="sr-only">Renvoyer</span></button>`);
         }
-        buttons.push(`<button type="button" class="btn-medical-member px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition" title="Certificat médical & Santé">📄</button>`);
+        buttons.push(`<button type="button" class="btn-medical-member w-8 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition" title="Certificat médical & Santé" aria-label="Certificat médical & Santé">📄<span class="sr-only">Santé</span></button>`);
         if (canEdit) {
-            buttons.push(`<button type="button" class="btn-edit-member px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1" title="Modifier la fiche adhérent & les cours">✏️ <span>Modifier</span></button>`);
+            buttons.push(`<button type="button" class="btn-edit-member w-8 h-7 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition" title="Modifier la fiche adhérent & les cours" aria-label="Modifier la fiche adhérent">✏️<span class="sr-only">Modifier</span></button>`);
         }
         if (canDeleteOrRadiate) {
-            buttons.push(`<button type="button" class="btn-radiate-member px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition" title="Radier cet adhérent (Archivage réversible)">🚫</button>`);
-            buttons.push(`<button type="button" class="btn-delete-member px-2 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition" title="Supprimer définitivement la fiche">🗑️</button>`);
+            buttons.push(`<button type="button" class="btn-radiate-member w-8 h-7 flex items-center justify-center rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition" title="Radier cet adhérent (Archivage réversible)" aria-label="Radier cet adhérent">🚫<span class="sr-only">Radier</span></button>`);
+            buttons.push(`<button type="button" class="btn-delete-member w-8 h-7 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition" title="Supprimer définitivement la fiche" aria-label="Supprimer définitivement">🗑️<span class="sr-only">Supprimer</span></button>`);
         }
         const addressLine = (!isTeacher && member.address)
-            ? `<div class="text-[11px] text-slate-400 truncate max-w-[180px]">📍 ${member.address}</div>`
+            ? `<div class="text-[10px] text-slate-400 truncate max-w-[135px]" title="${member.address}">📍 ${member.address}</div>`
             : '';
         const isChecked = selectedMemberIds.has(member.id);
         memberTr.innerHTML = `
-            <td class="p-3.5 text-center ${isAdherent ? 'hidden' : ''}">
+            <td class="p-2.5 text-center ${isAdherent ? 'hidden' : ''}">
                 <input type="checkbox" class="member-select-cb member-row-checkbox rounded text-emerald-600 focus:ring-emerald-500" data-id="${member.id}" ${isChecked ? 'checked' : ''}>
             </td>
-            <td class="p-3.5">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+            <td class="p-2.5">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-slate-900 text-white font-bold text-[11px] flex items-center justify-center shrink-0">
                         ${initials}
                     </div>
-                    <div>
-                        <div class="font-bold text-slate-900">${member.first_name} ${member.last_name}</div>
+                    <div class="min-w-0">
+                        <div class="font-bold text-slate-900 leading-tight">${member.first_name} ${member.last_name}</div>
                         ${addressLine}
                     </div>
                 </div>
             </td>
-            <td class="p-3.5">
-                <div class="text-xs font-medium text-slate-700">${member.birth_date}</div>
+            <td class="p-2.5 whitespace-nowrap">
+                <div class="text-[11px] font-medium text-slate-700">${member.birth_date}</div>
                 <div class="mt-0.5">${ageBadge}</div>
             </td>
-            <td class="p-3.5 max-w-md">${practicesHtml}</td>
-            <td class="p-3.5 text-xs">
-                <strong class="text-slate-800 block">${member.emergency_contact_name || 'Parent référent'}</strong>
-                <span class="text-slate-500 font-mono">${member.emergency_contact_phone || '06 11 22 33 44'}</span>
+            <td class="p-2.5 max-w-[230px]">${practicesHtml}</td>
+            <td class="p-2.5 text-[11px]">
+                <strong class="text-slate-800 block truncate max-w-[125px]" title="${member.emergency_contact_name || 'Parent référent'}">${member.emergency_contact_name || 'Parent référent'}</strong>
+                <span class="text-slate-500 font-mono whitespace-nowrap">${member.emergency_contact_phone || '06 11 22 33 44'}</span>
             </td>
-            <td class="p-3.5">
+            <td class="p-2.5">
                 ${statusBadge}
                 ${healthBadge}
                 ${tutorSummary}
             </td>
-            <td class="p-3.5 text-right action-buttons whitespace-nowrap">
-                <div class="inline-flex items-center gap-1 justify-end">${buttons.join('')}</div>
+            <td class="p-2.5 text-right action-buttons">
+                <div class="grid grid-cols-3 gap-1 w-[104px] ml-auto" data-testid="member-actions-grid">${buttons.join('')}</div>
             </td>
         `;
         // Sous-ligne Accordéon : Détails & Partage RGPD entre co-tuteurs
         const accordionTr = document.createElement('tr');
         accordionTr.className = 'tutor-accordion hidden bg-slate-50/90 border-b border-slate-200';
         const accordionTd = document.createElement('td');
-        accordionTd.colSpan = 6;
-        accordionTd.className = 'p-4 pl-14';
+        accordionTd.colSpan = 7;
+        accordionTd.className = 'p-4 pl-10';
         const box = document.createElement('div');
         box.className = 'p-5 bg-white rounded-2xl border border-slate-200 space-y-4 shadow-2xs';
         box.innerHTML = `

@@ -146,6 +146,7 @@ test.describe('DOMAINE 2 — CRM Adhérents, Rattachements Familiaux, RGPD & San
 
             await page.goto('/stats.php');
             await expect(page.locator('text=Périmètre Pédagogique Enseignant (Anonymisé RGPD)')).toBeVisible();
+            await page.locator('[data-testid="stats-tab-occupancy"]').click();
             await expect(page.locator('text=Aïkido & Self-Défense')).toHaveCount(0);
             await expect(page.locator('h3', { hasText: 'Judo' }).first()).toBeVisible();
         } finally {

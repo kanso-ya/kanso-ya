@@ -167,11 +167,11 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 transition';
 
-        let statusBadge = '<span class="px-2.5 py-1 text-xs rounded-full bg-amber-50 text-amber-700 font-semibold">En attente</span>';
+        let statusBadge = '<span class="px-2 py-0.5 text-[11px] rounded-full bg-amber-50 text-amber-700 font-semibold whitespace-nowrap">En attente</span>';
         if (reg.status === 'validated') {
-            statusBadge = '<span class="px-2.5 py-1 text-xs rounded-full bg-emerald-50 text-emerald-700 font-semibold">Validé</span>';
+            statusBadge = '<span class="px-2 py-0.5 text-[11px] rounded-full bg-emerald-50 text-emerald-700 font-semibold whitespace-nowrap">Validé</span>';
         } else if (reg.status === 'radiated') {
-            statusBadge = '<span class="px-2.5 py-1 text-xs rounded-full bg-red-50 text-red-600 font-semibold">Radié (Archivé)</span>';
+            statusBadge = '<span class="px-2 py-0.5 text-[11px] rounded-full bg-red-50 text-red-600 font-semibold whitespace-nowrap">Radié</span>';
         }
 
         const membersList = reg.members || [];
@@ -180,19 +180,21 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
             : '1 adhérent rattaché';
 
         tr.innerHTML = `
-            <td class="p-4 font-bold text-slate-900">#${reg.id} <span class="block text-[11px] font-normal text-slate-400">Saison ${reg.season}</span></td>
-            <td class="p-4 text-xs text-slate-700 font-medium">${reg.payer_email || 'Dossier famille'}</td>
-            <td class="p-4 text-xs text-slate-600">
-                <strong class="text-slate-800">${Math.max(1, membersList.length)} pratiquant(s) :</strong>
-                <div class="truncate max-w-xs text-slate-500">${membersSummary}</div>
+            <td class="p-2.5 font-bold text-slate-900 whitespace-nowrap">#${reg.id} <span class="block text-[10px] font-normal text-slate-400">Saison ${reg.season}</span></td>
+            <td class="p-2.5 text-xs text-slate-700 font-medium">
+                <div class="truncate max-w-[175px]" title="${reg.payer_email || 'Dossier famille'}">${reg.payer_email || 'Dossier famille'}</div>
             </td>
-            <td class="p-4">
+            <td class="p-2.5 text-xs text-slate-600">
+                <strong class="text-slate-800">${Math.max(1, membersList.length)} pratiquant(s)</strong>
+                <div class="truncate max-w-[180px] text-[11px] text-slate-500" title="${membersSummary}">${membersSummary}</div>
+            </td>
+            <td class="p-2.5 whitespace-nowrap">
                 <span class="font-extrabold text-slate-900">${Number(reg.total_amount).toFixed(2)} €</span>
-                <span class="block text-[11px] text-slate-500 uppercase">${reg.payment_method} (${reg.installments}x)</span>
+                <span class="block text-[10px] text-slate-500 uppercase">${reg.payment_method} (${reg.installments}x)</span>
             </td>
-            <td class="p-4">${statusBadge}</td>
-            <td class="p-4 text-right whitespace-nowrap">
-                <div class="inline-flex items-center gap-1.5 justify-end action-cell"></div>
+            <td class="p-2.5">${statusBadge}</td>
+            <td class="p-2.5 text-right">
+                <div class="grid grid-cols-3 gap-1 w-[104px] ml-auto action-cell" data-testid="registration-actions-grid"></div>
             </td>
         `;
 
@@ -200,18 +202,20 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
         if (actionCell) {
             const btnInspect = document.createElement('button');
             btnInspect.type = 'button';
-            btnInspect.className = 'bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
-            btnInspect.textContent = '🔍 Inspecter';
+            btnInspect.className = 'w-8 h-7 flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition';
+            btnInspect.innerHTML = '🔍<span class="sr-only">Inspecter</span>';
             btnInspect.title = 'Inspecter le dossier et les détails des cours';
+            btnInspect.setAttribute('aria-label', 'Inspecter le dossier');
             btnInspect.addEventListener('click', () => openInspectionModal(reg));
             actionCell.appendChild(btnInspect);
 
             if (reg.status === 'pending') {
                 const btnVal = document.createElement('button');
                 btnVal.type = 'button';
-                btnVal.className = 'bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
-                btnVal.textContent = '✓ Valider';
+                btnVal.className = 'w-8 h-7 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition';
+                btnVal.innerHTML = '✓<span class="sr-only">Valider</span>';
                 btnVal.title = 'Valider le paiement et le dossier d\'adhésion';
+                btnVal.setAttribute('aria-label', 'Valider le dossier');
                 btnVal.addEventListener('click', async () => {
                     await triggerValidation(reg.id, btnVal, []);
                 });
@@ -221,11 +225,12 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
             if (reg.status === 'validated') {
                 const btnReceipt = document.createElement('button');
                 btnReceipt.type = 'button';
-                btnReceipt.className = 'btn-download-receipt bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1.5 rounded-lg transition inline-flex items-center gap-1';
+                btnReceipt.className = 'btn-download-receipt w-8 h-7 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition';
                 btnReceipt.setAttribute('data-reg-id', String(reg.id));
                 btnReceipt.setAttribute('data-testid', `btn-receipt-${reg.id}`);
-                btnReceipt.textContent = '📄 Reçu';
+                btnReceipt.innerHTML = '📄<span class="sr-only">Reçu</span>';
                 btnReceipt.title = 'Télécharger le reçu de cotisation';
+                btnReceipt.setAttribute('aria-label', 'Télécharger le reçu de cotisation');
                 btnReceipt.addEventListener('click', async () => {
                     const res = await fetchApi<{ receipt_text: string }>(`/api/v1/registrations/${reg.id}/receipt`);
                     if (res.status === 'success' && res.data) {
@@ -236,11 +241,12 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
 
                 const btnCse = document.createElement('button');
                 btnCse.type = 'button';
-                btnCse.className = 'btn-download-cse bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1.5 rounded-lg transition inline-flex items-center gap-1';
+                btnCse.className = 'btn-download-cse w-8 h-7 flex items-center justify-center bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg transition';
                 btnCse.setAttribute('data-reg-id', String(reg.id));
                 btnCse.setAttribute('data-testid', `btn-cse-${reg.id}`);
-                btnCse.textContent = '🏢 CSE';
+                btnCse.innerHTML = '🏢<span class="sr-only">CSE</span>';
                 btnCse.title = 'Télécharger l\'attestation employeur / CSE';
+                btnCse.setAttribute('aria-label', 'Télécharger l\'attestation CSE');
                 btnCse.addEventListener('click', async () => {
                     const res = await fetchApi<{ attestation_text: string }>(`/api/v1/registrations/${reg.id}/cse-attestation`);
                     if (res.status === 'success' && res.data) {
@@ -253,9 +259,10 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
             if (reg.status === 'radiated') {
                 const btnRestore = document.createElement('button');
                 btnRestore.type = 'button';
-                btnRestore.className = 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
-                btnRestore.textContent = '↩️ Restaurer';
+                btnRestore.className = 'w-8 h-7 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded-lg transition';
+                btnRestore.innerHTML = '↩️<span class="sr-only">Restaurer</span>';
                 btnRestore.title = 'Restaurer ce dossier radié en attente';
+                btnRestore.setAttribute('aria-label', 'Restaurer le dossier');
                 btnRestore.addEventListener('click', async () => {
                     const res = await fetchApi(`/api/v1/registrations/${reg.id}/status`, {
                         method: 'PATCH',
@@ -270,9 +277,10 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
             } else {
                 const btnRadiate = document.createElement('button');
                 btnRadiate.type = 'button';
-                btnRadiate.className = 'bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition inline-flex items-center gap-1';
-                btnRadiate.textContent = '🚫 Radier';
+                btnRadiate.className = 'w-8 h-7 flex items-center justify-center bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold rounded-lg transition';
+                btnRadiate.innerHTML = '🚫<span class="sr-only">Radier</span>';
                 btnRadiate.title = 'Radier ce dossier (archivage réversible)';
+                btnRadiate.setAttribute('aria-label', 'Radier le dossier');
                 btnRadiate.addEventListener('click', () => {
                     openConfirmModal(
                         'Radier ce dossier (Archivage réversible)',
@@ -294,9 +302,10 @@ function renderRegistrationsTable(records: RegistrationRecord[]): void {
 
             const btnDel = document.createElement('button');
             btnDel.type = 'button';
-            btnDel.className = 'bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-2 py-1.5 rounded-lg transition inline-flex items-center gap-1';
-            btnDel.textContent = '🗑️ Supprimer';
+            btnDel.className = 'w-8 h-7 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition';
+            btnDel.innerHTML = '🗑️<span class="sr-only">Supprimer</span>';
             btnDel.title = 'Supprimer définitivement ce dossier';
+            btnDel.setAttribute('aria-label', 'Supprimer définitivement le dossier');
             btnDel.addEventListener('click', () => {
                 openConfirmModal(
                     'Supprimer définitivement le dossier',

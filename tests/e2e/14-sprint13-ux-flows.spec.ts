@@ -55,9 +55,13 @@ test.describe('SPRINT 13 — Rollover Harmonisé, Inscription Intelligente (?dis
         await expect(page.locator('[data-testid="toast-error"]').last()).toContainText(/discipline/i);
         await expect(page.locator('#step-panel-identity')).toBeVisible();
 
-        // 2. Navigation depuis /horaires : clic sur "S'inscrire à cette discipline" (Karaté, id=2)
+        // 2. Navigation depuis /horaires : sélection de l'onglet Karaté (id=2) puis clic sur "S'inscrire à cette discipline"
         await page.evaluate(() => localStorage.removeItem('kanso_reg_draft'));
         await page.goto('/horaires');
+
+        const karateTab = page.locator('#horaires-discipline-tabs [data-testid="discipline-tab-item"][data-discipline-id="2"]');
+        await expect(karateTab).toBeVisible();
+        await karateTab.click();
 
         const karateBtn = page.locator('[data-testid="horaires-register-discipline-btn"][data-discipline-id="2"]');
         await expect(karateBtn).toBeVisible();

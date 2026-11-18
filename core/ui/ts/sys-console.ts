@@ -76,8 +76,11 @@ let allAppLogs: AppLogItem[] = [];
 let allModules: ModuleItem[] = [];
 let allSuperadmins: SuperadminItem[] = [];
 let allEmailTemplates: EmailTemplateItem[] = [];
+let isDemoModeEnabled = false;
 
 document.addEventListener('DOMContentLoaded', () => {
+    initSmtpTabs();
+    initDemoModeToggle();
     loadSystemSettings();
     loadSystemMetrics();
     loadEmailLogs();
@@ -96,11 +99,90 @@ document.addEventListener('DOMContentLoaded', () => {
     initModuleControls();
 });
 
+function initSmtpTabs(): void {
+    const tabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.smtp-tab-btn'));
+    const panels = Array.from(document.querySelectorAll<HTMLElement>('.smtp-tab-panel'));
+    if (tabButtons.length === 0 || panels.length === 0) return;
+
+    const activate = (targetId: string): void => {
+        tabButtons.forEach((btn) => {
+            const isSel = btn.getAttribute('data-smtp-target') === targetId;
+            btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+            btn.className = `smtp-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 ${
+                isSel
+                    ? 'bg-brand-primary text-white shadow-xs'
+                    : 'bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800'
+            }`;
+        });
+        panels.forEach((panel) => {
+            const match = panel.getAttribute('data-smtp-panel') === targetId;
+            panel.classList.toggle('hidden', !match);
+        });
+    };
+
+    tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-smtp-target');
+            if (target) activate(target);
+        });
+    });
+
+    const initialBtn = tabButtons.find((b) => b.getAttribute('aria-selected') === 'true') || tabButtons[0];
+    const initialTarget = initialBtn?.getAttribute('data-smtp-target');
+    if (initialTarget) activate(initialTarget);
+}
+
+function updateDemoModeUi(enabled: boolean): void {
+    isDemoModeEnabled = enabled;
+    const badge = document.getElementById('sys-demo-mode-badge');
+    const toggleBtn = document.getElementById('btn-toggle-demo-mode');
+
+    if (badge) {
+        if (enabled) {
+            badge.textContent = 'Actif';
+            badge.className = 'inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-700';
+        } else {
+            badge.textContent = 'Inactif';
+            badge.className = 'inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+        }
+    }
+
+    if (toggleBtn) {
+        toggleBtn.textContent = enabled ? 'Désactiver le Mode Démo' : 'Activer le Mode Démo';
+    }
+}
+
+function initDemoModeToggle(): void {
+    const toggleBtn = document.getElementById('btn-toggle-demo-mode') as HTMLButtonElement | null;
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', async () => {
+        const nextState = !isDemoModeEnabled;
+        setButtonLoading(toggleBtn, true, 'Mise à jour...');
+        try {
+            const res = await fetchApi('/api/v1/settings', {
+                method: 'PATCH',
+                body: JSON.stringify({ demo_mode_enabled: nextState ? '1' : '0' })
+            });
+            if (res.status === 'success') {
+                updateDemoModeUi(nextState);
+                showToast(nextState ? 'Mode Démo activé.' : 'Mode Démo désactivé.', 'success');
+                await loadSystemLogs();
+            } else {
+                showToast(res.message || 'Impossible de modifier le Mode Démo.', 'error');
+            }
+        } finally {
+            setButtonLoading(toggleBtn, false, isDemoModeEnabled ? 'Désactiver le Mode Démo' : 'Activer le Mode Démo');
+        }
+    });
+}
+
 async function loadSystemSettings(): Promise<void> {
     const res = await fetchApi<Record<string, string>>('/api/v1/settings');
     if (res.status !== 'success' || !res.data) return;
 
     const d = res.data;
+    updateDemoModeUi(d.demo_mode_enabled === '1' || d.demo_mode_enabled === 'true');
     const setVal = (id: string, val?: string): void => {
         const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
         if (el && val !== undefined) el.value = val;
@@ -272,6 +354,22 @@ async function loadSystemLogs(): Promise<void> {
 }
 
 function renderSysLogs(logs: SysLogItem[]): void {
+    const recentList = document.getElementById('sys-recent-logins');
+    if (recentList) {
+        if (logs.length === 0) {
+            recentList.innerHTML = `<li class="text-slate-500 italic">Aucun événement système enregistré.</li>`;
+        } else {
+            const topLogs = logs.slice(0, 3);
+            recentList.innerHTML = topLogs.map((log) => {
+                const isAlert = log.action.includes('UNAUTHORIZED') || log.action.includes('FAIL');
+                return `<li class="flex items-center justify-between gap-2 truncate">
+                    <span class="font-mono font-bold truncate ${isAlert ? 'text-red-400' : 'text-emerald-400'}" title="${escapeHtml(log.details || log.action)}">${escapeHtml(log.action)}</span>
+                    <span class="text-[10px] text-slate-500 font-mono shrink-0">${escapeHtml((log.created_at || '').slice(11, 16) || log.ip_address || 'local')}</span>
+                </li>`;
+            }).join('');
+        }
+    }
+
     const tbody = document.getElementById('sys-logs-tbody');
     if (!tbody) return;
 
@@ -410,6 +508,12 @@ async function loadModules(): Promise<void> {
 }
 
 function renderModules(modules: ModuleItem[]): void {
+    const activeMetric = document.getElementById('metric-active-modules');
+    if (activeMetric) {
+        const activeCount = modules.filter((m) => Boolean(m.is_active) || m.status === 'active').length;
+        activeMetric.textContent = `${activeCount} / ${modules.length}`;
+    }
+
     const tbody = document.getElementById('modules-tbody');
     if (!tbody) return;
 

@@ -24,8 +24,8 @@ ob_start();
         </button>
     </div>
 
-    <!-- Barre d'onglets par discipline (Point 15) -->
-    <div id="disciplines-tabs-bar" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200" data-testid="disciplines-tabs-bar"></div>
+    <!-- Barre d'onglets par discipline (Point 15 & Sprint 14 Point 12) -->
+    <div id="disciplines-tabs-bar" role="tablist" aria-label="Disciplines" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200" data-testid="disciplines-tabs-bar"></div>
 
     <!-- Affichage de la discipline sélectionnée avec Grades, Niveaux et Badges cliquables -->
     <div id="disciplines-list" class="space-y-6"></div>

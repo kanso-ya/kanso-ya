@@ -534,7 +534,7 @@ flowchart LR
   - **Point 14 — Pré-remplissage intégral à la réinscription :** Lorsqu'un utilisateur connecté (adhérent ou tuteur) lance une réinscription sur `/register`, pré-remplissage automatique de son identité, de son **niveau technique actuel** (ceinture/grade), de son **contact d'urgence complet** et de ses **tuteurs légaux**.
 
 ### 8.3. Sprint 14 : Ergonomie Tableaux Compacts, Actions sur 2 Lignes, Onglets & Lockdown v1.1 (19 SP — Points 15 à 21)
-* **Statut :** Planifié
+* **Statut :** ✅ **100% VALIDÉ EN RECETTE (246/246 Pass — Rapport : `docs/current-sprint/14-report-sprint14.md`)**
 * **Objectif :** Éliminer définitivement tout débordement horizontal sur les tableaux de gestion, uniformiser les barres d'actions sur 2 lignes et rendre tous les systèmes d'onglets 100 % fonctionnels.
 * **Découpage des Points :**
   - **Point 15 — Annuaire `/members` compact sans élargissement du conteneur :** Dimensionnement maîtrisé des colonnes (`table-fixed` / troncature élégante) garantissant que le tableau respecte strictement son conteneur sur Desktop sans provoquer d'extension de page.

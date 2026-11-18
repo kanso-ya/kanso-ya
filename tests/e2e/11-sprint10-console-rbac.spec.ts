@@ -2,7 +2,17 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Sprint 10 - Console Superadmin Multi-pages, RBAC Matrix Sticky & Horaires Dynamiques', () => {
 
-    test('US 10.1 : Navigation multi-pages Superadmin et métriques système', async ({ page }) => {
+    test('US 10.1 : Navigation multi-pages Superadmin et métriques système', async ({ page, isMobile }) => {
+        const navigateSidebar = async (href: string): Promise<void> => {
+            if (isMobile) {
+                const mobileBtn = page.locator('#mobile-menu-btn');
+                if (await mobileBtn.isVisible()) {
+                    await mobileBtn.click();
+                }
+            }
+            await page.locator(`#sidebar-nav a[href="${href}"]`).click();
+        };
+
         // Authentification Superadmin via hook de test
         await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'superadmin' } });
         await page.goto('/sys-console');
@@ -17,24 +27,25 @@ test.describe('Sprint 10 - Console Superadmin Multi-pages, RBAC Matrix Sticky & 
         const metricDbSize = page.locator('#metric-db-size');
         await expect(metricDbSize).toBeAttached();
 
-        // Navigation vers Branding
-        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-branding"]').click({ force: true });
+        // Navigation vers Branding via la Sidebar gauche unique (Sprint 14 - Point 18)
+        await navigateSidebar('/sys-branding');
         await page.waitForURL('**/sys-branding');
         await expect(page.locator('#branding-form')).toBeVisible();
 
-        // Navigation vers SMTP & Templates
-        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-smtp"]').click({ force: true });
+        // Navigation vers SMTP & Templates via la Sidebar
+        await navigateSidebar('/sys-smtp');
         await page.waitForURL('**/sys-smtp');
         await expect(page.locator('#smtp-settings-form')).toBeVisible();
+        await page.locator('[data-testid="smtp-tab-templates"]').click();
         await expect(page.locator('#select-email-template')).toBeVisible();
 
-        // Navigation vers Modules
-        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-modules"]').click({ force: true });
+        // Navigation vers Modules via la Sidebar
+        await navigateSidebar('/sys-modules');
         await page.waitForURL('**/sys-modules');
         await expect(page.locator('#btn-scan-modules')).toBeVisible();
 
-        // Navigation vers Logs
-        await page.locator('nav[aria-label="Sous-navigation Administration"] a[href="/sys-logs"]').click({ force: true });
+        // Navigation vers Logs via la Sidebar
+        await navigateSidebar('/sys-logs');
         await page.waitForURL('**/sys-logs');
         await expect(page.locator('#sys-logs-tbody')).toBeVisible();
     });
@@ -55,6 +66,9 @@ test.describe('Sprint 10 - Console Superadmin Multi-pages, RBAC Matrix Sticky & 
     test('US 10.3 : Éditeur de modèles d\'emails transactionnels', async ({ page }) => {
         await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'superadmin' } });
         await page.goto('/sys-smtp');
+
+        // Ouverture de l'onglet Modèles d'Emails (Sprint 14 - Point 20)
+        await page.locator('[data-testid="smtp-tab-templates"]').click();
 
         const select = page.locator('#select-email-template');
         await expect(select).toBeVisible();
@@ -78,6 +92,7 @@ test.describe('Sprint 10 - Console Superadmin Multi-pages, RBAC Matrix Sticky & 
 
         // Rechargement pour vérifier la persistance
         await page.reload();
+        await page.locator('[data-testid="smtp-tab-templates"]').click();
         await select.selectOption('otp_invitation');
         await expect(inputSubject).toHaveValue(updatedSubject);
     });

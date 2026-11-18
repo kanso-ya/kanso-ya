@@ -68,6 +68,10 @@ function renderDisciplinesView(disciplines: DisciplineItem[]): void {
         const isSelected = disc.id === activeDisciplineId;
         const tabBtn = document.createElement('button');
         tabBtn.type = 'button';
+        tabBtn.setAttribute('role', 'tab');
+        tabBtn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        tabBtn.setAttribute('data-testid', 'discipline-tab-item');
+        tabBtn.setAttribute('data-discipline-id', String(disc.id));
         tabBtn.className = `px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
             isSelected
                 ? 'brand-primary-bg text-white shadow-xs'
@@ -88,6 +92,8 @@ function renderDisciplinesView(disciplines: DisciplineItem[]): void {
     if (!activeDisc) return;
 
     const card = document.createElement('div');
+    card.setAttribute('role', 'tabpanel');
+    card.setAttribute('data-testid', `discipline-panel-${activeDisc.id}`);
     card.className = 'bg-white p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col justify-between space-y-6';
 
     const allLevels = activeDisc.levels || [];

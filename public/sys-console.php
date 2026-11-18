@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-$pageTitle     = 'Console Système & Sauvegardes';
+$pageTitle     = 'Console Système & Vue d\'Ensemble';
 $activeNav     = 'sys-console';
-$currentSysNav = 'console';
 $requireAuth   = true;
 $requiredPerms = ['system.admin', 'settings.manage'];
 $pageScripts   = ['/assets/ts/sys-console.js'];
@@ -12,182 +11,133 @@ $pageScripts   = ['/assets/ts/sys-console.js'];
 ob_start();
 ?>
 <div class="space-y-6 text-slate-100">
-    <!-- Barre de sous-navigation Superadmin (Point 27) -->
-    <?php require __DIR__ . '/../core/ui/templates/sys-nav.php'; ?>
-
-    <!-- En-tête -->
+    <!-- En-tête Synthétique -->
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <span class="text-xs font-bold uppercase text-emerald-400">Console Technique & Sauvegardes</span>
-            <h1 class="text-2xl font-extrabold text-white mt-1">Supervision Système & Sauvegarde SQLite</h1>
-            <p class="text-xs text-slate-400 mt-1">Supervisez l'état du serveur, déclenchez une sauvegarde à chaud de la base et créez des Superadmins secondaires.</p>
+            <span class="text-xs font-bold uppercase text-emerald-400">Console Technique & Supervision</span>
+            <h1 class="text-2xl font-extrabold text-white mt-1">Vue d'Ensemble du CMS Kanso-ya</h1>
+            <p class="text-xs text-slate-400 mt-1">État du mode démo, santé de la base SQLite WAL, modules actifs et dernières connexions système.</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2.5">
             <button type="button" id="btn-backup-db" data-testid="btn-backup-db" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-2">
                 💾 Sauvegarder la BDD SQLite
             </button>
         </div>
     </div>
 
-    <!-- Métriques Système & Santé -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Comptes Utilisateurs</span>
-            <span id="metric-users-count" class="text-2xl font-black text-white mt-1 block">...</span>
+    <!-- 4 Cartes Synthétiques d'État du CMS (Sprint 14 - Point 19) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" data-testid="sys-overview-cards">
+        <!-- Carte 1 : État du Mode Démo -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-3">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Mode Démo</span>
+                    <span id="sys-demo-mode-badge" data-testid="sys-demo-mode-badge" class="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                        Inactif
+                    </span>
+                </div>
+                <span class="text-xl" aria-hidden="true">🧪</span>
+            </div>
+            <button type="button" id="btn-toggle-demo-mode" data-testid="sys-demo-mode-toggle" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition border border-slate-700">
+                Activer le Mode Démo
+            </button>
         </div>
-        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">Total Adhérents CRM</span>
-            <span id="metric-members-count" class="text-2xl font-black text-emerald-400 mt-1 block">...</span>
+
+        <!-- Carte 2 : Base de Données SQLite (WAL) -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-3">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-400 block">Base de Données (SQLite WAL)</span>
+                    <span id="metric-db-size" class="text-2xl font-black text-blue-400 mt-1 block">...</span>
+                </div>
+                <span class="text-xl" aria-hidden="true">🗄️</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-800 text-[11px]">
+                <div>
+                    <span class="text-slate-500 block">Comptes</span>
+                    <strong id="metric-users-count" class="text-white font-mono">...</strong>
+                </div>
+                <div>
+                    <span class="text-slate-500 block">Adhérents</span>
+                    <strong id="metric-members-count" class="text-emerald-400 font-mono">...</strong>
+                </div>
+                <div>
+                    <span class="text-slate-500 block">Articles</span>
+                    <strong id="metric-articles-count" class="text-purple-400 font-mono">...</strong>
+                </div>
+            </div>
         </div>
-        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-400 block">Taille BDD SQLite (WAL)</span>
-            <span id="metric-db-size" class="text-2xl font-black text-blue-400 mt-1 block">...</span>
+
+        <!-- Carte 3 : Modules Actifs -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-3">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">Modules Actifs</span>
+                    <span id="metric-active-modules" data-testid="metric-active-modules" class="text-2xl font-black text-emerald-400 mt-1 block">...</span>
+                </div>
+                <span class="text-xl" aria-hidden="true">🧩</span>
+            </div>
+            <a href="/sys-modules" class="text-xs font-semibold text-emerald-400 hover:underline inline-flex items-center gap-1 pt-2 border-t border-slate-800">
+                Gérer les extensions SDK →
+            </a>
         </div>
-        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-purple-400 block">Articles Publiés</span>
-            <span id="metric-articles-count" class="text-2xl font-black text-purple-400 mt-1 block">...</span>
+
+        <!-- Carte 4 : Dernières Connexions Système -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-3">
+            <div>
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">Dernières Connexions & Événements</span>
+                    <span class="text-base" aria-hidden="true">🛡️</span>
+                </div>
+                <ul id="sys-recent-logins" data-testid="sys-recent-logins" class="mt-2 space-y-1.5 text-[11px] text-slate-300">
+                    <li class="text-slate-500 italic">Chargement des événements...</li>
+                </ul>
+            </div>
+            <a href="/sys-logs" class="text-xs font-semibold text-amber-400 hover:underline inline-flex items-center gap-1 pt-2 border-t border-slate-800">
+                Voir tout le journal d'audit →
+            </a>
         </div>
     </div>
 
-    <!-- =====================================================================
-         1. IDENTITÉ VISUELLE : NOM DU SITE, LOGO & FILIGRANE DE FOND
-         ===================================================================== -->
-    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h2 class="text-lg font-bold text-white">1. Identité du Site, Logo & Filigrane de Fond</h2>
-            <a href="/sys-branding" class="text-xs font-semibold text-emerald-400 hover:underline">Page dédiée →</a>
-        </div>
-
-        <form id="branding-form" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Raccourcis rapides vers les sous-pages dédiées -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <a href="/sys-branding" class="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 transition flex items-center justify-between gap-3">
             <div>
-                <label for="sys-site-name" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Nom officiel du site (Centré en haut) *</label>
-                <input type="text" id="sys-site-name" name="site_name" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white">
+                <span class="text-xs font-bold text-white block">🎨 Identité & Thème</span>
+                <span class="text-[11px] text-slate-400">Logo, filigrane & palette</span>
             </div>
-
+            <span class="text-slate-500">→</span>
+        </a>
+        <a href="/sys-smtp" class="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 transition flex items-center justify-between gap-3">
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Logo du site (À cheval Header/Sidebar)</label>
-                <div class="flex items-center gap-2">
-                    <input type="text" id="sys-logo-url" name="site_logo_url" placeholder="/uploads/branding/logo.png ou URL" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-                    <label class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold cursor-pointer shrink-0">
-                        📁 Uploader
-                        <input type="file" id="upload-logo-input" accept="image/*" class="hidden">
-                    </label>
-                </div>
+                <span class="text-xs font-bold text-white block">✉️ Serveur SMTP</span>
+                <span class="text-[11px] text-slate-400">Config, modèles & historique</span>
             </div>
-
+            <span class="text-slate-500">→</span>
+        </a>
+        <a href="/sys-modules" class="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 transition flex items-center justify-between gap-3">
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Filigrane de fond du site (Watermark)</label>
-                <div class="flex items-center gap-2">
-                    <input type="text" id="sys-watermark-url" name="site_watermark_url" placeholder="/uploads/branding/watermark.png" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-                    <label class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold cursor-pointer shrink-0">
-                        📁 Uploader
-                        <input type="file" id="upload-watermark-input" accept="image/*" class="hidden">
-                    </label>
-                </div>
-                <div class="mt-2 flex items-center gap-2 text-xs text-slate-400">
-                    <span>Opacité :</span>
-                    <input type="range" id="sys-watermark-opacity" name="site_watermark_opacity" min="0.02" max="0.25" step="0.01" value="0.05" class="w-32">
-                </div>
+                <span class="text-xs font-bold text-white block">🧩 Modules & SDK</span>
+                <span class="text-[11px] text-slate-400">Scan, Safe Mode & cycle de vie</span>
             </div>
-
-            <!-- Palette de Couleurs -->
-            <div class="md:col-span-3 pt-4 border-t border-slate-800 space-y-4">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <h3 class="text-sm font-bold text-white">Palette de Couleurs du Site (Réglage Multi-Zones)</h3>
-                    <div class="flex flex-wrap gap-2 text-xs">
-                        <span class="text-slate-400 self-center mr-1">Préréglages :</span>
-                        <button type="button" data-preset='{"primary":"#059669","sidebar":"#0f172a","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-emerald-900/60 text-emerald-300 border border-emerald-700 font-semibold">Émeraude Dojo</button>
-                        <button type="button" data-preset='{"primary":"#dc2626","sidebar":"#18181b","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-red-900/60 text-red-300 border border-red-700 font-semibold">Rouge Shogun</button>
-                        <button type="button" data-preset='{"primary":"#2563eb","sidebar":"#0f172a","header":"#ffffff"}' class="preset-palette-btn px-3 py-1 rounded-lg bg-blue-900/60 text-blue-300 border border-blue-700 font-semibold">Bleu Océan</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                        <div>
-                            <span class="text-xs font-bold text-white block">Zone 1 : Boutons & Accents</span>
-                            <span class="text-[11px] text-slate-400">Couleur d'action principale</span>
-                        </div>
-                        <input type="color" id="sys-color-primary" name="theme_primary_color" value="#059669" class="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0">
-                    </div>
-                    <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                        <div>
-                            <span class="text-xs font-bold text-white block">Zone 2 : Barre latérale (Sidebar)</span>
-                            <span class="text-[11px] text-slate-400">Arrière-plan du menu gauche</span>
-                        </div>
-                        <input type="color" id="sys-color-sidebar" name="theme_sidebar_color" value="#0f172a" class="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0">
-                    </div>
-                    <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                        <div>
-                            <span class="text-xs font-bold text-white block">Zone 3 : Bandeau haut (Header)</span>
-                            <span class="text-[11px] text-slate-400">Fond de la barre supérieure</span>
-                        </div>
-                        <input type="color" id="sys-color-header" name="theme_header_color" value="#ffffff" class="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0">
-                    </div>
-                </div>
+            <span class="text-slate-500">→</span>
+        </a>
+        <a href="/sys-logs" class="p-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 transition flex items-center justify-between gap-3">
+            <div>
+                <span class="text-xs font-bold text-white block">📜 Journaux d'audit</span>
+                <span class="text-[11px] text-slate-400">Sécurité & traçabilité club</span>
             </div>
-
-            <div class="md:col-span-3 flex justify-end">
-                <button type="submit" id="btn-save-branding" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
-                    Enregistrer l'identité visuelle & les couleurs
-                </button>
-            </div>
-        </form>
-    </section>
+            <span class="text-slate-500">→</span>
+        </a>
+    </div>
 
     <!-- =====================================================================
-         2. SERVEUR SMTP
-         ===================================================================== -->
-    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h2 class="text-lg font-bold text-white">2. Serveur d'Envoi d'Emails (Configuration SMTP)</h2>
-            <a href="/sys-smtp" class="text-xs font-semibold text-emerald-400 hover:underline">Page dédiée →</a>
-        </div>
-
-        <form id="smtp-settings-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Hôte SMTP *</label>
-                <input type="text" id="smtp-host" name="smtp_host" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Port SMTP *</label>
-                <input type="number" id="smtp-port" name="smtp_port" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Protocole de chiffrement</label>
-                <select id="smtp-encryption" name="smtp_encryption" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
-                    <option value="tls">TLS (Standard)</option>
-                    <option value="ssl">SSL</option>
-                    <option value="none">Aucun (Développement local)</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Identifiant / Compte SMTP *</label>
-                <input type="text" id="smtp-username" name="smtp_username" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Email Expéditeur (From) *</label>
-                <input type="email" id="smtp-from-email" name="smtp_from_email" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Nom affiché de l'expéditeur *</label>
-                <input type="text" id="smtp-from-name" name="smtp_from_name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
-            </div>
-            <div class="md:col-span-3 flex justify-end">
-                <button type="submit" id="btn-save-smtp" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
-                    Sauvegarder la configuration SMTP
-                </button>
-            </div>
-        </form>
-    </section>
-
-    <!-- =====================================================================
-         3. CHANGEMENT DE SAISON / ROLLOVER (US 5.1)
+         1. CHANGEMENT DE SAISON / ROLLOVER (US 5.1)
          ===================================================================== -->
     <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h2 class="text-lg font-bold text-white">3. Bascule Annuelle de Changement de Saison (Rollover)</h2>
+                <h2 class="text-lg font-bold text-white">1. Bascule Annuelle de Changement de Saison (Rollover)</h2>
                 <p class="text-xs text-slate-400">Recalcule automatiquement les catégories d'âge (U10, U14, etc.) et clôture les inscriptions.</p>
             </div>
             <button id="btn-open-sys-rollover-modal" type="button" class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-2 self-start sm:self-auto">
@@ -224,12 +174,12 @@ ob_start();
     </div>
 
     <!-- =====================================================================
-         4. MOTEUR DE MODULES & EXTENSIONS SDK (Lot 3)
+         2. MOTEUR DE MODULES & EXTENSIONS SDK (Lot 3)
          ===================================================================== -->
     <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h2 class="text-lg font-bold text-white">4. Moteur de Modules & Extensions SDK</h2>
+                <h2 class="text-lg font-bold text-white">2. État des Modules & Extensions SDK</h2>
                 <p class="text-xs text-slate-400">Détection automatique dans <code>/modules/</code>, cycle de vie complet et Safe Mode.</p>
             </div>
             <div class="flex items-center gap-2">

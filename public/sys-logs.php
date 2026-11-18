@@ -3,8 +3,7 @@
 declare(strict_types=1);
 
 $pageTitle     = 'Journaux d\'activité & Sécurité';
-$activeNav     = 'sys-console';
-$currentSysNav = 'logs';
+$activeNav     = 'sys-logs';
 $requireAuth   = true;
 $requiredPerms = ['system.admin', 'logs.view'];
 $pageScripts   = ['/assets/ts/sys-console.js'];
@@ -12,8 +11,6 @@ $pageScripts   = ['/assets/ts/sys-console.js'];
 ob_start();
 ?>
 <div class="space-y-6 text-slate-100">
-    <?php require __DIR__ . '/../core/ui/templates/sys-nav.php'; ?>
-
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <span class="text-xs font-bold uppercase text-brand-accent">Traçabilité & Suivi</span>

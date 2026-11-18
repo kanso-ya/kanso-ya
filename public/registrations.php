@@ -32,15 +32,15 @@ ob_start();
 
     <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-sm">
-                <thead class="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
+            <table id="registrations-table" data-testid="registrations-table" class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-50 text-slate-600 text-[11px] uppercase border-b border-slate-200">
                     <tr>
-                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="id">Dossier <span class="sort-icon ml-1 opacity-50">⇅</span></th>
-                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="payer">Payeur / Tuteur <span class="sort-icon ml-1 opacity-50">⇅</span></th>
-                        <th class="p-4">Pratiquants inscrits</th>
-                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="amount">Montant & Règlement <span class="sort-icon ml-1 opacity-50">⇅</span></th>
-                        <th class="p-4 cursor-pointer select-none hover:text-slate-900 transition" data-sort="status">Statut <span class="sort-icon ml-1 opacity-50">⇅</span></th>
-                        <th class="p-4 text-right">Inspection, Documents & Validation</th>
+                        <th class="p-2.5 cursor-pointer select-none hover:text-slate-900 transition whitespace-nowrap" data-sort="id">Dossier <span class="sort-icon ml-0.5 opacity-50">⇅</span></th>
+                        <th class="p-2.5 cursor-pointer select-none hover:text-slate-900 transition" data-sort="payer">Payeur / Tuteur <span class="sort-icon ml-0.5 opacity-50">⇅</span></th>
+                        <th class="p-2.5">Pratiquants</th>
+                        <th class="p-2.5 cursor-pointer select-none hover:text-slate-900 transition whitespace-nowrap" data-sort="amount">Montant <span class="sort-icon ml-0.5 opacity-50">⇅</span></th>
+                        <th class="p-2.5 cursor-pointer select-none hover:text-slate-900 transition whitespace-nowrap" data-sort="status">Statut <span class="sort-icon ml-0.5 opacity-50">⇅</span></th>
+                        <th class="p-2.5 text-right w-[112px]">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="registrations-tbody" class="divide-y divide-slate-100"></tbody>

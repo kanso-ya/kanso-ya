@@ -344,21 +344,23 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
 
         await page.goto('/stats.php');
 
-        // Cartes KPIs globales visibles
+        // Cartes KPIs globales visibles sur l'onglet Vue Générale par défaut
         await expect(page.locator('#kpi-total-members')).toBeVisible();
         await expect(page.locator('#kpi-active-members')).toBeVisible();
         await expect(page.locator('#kpi-renewal-rate')).toBeVisible();
         await expect(page.locator('#kpi-minors-adults')).toBeVisible();
         await expect(page.locator('#kpi-gender-ratio')).toBeVisible();
 
-        // Section financière Bureau visible
+        // Section financière Bureau visible après clic sur l'onglet Finances
+        await page.locator('[data-testid="stats-tab-finances"]').click();
         await expect(page.locator('#financial-stats-section')).toBeVisible();
         await expect(page.locator('#kpi-total-revenue')).toBeVisible();
         await expect(page.locator('#kpi-pending-revenue')).toBeVisible();
 
-        // Liste d'occupation par discipline visible (Judo, Karaté, Aïkido...)
+        // Liste d'occupation par discipline visible après clic sur l'onglet Démographie & Occupation
+        await page.locator('[data-testid="stats-tab-occupancy"]').click();
         await expect(page.locator('#discipline-occupancy-list')).toBeVisible();
-        const discCount = await page.locator('#discipline-occupancy-list > div').count();
-        expect(discCount).toBeGreaterThanOrEqual(2);
+        const discTabsCount = await page.locator('#stats-discipline-tabs [data-testid="discipline-tab-item"]').count();
+        expect(discTabsCount).toBeGreaterThanOrEqual(2);
     });
 });

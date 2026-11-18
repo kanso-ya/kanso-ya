@@ -12,7 +12,6 @@ $activeNav       = 'members';
 $requireAuth     = true;
 $requiredPerms   = ['members.view', 'profile.view'];
 $pageScripts     = ['/assets/ts/members.js'];
-$contentMaxWidth = 'max-w-[1600px]';
 
 ob_start();
 ?>
@@ -110,29 +109,29 @@ ob_start();
         <div id="discipline-tabs-container" class="flex items-center gap-2 overflow-x-auto pb-1 text-xs <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>"></div>
 
         <div class="overflow-x-auto rounded-xl border border-slate-200 max-h-[68vh]">
-            <table id="members-table" class="w-full text-left border-collapse">
-                <thead class="sticky top-0 bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200 z-10">
+            <table id="members-table" data-testid="members-table" class="w-full text-left border-collapse">
+                <thead class="sticky top-0 bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wider border-b border-slate-200 z-10">
                     <tr>
-                        <th class="p-3.5 w-10 text-center <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>">
+                        <th class="p-2.5 w-9 text-center <?= $currentRole === 'Adhérent' ? 'hidden' : '' ?>">
                             <input type="checkbox" id="select-all-members" class="rounded text-emerald-600 focus:ring-emerald-500">
                         </th>
-                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="name">
+                        <th class="p-2.5 cursor-pointer hover:text-slate-900 select-none" data-sort="name">
                             Adhérent <span class="sort-icon text-[10px] text-slate-400">↕</span>
                         </th>
-                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="birth_date">
-                            Naissance & Âge <span class="sort-icon text-[10px] text-slate-400">↕</span>
+                        <th class="p-2.5 cursor-pointer hover:text-slate-900 select-none" data-sort="birth_date">
+                            Âge <span class="sort-icon text-[10px] text-slate-400">↕</span>
                         </th>
-                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="discipline">
-                            Disciplines, Cours (Grade) & Niveau <span class="sort-icon text-[10px] text-slate-400">↕</span>
+                        <th class="p-2.5 cursor-pointer hover:text-slate-900 select-none" data-sort="discipline">
+                            Disciplines & Cours <span class="sort-icon text-[10px] text-slate-400">↕</span>
                         </th>
-                        <th class="p-3.5">Contact d'Urgence</th>
-                        <th class="p-3.5 cursor-pointer hover:text-slate-900 select-none" data-sort="status">
+                        <th class="p-2.5">Urgence</th>
+                        <th class="p-2.5 cursor-pointer hover:text-slate-900 select-none" data-sort="status">
                             Statut & Santé <span class="sort-icon text-[10px] text-slate-400">↕</span>
                         </th>
-                        <th class="p-3.5 text-right">Actions</th>
+                        <th class="p-2.5 text-right w-[112px]">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 text-sm"></tbody>
+                <tbody class="divide-y divide-slate-100 text-xs"></tbody>
             </table>
         </div>
     </div>

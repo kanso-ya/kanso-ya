@@ -5,9 +5,75 @@
  */
 import { fetchApi } from './api.js';
 document.addEventListener('DOMContentLoaded', () => {
+    initStatsTabs();
+    initStatsDisciplineTabs();
     loadKpiStats();
     loadDemographicsStats();
 });
+function initStatsTabs() {
+    const tabButtons = Array.from(document.querySelectorAll('.stats-tab-btn'));
+    const panels = Array.from(document.querySelectorAll('.stats-tab-panel'));
+    if (tabButtons.length === 0 || panels.length === 0)
+        return;
+    const activateTab = (targetId) => {
+        tabButtons.forEach((btn) => {
+            const isSelected = btn.getAttribute('data-tab-target') === targetId;
+            btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            btn.className = `stats-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 ${isSelected
+                ? 'bg-brand-primary text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`;
+        });
+        panels.forEach((panel) => {
+            const match = panel.getAttribute('data-tab-panel') === targetId;
+            panel.classList.toggle('hidden', !match);
+        });
+    };
+    tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-tab-target');
+            if (targetId) {
+                activateTab(targetId);
+            }
+        });
+    });
+    // Garantit qu'un seul panneau est visible à l'initialisation
+    const initialBtn = tabButtons.find((b) => b.getAttribute('aria-selected') === 'true') || tabButtons[0];
+    const initialTarget = initialBtn?.getAttribute('data-tab-target');
+    if (initialTarget) {
+        activateTab(initialTarget);
+    }
+}
+function initStatsDisciplineTabs() {
+    const discButtons = Array.from(document.querySelectorAll('.stats-disc-tab-btn'));
+    const discCards = Array.from(document.querySelectorAll('.stats-disc-card'));
+    if (discButtons.length === 0 || discCards.length === 0)
+        return;
+    const activateDiscipline = (discId) => {
+        discButtons.forEach((btn) => {
+            const isSelected = btn.getAttribute('data-discipline-id') === discId;
+            btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            btn.className = `stats-disc-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${isSelected
+                ? 'bg-brand-primary text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`;
+            const badge = btn.querySelector('span:last-child');
+            if (badge) {
+                badge.className = `px-2 py-0.5 rounded-full text-[10px] font-mono ${isSelected ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-600'}`;
+            }
+        });
+        discCards.forEach((card) => {
+            const match = card.getAttribute('data-discipline-id') === discId;
+            card.classList.toggle('hidden', !match);
+        });
+    };
+    discButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const discId = btn.getAttribute('data-discipline-id');
+            if (discId) {
+                activateDiscipline(discId);
+            }
+        });
+    });
+}
 async function loadKpiStats() {
     try {
         const res = await fetchApi('/api/v1/stats/kpis');

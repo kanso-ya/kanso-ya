@@ -3,8 +3,7 @@
 declare(strict_types=1);
 
 $pageTitle     = 'Moteur de Modules & Extensions SDK';
-$activeNav     = 'sys-console';
-$currentSysNav = 'modules';
+$activeNav     = 'sys-modules';
 $requireAuth   = true;
 $requiredPerms = ['system.admin', 'settings.manage'];
 $pageScripts   = ['/assets/ts/sys-console.js'];
@@ -12,8 +11,6 @@ $pageScripts   = ['/assets/ts/sys-console.js'];
 ob_start();
 ?>
 <div class="space-y-6 text-slate-100">
-    <?php require __DIR__ . '/../core/ui/templates/sys-nav.php'; ?>
-
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <span class="text-xs font-bold uppercase text-emerald-400">Écosystème & Extensibilité</span>

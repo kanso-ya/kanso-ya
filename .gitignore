@@ -6,6 +6,7 @@
 .env
 /docs/sources-v2/
 AGENTS.md
+/uploads/
 
 # Données persistantes et Fichiers Sensibles[cite: 5]
 /storage/db/*.sqlite

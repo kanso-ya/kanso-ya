@@ -260,7 +260,8 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
             await page.goto('/stats.php');
             await expect(page.locator('text=Périmètre Pédagogique Enseignant (Anonymisé RGPD)')).toBeVisible();
 
-            // L'entraîneur voit ses disciplines (Judo et Karaté), pas l'Aïkido
+            // L'entraîneur voit ses disciplines (Judo et Karaté) dans l'onglet Démographie & Occupation, pas l'Aïkido
+            await page.locator('[data-testid="stats-tab-occupancy"]').click();
             await expect(page.locator('h3', { hasText: 'Judo' }).first()).toBeVisible();
             await expect(page.locator('text=Aïkido & Self-Défense')).toHaveCount(0);
 

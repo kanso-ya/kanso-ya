@@ -257,10 +257,10 @@ $primaryHoverColor = $darkenHex($primaryColor, 14);
         </div>
     </header>
 
-    <div id="sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-20 hidden lg:hidden"></div>
-
     <!-- 2. CONTENEUR SOUS HEADER : SIDEBAR FIXE + MAIN WORKSPACE SCROLLABLE -->
     <div class="flex flex-1 overflow-hidden relative z-10">
+
+        <div id="sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-10 hidden lg:hidden"></div>
 
         <aside id="sidebar" class="w-64 brand-sidebar-bg text-slate-300 flex-shrink-0 fixed lg:static inset-y-0 left-0 top-16 lg:top-0 z-20 h-[calc(100vh-4rem)] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col justify-between border-r border-slate-800">
 

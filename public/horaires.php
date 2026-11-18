@@ -88,10 +88,32 @@ ob_start();
         </div>
     <?php endif; ?>
 
-    <!-- Grille des Disciplines & Horaires -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="schedules-grid">
-        <?php foreach ($disciplines as $disc): ?>
-            <div class="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 space-y-4 hover:shadow-md transition">
+    <!-- Barre d'Onglets par Discipline (1 seule discipline visible à la fois - Point 12) -->
+    <?php if (!empty($disciplines)): ?>
+        <div id="horaires-discipline-tabs" data-testid="discipline-tabs" role="tablist" aria-label="Disciplines" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200">
+            <?php foreach ($disciplines as $idx => $disc): ?>
+                <button type="button"
+                        role="tab"
+                        aria-selected="<?= $idx === 0 ? 'true' : 'false' ?>"
+                        data-testid="discipline-tab-item"
+                        data-discipline-id="<?= (int) $disc['id'] ?>"
+                        class="horaires-disc-tab-btn px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 <?= $idx === 0 ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50' ?>">
+                    <span>🥋 <?= htmlspecialchars((string) $disc['name']) ?></span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono <?= $idx === 0 ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-600' ?>">
+                        <?= number_format((float) $disc['price'], 0, ',', ' ') ?> €
+                    </span>
+                </button>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- Affichage de la Discipline sélectionnée -->
+    <div class="space-y-6" id="schedules-grid">
+        <?php foreach ($disciplines as $idx => $disc): ?>
+            <div class="horaires-disc-card bg-white rounded-2xl shadow-xs border border-slate-200 p-6 space-y-4 hover:shadow-md transition <?= $idx > 0 ? 'hidden' : '' ?>"
+                 role="tabpanel"
+                 data-discipline-id="<?= (int) $disc['id'] ?>"
+                 data-testid="discipline-panel-<?= (int) $disc['id'] ?>">
                 <div class="flex items-start justify-between border-b border-slate-100 pb-3">
                     <div>
                         <span class="text-xs font-bold uppercase text-emerald-600">🥋 Discipline</span>
@@ -144,6 +166,36 @@ ob_start();
             </div>
         <?php endforeach; ?>
     </div>
+
+    <script>
+        (function () {
+            const buttons = Array.from(document.querySelectorAll('.horaires-disc-tab-btn'));
+            const cards = Array.from(document.querySelectorAll('.horaires-disc-card'));
+            if (!buttons.length || !cards.length) return;
+
+            buttons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const targetId = btn.getAttribute('data-discipline-id');
+                    buttons.forEach((b) => {
+                        const isSel = b.getAttribute('data-discipline-id') === targetId;
+                        b.setAttribute('aria-selected', isSel ? 'true' : 'false');
+                        b.className = 'horaires-disc-tab-btn px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ' + (
+                            isSel ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        );
+                        const badge = b.querySelector('span:last-child');
+                        if (badge) {
+                            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono ' + (
+                                isSel ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-600'
+                            );
+                        }
+                    });
+                    cards.forEach((c) => {
+                        c.classList.toggle('hidden', c.getAttribute('data-discipline-id') !== targetId);
+                    });
+                });
+            });
+        })();
+    </script>
 </div>
 <?php
 $pageContent = ob_get_clean();
