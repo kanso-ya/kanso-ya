@@ -22,13 +22,28 @@ function navigateWizardToStep(step) {
 }
 document.addEventListener('DOMContentLoaded', async () => {
     initPublicRegistrationWizard();
-    checkAndRestoreDraft();
     await loadDisciplinesCatalog();
+    checkAndRestoreDraft();
     checkConnectedUserForReEnrollment();
     window.addEventListener('kanso:auth-ready', () => {
         checkConnectedUserForReEnrollment();
     });
 });
+function getUrlDisciplineId() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get('discipline');
+        if (!raw)
+            return null;
+        const parsed = parseInt(raw, 10);
+        if (Number.isNaN(parsed) || parsed <= 0)
+            return null;
+        return parsed;
+    }
+    catch {
+        return null;
+    }
+}
 export function calculateAgeFromInput(birthDateStr) {
     if (!birthDateStr)
         return 25;
@@ -43,21 +58,27 @@ export function calculateAgeFromInput(birthDateStr) {
 }
 /**
  * Charge le référentiel des disciplines, grades d'âge et niveaux techniques depuis l'API.
+ * N'impose aucune discipline par défaut sauf si ?discipline=ID est présent dans l'URL.
  */
 async function loadDisciplinesCatalog() {
     const res = await fetchApi('/api/v1/disciplines');
     if (res.status === 'success' && Array.isArray(res.data)) {
         disciplinesCatalog = res.data;
     }
+    const urlDiscId = getUrlDisciplineId();
+    const matchedUrlDisc = urlDiscId && disciplinesCatalog.some((d) => Number(d.id) === urlDiscId)
+        ? urlDiscId
+        : null;
     const container = document.getElementById('reg-practices-container');
     if (container && container.children.length === 0) {
-        appendPracticeSelectorRow();
+        appendPracticeSelectorRow(matchedUrlDisc);
     }
 }
 /**
  * Ajoute une ligne permettant de choisir : Discipline + Grade (pré-rempli selon l'âge) + Niveau technique.
+ * Sans initialDiscId, affiche un choix neutre "Sélectionnez une discipline...".
  */
-function appendPracticeSelectorRow(initialDiscId = 1, initialGradeId, initialLevelId) {
+function appendPracticeSelectorRow(initialDiscId = null, initialGradeId, initialLevelId) {
     const container = document.getElementById('reg-practices-container');
     if (!container)
         return;
@@ -65,9 +86,10 @@ function appendPracticeSelectorRow(initialDiscId = 1, initialGradeId, initialLev
     const currentAge = birthInput?.value ? calculateAgeFromInput(birthInput.value) : 25;
     const row = document.createElement('div');
     row.className = 'practice-selector-row p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 md:grid-cols-12 gap-3 items-end';
+    const placeholderOpt = `<option value="" ${!initialDiscId ? 'selected' : ''}>Sélectionnez une discipline...</option>`;
     const discOptions = disciplinesCatalog.length > 0
-        ? disciplinesCatalog.map((d) => `<option value="${d.id}" ${d.id === initialDiscId ? 'selected' : ''}>${d.name}</option>`).join('')
-        : `<option value="1">Judo</option><option value="2">Karaté</option><option value="3">Aïkido</option>`;
+        ? placeholderOpt + disciplinesCatalog.map((d) => `<option value="${d.id}" ${initialDiscId && Number(d.id) === Number(initialDiscId) ? 'selected' : ''}>${d.name}</option>`).join('')
+        : `${placeholderOpt}<option value="1" ${initialDiscId === 1 ? 'selected' : ''}>Judo</option><option value="2" ${initialDiscId === 2 ? 'selected' : ''}>Karaté</option><option value="3" ${initialDiscId === 3 ? 'selected' : ''}>Aïkido</option>`;
     row.innerHTML = `
         <div class="md:col-span-4">
             <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Discipline *</label>
@@ -91,6 +113,11 @@ function appendPracticeSelectorRow(initialDiscId = 1, initialGradeId, initialLev
     const gradeSelect = row.querySelector('.prac-grade');
     const levelSelect = row.querySelector('.prac-level');
     const populateGradesAndLevels = (discId, ageForAutoGrade, forceGradeId, forceLevelId) => {
+        if (!discId || Number.isNaN(discId)) {
+            gradeSelect.innerHTML = `<option value="">Choisissez d'abord une discipline...</option>`;
+            levelSelect.innerHTML = `<option value="">Choisissez d'abord une discipline...</option>`;
+            return;
+        }
         const disc = disciplinesCatalog.find((d) => Number(d.id) === Number(discId));
         const allLevels = disc?.levels || [];
         const grades = allLevels.filter((l) => (l.level_type || 'grade') === 'grade');
@@ -136,14 +163,15 @@ function appendPracticeSelectorRow(initialDiscId = 1, initialGradeId, initialLev
         // Synchronise le champ caché #reg-discipline avec la 1ère discipline choisie
         const firstDiscSelect = document.querySelector('.prac-discipline');
         const hiddenDisc = document.getElementById('reg-discipline');
-        if (firstDiscSelect && hiddenDisc) {
+        if (firstDiscSelect && hiddenDisc && firstDiscSelect.value) {
             hiddenDisc.value = firstDiscSelect.value;
         }
     };
     populateGradesAndLevels(initialDiscId, currentAge, initialGradeId, initialLevelId);
     discSelect.addEventListener('change', () => {
         const ageNow = birthInput?.value ? calculateAgeFromInput(birthInput.value) : 25;
-        populateGradesAndLevels(parseInt(discSelect.value, 10), ageNow);
+        const parsedId = discSelect.value ? parseInt(discSelect.value, 10) : null;
+        populateGradesAndLevels(parsedId, ageNow);
     });
     row.querySelector('.btn-remove-practice')?.addEventListener('click', () => {
         if (container.querySelectorAll('.practice-selector-row').length > 1) {
@@ -163,7 +191,7 @@ function autoSelectGradesForBirthDate(age) {
     document.querySelectorAll('.practice-selector-row').forEach((row) => {
         const discSelect = row.querySelector('.prac-discipline');
         const gradeSelect = row.querySelector('.prac-grade');
-        if (!discSelect || !gradeSelect)
+        if (!discSelect || !gradeSelect || !discSelect.value)
             return;
         const disc = disciplinesCatalog.find((d) => Number(d.id) === parseInt(discSelect.value, 10));
         const grades = (disc?.levels || []).filter((l) => (l.level_type || 'grade') === 'grade');
@@ -207,14 +235,50 @@ async function checkConnectedUserForReEnrollment() {
         const emInput = document.getElementById('reg-email');
         const emergName = document.getElementById('reg-emerg-name');
         const emergPhone = document.getElementById('reg-emerg-phone');
+        const emergRel = document.getElementById('reg-emerg-relation');
+        const emergSec = document.getElementById('reg-emerg-phone-secondary');
+        const prefillBanner = document.getElementById('reg-reenroll-prefilled-banner');
+        const prefillText = document.getElementById('reg-reenroll-prefilled-text');
+        const practicesContainer = document.getElementById('reg-practices-container');
+        const populatePracticesForReEnroll = (practicesList) => {
+            if (!practicesContainer)
+                return;
+            practicesContainer.innerHTML = '';
+            if (Array.isArray(practicesList) && practicesList.length > 0) {
+                practicesList.forEach((p) => {
+                    appendPracticeSelectorRow(p.discipline_id ? Number(p.discipline_id) : null, p.grade_id ? Number(p.grade_id) : null, p.level_id ? Number(p.level_id) : null);
+                });
+            }
+            else {
+                appendPracticeSelectorRow(null);
+            }
+        };
         if (val === 'self') {
-            fnInput.value = res.data.first_name || '';
-            lnInput.value = res.data.last_name || '';
-            bdInput.value = '1988-05-15';
-            emInput.value = res.data.email || '';
+            const selfM = res.data.self_member || null;
+            fnInput.value = selfM?.first_name || res.data.first_name || '';
+            lnInput.value = selfM?.last_name || res.data.last_name || '';
+            bdInput.value = selfM?.birth_date || '1988-05-15';
+            emInput.value = selfM?.email || res.data.email || '';
+            if (selfM?.emergency_contact_name)
+                emergName.value = selfM.emergency_contact_name;
+            if (selfM?.emergency_contact_phone)
+                emergPhone.value = selfM.emergency_contact_phone;
+            if (emergRel && selfM?.emergency_contact_relation)
+                emergRel.value = selfM.emergency_contact_relation;
+            if (emergSec && selfM?.emergency_contact_secondary_phone)
+                emergSec.value = selfM.emergency_contact_secondary_phone;
             bdInput.dispatchEvent(new Event('change'));
+            if (selfM?.practices && selfM.practices.length > 0) {
+                populatePracticesForReEnroll(selfM.practices);
+            }
+            if (prefillBanner) {
+                prefillBanner.classList.remove('hidden');
+                if (prefillText) {
+                    prefillText.textContent = `Vos informations personnelles et sportives (${fnInput.value} ${lnInput.value}) ont été pré-remplies.`;
+                }
+            }
             saveDraftToStorage();
-            showToast('Vos informations ont été pré-remplies.', 'info');
+            showToast('Vos informations de réinscription ont été pré-remplies.', 'info');
         }
         else if (val !== '') {
             const m = linked[parseInt(val, 10)];
@@ -222,16 +286,63 @@ async function checkConnectedUserForReEnrollment() {
                 fnInput.value = m.first_name || '';
                 lnInput.value = m.last_name || '';
                 bdInput.value = m.birth_date || '';
+                if (m.email)
+                    emInput.value = m.email;
+                // Contact d'urgence complet
                 emergName.value = m.emergency_contact_name || `${res.data.first_name || ''} ${res.data.last_name || ''}`.trim();
                 emergPhone.value = m.emergency_contact_phone || res.data.phone || '';
-                document.getElementById('tutor1-first-name').value = res.data.first_name || '';
-                document.getElementById('tutor1-last-name').value = res.data.last_name || '';
-                document.getElementById('tutor1-email').value = res.data.email || '';
-                document.getElementById('tutor1-phone').value = res.data.phone || '';
-                document.getElementById('tutor1-address').value = res.data.address || '';
+                if (emergRel)
+                    emergRel.value = m.emergency_contact_relation || '';
+                if (emergSec)
+                    emergSec.value = m.emergency_contact_secondary_phone || '';
+                // Tuteurs légaux complets (Tuteur 1 + Co-tuteur 2 si présent/partagé)
+                const tutors = Array.isArray(m.tutors) ? m.tutors : [];
+                const t1 = tutors[0] || res.data;
+                const setVal = (id, v) => {
+                    const el = document.getElementById(id);
+                    if (el)
+                        el.value = v;
+                };
+                setVal('tutor1-first-name', t1.first_name || res.data.first_name || '');
+                setVal('tutor1-last-name', t1.last_name || res.data.last_name || '');
+                setVal('tutor1-email', t1.email || res.data.email || '');
+                setVal('tutor1-phone', t1.phone || res.data.phone || '');
+                setVal('tutor1-address', t1.address || res.data.address || '');
+                if (t1.relationship) {
+                    const relSel = document.getElementById('tutor1-relation');
+                    if (relSel) {
+                        const relLower = String(t1.relationship).toLowerCase();
+                        if (relLower.includes('père') || relLower.includes('pere'))
+                            relSel.value = 'Père';
+                        else if (relLower.includes('mère') || relLower.includes('mere'))
+                            relSel.value = 'Mère';
+                        else
+                            relSel.value = 'Tuteur légal';
+                    }
+                }
+                const t2 = tutors[1] || null;
+                if (t2) {
+                    const t2FullName = `${t2.first_name || ''} ${t2.last_name || ''}`.trim();
+                    setVal('tutor2-name', t2FullName);
+                    setVal('tutor2-email', t2.email || '');
+                    setVal('tutor2-phone', t2.phone || '');
+                }
+                else {
+                    setVal('tutor2-name', '');
+                    setVal('tutor2-email', '');
+                    setVal('tutor2-phone', '');
+                }
+                // Déclenche d'abord la détection mineur/majeur, puis restaure exactement les disciplines/grades/ceintures
                 bdInput.dispatchEvent(new Event('change'));
+                populatePracticesForReEnroll(m.practices || []);
+                if (prefillBanner) {
+                    prefillBanner.classList.remove('hidden');
+                    if (prefillText) {
+                        prefillText.textContent = `Fiche de ${m.first_name} ${m.last_name} pré-remplie (identité, disciplines, grade, niveau technique, contact d'urgence et responsables légaux).`;
+                    }
+                }
                 saveDraftToStorage();
-                showToast(`Fiche de ${m.first_name} pré-remplie (Grade ajusté selon son âge) !`, 'success');
+                showToast(`Fiche complète de ${m.first_name} pré-remplie pour la réinscription !`, 'success');
             }
         }
     });
@@ -250,7 +361,7 @@ function initPublicRegistrationWizard() {
     if (!form || !birthInput || !tutorSection)
         return;
     addPracticeBtn?.addEventListener('click', () => {
-        appendPracticeSelectorRow(2);
+        appendPracticeSelectorRow(null);
     });
     const updateBreadcrumbLayout = (requiresTutors) => {
         if (!breadcrumb || !breadcrumbTutors)
@@ -365,6 +476,11 @@ function initPublicRegistrationWizard() {
         }
         if (age >= 18 && em !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
             showToast('Veuillez saisir une adresse e-mail valide.', 'error');
+            return;
+        }
+        const selectedDisciplines = Array.from(document.querySelectorAll('.prac-discipline')).filter((sel) => sel.value.trim() !== '');
+        if (selectedDisciplines.length === 0) {
+            showToast('Veuillez sélectionner au moins une discipline avant de continuer.', 'error');
             return;
         }
         isMinorFlow = age < 18 || familyCart.some((m) => calculateAgeFromInput(m.birth_date) < 18);
@@ -601,10 +717,10 @@ function readCurrentMemberInputs() {
         const dSel = row.querySelector('.prac-discipline');
         const gSel = row.querySelector('.prac-grade');
         const lSel = row.querySelector('.prac-level');
-        if (dSel) {
+        if (dSel && dSel.value.trim() !== '') {
             practices.push({
-                discipline_id: parseInt(dSel.value || '1', 10),
-                discipline_name: dSel.options[dSel.selectedIndex]?.text || 'Judo',
+                discipline_id: parseInt(dSel.value, 10),
+                discipline_name: dSel.options[dSel.selectedIndex]?.text || '',
                 grade_id: gSel && gSel.value ? parseInt(gSel.value, 10) : null,
                 grade_name: gSel?.options[gSel.selectedIndex]?.text || '',
                 level_id: lSel && lSel.value ? parseInt(lSel.value, 10) : null,
@@ -613,14 +729,7 @@ function readCurrentMemberInputs() {
         }
     });
     if (practices.length === 0) {
-        practices.push({
-            discipline_id: 1,
-            discipline_name: 'Judo',
-            grade_id: null,
-            grade_name: '',
-            level_id: null,
-            level_name: ''
-        });
+        return null;
     }
     return {
         first_name: firstName,
@@ -672,7 +781,7 @@ function resetMemberInputsForNextSibling() {
         birth.value = '';
     if (container) {
         container.innerHTML = '';
-        appendPracticeSelectorRow(1);
+        appendPracticeSelectorRow(null);
     }
 }
 function renderFamilyCart() {
@@ -894,8 +1003,9 @@ function restoreDraftFromStorage(isAuto = false) {
                 familyCart.length = 0;
                 familyCart.push(...data.familyCart);
             }
-            // Restauration des pratiques sélectionnées
-            if (f.practices && Array.isArray(f.practices) && f.practices.length > 0) {
+            // Restauration des pratiques sélectionnées (sauf si un paramètre explicite ?discipline=ID est dans l'URL)
+            const urlDiscId = getUrlDisciplineId();
+            if (!urlDiscId && f.practices && Array.isArray(f.practices) && f.practices.length > 0) {
                 const pContainer = document.getElementById('reg-practices-container');
                 if (pContainer) {
                     pContainer.innerHTML = '';

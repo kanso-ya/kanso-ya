@@ -8,6 +8,10 @@ require_once __DIR__ . '/../core/Api/Endpoints/CmsController.php';
 use Core\Api\Endpoints\CmsController;
 
 $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) ($_GET['slug'] ?? 'mentions-legales'))) ?: 'mentions-legales';
+if ($slug === 'horaires') {
+    header('Location: /horaires', true, 302);
+    exit;
+}
 $cms = new CmsController();
 $res = $cms->getPageBySlug($slug, false);
 $pageData = $res['data'] ?? [

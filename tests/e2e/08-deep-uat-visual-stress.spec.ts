@@ -72,6 +72,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
 
         await expect(page.locator('#age-indicator-badge')).toContainText('Majeur');
         await page.fill('#reg-email', adultEmail);
+        await page.locator('.prac-discipline').first().selectOption('1'); // Judo
 
         // Étape suivante -> Contact d'urgence (car majeur, saute l'étape tuteurs)
         await page.click('#btn-next-from-identity');
@@ -93,6 +94,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.fill('#reg-last-name', 'Martin');
         await page.fill('#reg-birth-date', '2017-04-12');
         await page.dispatchEvent('#reg-birth-date', 'change');
+        await page.locator('.prac-discipline').first().selectOption('1'); // Judo
 
         await expect(page.locator('#age-indicator-badge')).toContainText('Mineur');
 
@@ -128,10 +130,11 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.fill('#reg-birth-date', '2015-08-20');
         await page.dispatchEvent('#reg-birth-date', 'change');
 
-        // Ajout d'une 2e discipline
+        // Choix de la 1ère discipline (Judo) et ajout d'une 2e discipline (Karaté)
         await page.click('#btn-add-practice-row');
         const disciplineSelects = page.locator('.prac-discipline');
         await expect(disciplineSelects).toHaveCount(2);
+        await disciplineSelects.nth(0).selectOption('1'); // Judo
         await disciplineSelects.nth(1).selectOption('2'); // Karaté
 
         // Étape suivante -> Tuteurs (déjà pré-remplis)

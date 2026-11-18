@@ -13,7 +13,7 @@
     RewriteRule ^sys-smtp/?$ sys-smtp.php [L,NC]
     RewriteRule ^sys-modules/?$ sys-modules.php [L,NC]
     RewriteRule ^sys-logs/?$ sys-logs.php [L,NC]
-    RewriteRule ^register/?$ register.php [L,NC]
+    RewriteRule ^register/?$ register.php [L,QSA,NC]
     RewriteRule ^activate-otp/?$ activate-otp.php [L,QSA,NC]
 
     # 3. Routes propres du Back-Office (incluant /stats, /settings et /boutique)

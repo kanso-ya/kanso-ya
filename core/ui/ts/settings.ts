@@ -26,6 +26,7 @@ interface ModuleItem {
 document.addEventListener('DOMContentLoaded', () => {
     initSettingsTabs();
     initClubSettingsForm();
+    initConfirmTextPreviewEditor();
     initModulesManagement();
     initRolloverControls();
     initInstitutionalPagesEditor();
@@ -38,6 +39,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+function initConfirmTextPreviewEditor(): void {
+    const toggleBtn = document.getElementById('btn-toggle-confirm-text-edit');
+    const previewBox = document.getElementById('confirm-text-preview-box');
+    const previewContent = document.getElementById('confirm-text-preview-content');
+    const editorWrapper = document.getElementById('confirm-text-editor-wrapper');
+    const textarea = document.getElementById('setting-confirm-text') as HTMLTextAreaElement | null;
+
+    if (!toggleBtn || !editorWrapper || !textarea) return;
+
+    const escapeForPreview = (text: string): string => {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/\n/g, '<br>');
+    };
+
+    const syncPreview = (): void => {
+        if (!previewContent) return;
+        const val = textarea.value.trim();
+        previewContent.innerHTML = val
+            ? escapeForPreview(val)
+            : '<span class="italic text-slate-400">Aucun texte personnalisé défini.</span>';
+    };
+
+    const setEditorOpen = (open: boolean): void => {
+        editorWrapper.classList.toggle('hidden', !open);
+        toggleBtn.textContent = open ? '👁️ Masquer l\'éditeur' : '✏️ Modifier le texte';
+        if (open) {
+            textarea.focus();
+        }
+    };
+
+    toggleBtn.addEventListener('click', () => {
+        const isCurrentlyHidden = editorWrapper.classList.contains('hidden');
+        setEditorOpen(isCurrentlyHidden);
+    });
+
+    previewBox?.addEventListener('click', () => {
+        if (editorWrapper.classList.contains('hidden')) {
+            setEditorOpen(true);
+        }
+    });
+
+    textarea.addEventListener('input', syncPreview);
+}
 
 function initSettingsTabs(): void {
     const tabs = [
@@ -209,8 +258,17 @@ function initRolloverControls(): void {
     cancelBtn?.addEventListener('click', () => modal.classList.add('hidden'));
 
     confirmBtn.addEventListener('click', async () => {
-        const targetSeason = (document.getElementById('rollover-target-season') as HTMLInputElement)?.value.trim() || '2027-2028';
-        const refDate = (document.getElementById('rollover-reference-date') as HTMLInputElement)?.value.trim() || '2027-09-01';
+        const targetSeason = (document.getElementById('rollover-target-season') as HTMLInputElement)?.value.trim() || '';
+        const refDate = (document.getElementById('rollover-reference-date') as HTMLInputElement)?.value.trim() || '';
+
+        if (!targetSeason) {
+            showToast('Veuillez indiquer la saison cible (ex: 2027-2028).', 'error');
+            return;
+        }
+        if (!refDate) {
+            showToast('Veuillez choisir une date de référence pour le calcul d\'âge.', 'error');
+            return;
+        }
 
         setButtonLoading(confirmBtn, true, 'Basculement en cours...');
         try {

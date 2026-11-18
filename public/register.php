@@ -91,6 +91,12 @@ ob_start();
             </li>
         </ol>
 
+        <!-- Indicateur discret de pré-remplissage réinscription -->
+        <div id="reg-reenroll-prefilled-banner" data-testid="reg-reenroll-prefilled-banner" class="hidden mb-5 p-3.5 rounded-xl bg-emerald-50 border border-brand-primary text-xs text-slate-800 flex items-center gap-2.5">
+            <span class="text-base">✅</span>
+            <span id="reg-reenroll-prefilled-text" class="font-semibold">Fiche pré-remplie automatiquement (identité, disciplines, niveau technique, contact d'urgence et responsables légaux).</span>
+        </div>
+
         <form id="public-registration-form" class="space-y-6" novalidate>
 
             <!-- =============================================================

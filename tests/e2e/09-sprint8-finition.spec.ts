@@ -88,6 +88,7 @@ test.describe('Sprint 8 : Inscriptions intelligentes, Remises paramétrables, Sa
         await page.fill('#reg-birth-date', '1990-01-01');
         await page.dispatchEvent('#reg-birth-date', 'change');
         await page.fill('#reg-email', 'alexandre.famille@test.local');
+        await page.locator('.prac-discipline').first().selectOption('1');
         await page.click('#btn-next-from-identity');
 
         // Contact urgence avec champs enrichis (Point 14)
@@ -111,6 +112,7 @@ test.describe('Sprint 8 : Inscriptions intelligentes, Remises paramétrables, Sa
         await page.fill('#reg-birth-date', '1992-05-10');
         await page.dispatchEvent('#reg-birth-date', 'change');
         await page.fill('#reg-email', 'sophie.famille@test.local');
+        await page.locator('.prac-discipline').first().selectOption('1');
         await page.click('#btn-next-from-identity');
 
         await page.fill('#reg-emerg-name', 'Alexandre Famille');
@@ -135,6 +137,7 @@ test.describe('Sprint 8 : Inscriptions intelligentes, Remises paramétrables, Sa
         await page.fill('#reg-birth-date', '1985-07-20');
         await page.dispatchEvent('#reg-birth-date', 'change');
         await page.fill('#reg-email', 'julien.confirme@test.local');
+        await page.locator('.prac-discipline').first().selectOption('1');
         await page.click('#btn-next-from-identity');
 
         await page.fill('#reg-emerg-name', 'Claire Confirme');

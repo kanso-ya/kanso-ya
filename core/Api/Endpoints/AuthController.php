@@ -414,9 +414,100 @@ final class AuthController
             FROM members m
             INNER JOIN member_tutor mt ON m.id = mt.member_id
             WHERE mt.tutor_id = :uid
+            ORDER BY m.id ASC
         ");
         $stmtMem->execute(['uid' => $userId]);
-        $profile['linked_members'] = $stmtMem->fetchAll(PDO::FETCH_ASSOC);
+        $linkedMembers = $stmtMem->fetchAll(PDO::FETCH_ASSOC);
+
+        $loadPracticesForMember = function (int $memberId): array {
+            $stmtPrac = $this->db->prepare("
+                SELECT mp.discipline_id, mp.grade_id, mp.level_id, mp.season,
+                       d.name AS discipline_name,
+                       g.name AS grade_name,
+                       n.name AS level_name
+                FROM member_practices mp
+                INNER JOIN disciplines d ON mp.discipline_id = d.id
+                LEFT JOIN levels g ON mp.grade_id = g.id
+                LEFT JOIN levels n ON mp.level_id = n.id
+                WHERE mp.member_id = :mid
+                ORDER BY mp.season DESC, mp.id DESC
+            ");
+            $stmtPrac->execute(['mid' => $memberId]);
+            $rows = $stmtPrac->fetchAll(PDO::FETCH_ASSOC);
+            // Déduplique par discipline en conservant la saison la plus récente
+            $byDisc = [];
+            foreach ($rows as $row) {
+                $did = (int) $row['discipline_id'];
+                if (!isset($byDisc[$did])) {
+                    $byDisc[$did] = [
+                        'discipline_id'   => $did,
+                        'discipline_name' => (string) ($row['discipline_name'] ?? ''),
+                        'grade_id'        => $row['grade_id'] !== null ? (int) $row['grade_id'] : null,
+                        'grade_name'      => (string) ($row['grade_name'] ?? ''),
+                        'level_id'        => $row['level_id'] !== null ? (int) $row['level_id'] : null,
+                        'level_name'      => (string) ($row['level_name'] ?? ''),
+                        'season'          => (string) ($row['season'] ?? '')
+                    ];
+                }
+            }
+            return array_values($byDisc);
+        };
+
+        $stmtTutors = $this->db->prepare("
+            SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.address,
+                   mt.relationship, mt.info_shared
+            FROM member_tutor mt
+            INNER JOIN users u ON mt.tutor_id = u.id
+            WHERE mt.member_id = :mid
+            ORDER BY CASE WHEN mt.tutor_id = :uid THEN 0 ELSE 1 END, u.id ASC
+        ");
+
+        foreach ($linkedMembers as &$lm) {
+            $mid = (int) $lm['id'];
+            $lm['practices'] = $loadPracticesForMember($mid);
+
+            $stmtTutors->execute(['mid' => $mid, 'uid' => $userId]);
+            $rawTutors = $stmtTutors->fetchAll(PDO::FETCH_ASSOC);
+            $tutorsList = [];
+            foreach ($rawTutors as $t) {
+                $isSelfTutor = (int) $t['id'] === $userId;
+                $isShared = (int) ($t['info_shared'] ?? 0) === 1;
+                $tutorsList[] = [
+                    'id'           => (int) $t['id'],
+                    'first_name'   => (string) ($t['first_name'] ?? ''),
+                    'last_name'    => (string) ($t['last_name'] ?? ''),
+                    'relationship' => (string) ($t['relationship'] ?? 'Parent / Tuteur légal'),
+                    'email'        => ($isSelfTutor || $isShared) ? (string) ($t['email'] ?? '') : '',
+                    'phone'        => ($isSelfTutor || $isShared) ? (string) ($t['phone'] ?? '') : '',
+                    'address'      => ($isSelfTutor || $isShared) ? (string) ($t['address'] ?? '') : '',
+                    'info_shared'  => $isShared
+                ];
+            }
+            $lm['tutors'] = $tutorsList;
+        }
+        unset($lm);
+        $profile['linked_members'] = $linkedMembers;
+
+        // Recherche éventuelle d'une fiche pratiquant correspondant à l'utilisateur connecté lui-même
+        $stmtSelf = $this->db->prepare("
+            SELECT * FROM members
+            WHERE LOWER(COALESCE(email, '')) = LOWER(:email)
+               OR (LOWER(first_name) = LOWER(:fn) AND LOWER(last_name) = LOWER(:ln))
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmtSelf->execute([
+            'email' => (string) ($profile['email'] ?? ''),
+            'fn'    => (string) ($profile['first_name'] ?? ''),
+            'ln'    => (string) ($profile['last_name'] ?? '')
+        ]);
+        $selfMember = $stmtSelf->fetch(PDO::FETCH_ASSOC);
+        if ($selfMember) {
+            $selfMember['practices'] = $loadPracticesForMember((int) $selfMember['id']);
+            $profile['self_member'] = $selfMember;
+        } else {
+            $profile['self_member'] = null;
+        }
 
         return [
             'status'  => 'success',

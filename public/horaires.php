@@ -21,12 +21,16 @@ $basePrice   = 150.0;
 try {
     $db = Database::getInstance();
     
-    // Récupération du tarif de base dans sys_settings
-    $stmtSettings = $db->query("SELECT setting_value FROM sys_settings WHERE setting_key = 'membership_base_price' LIMIT 1");
+    // Récupération du tarif de base et de la capacité par cours dans sys_settings
+    $defaultCapacity = 30;
+    $stmtSettings = $db->query("SELECT setting_key, setting_value FROM sys_settings WHERE setting_key IN ('membership_base_price', 'default_course_capacity')");
     if ($stmtSettings) {
-        $val = $stmtSettings->fetchColumn();
-        if ($val !== false) {
-            $basePrice = (float) $val;
+        $settingsRows = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+        if (isset($settingsRows['membership_base_price'])) {
+            $basePrice = (float) $settingsRows['membership_base_price'];
+        }
+        if (isset($settingsRows['default_course_capacity']) && (int) $settingsRows['default_course_capacity'] > 0) {
+            $defaultCapacity = (int) $settingsRows['default_course_capacity'];
         }
     }
 
@@ -43,7 +47,7 @@ try {
 
     foreach ($disciplines as &$d) {
         $d['price'] = $basePrice;
-        $d['max_capacity'] = 30; // Capacité standard du club
+        $d['max_capacity'] = $defaultCapacity;
         $stmtLvl = $db->prepare("
             SELECT name, level_type, color_hex, age_min, age_max
             FROM levels
@@ -130,7 +134,10 @@ ob_start();
                 </div>
 
                 <div class="pt-2 border-t border-slate-100 flex justify-end">
-                    <a href="/register" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition">
+                    <a href="/register?discipline=<?= (int) $disc['id'] ?>"
+                       data-testid="horaires-register-discipline-btn"
+                       data-discipline-id="<?= (int) $disc['id'] ?>"
+                       class="bg-brand-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition">
                         S'inscrire à cette discipline →
                     </a>
                 </div>

@@ -29,7 +29,7 @@ flowchart LR
 | **Finition v1.0 (35 Pts)** | Sprints 7 à 11 | URLs propres, Remises, Cerfa santé, Exports/Reçus, Console découpée & Lockdown E2E | **107 SP** | **Terminé & Recetté** | 208/208 Pass ✅ |
 | **Correctifs Post-Recette (17 Pts)** | Blocs 1 à 3 | Isolation Superadmin, Profil/Club séparés, Studio CMS Drag & Drop, Vidéo & Carrousels | **26 SP** | **Terminé & Recetté** | 222/222 Pass ✅ |
 | **Sprint 12 (Polissage v1.1 - 1/3)** | Sprint 12 | Langage humain global, Toasts validation, Thème CSS `--brand-*`, Rollover alias & Mode Démo/Prod (Pts 1-7) | **18 SP** | **Terminé & Recetté** | 230/230 Pass ✅ |
-| **Sprint 13 (Polissage v1.1 - 2/3)** | Sprint 13 | Mot de passe oublié OTP + double saisie, 2FA multi-méthode (QR/Clé/Email), Inscription vierge/`?discipline=ID` & Réinscription complète (Pts 8-14) | **21 SP** | **Planifié** | Prévu (Sprint 13) |
+| **Sprint 13 (Polissage v1.1 - 2/3)** | Sprint 13 | Mot de passe oublié OTP + double saisie, 2FA multi-méthode (QR/Clé/Email), Inscription vierge/`?discipline=ID`, Réinscription complète & Aperçu texte confirmation (Pts 8-14) | **21 SP** | **Terminé & Recetté** | 238/238 Pass ✅ |
 | **Sprint 14 (Polissage v1.1 - 3/3)** | Sprint 14 | Tableaux compacts sans débordement, Actions sur 2 lignes (`/members`, `/registrations`), Onglets `/stats`, `/sys-smtp` & multi-disciplines + Lockdown v1.1 (Pts 15-21) | **19 SP** | **Planifié** | Prévu (Sprint 14) |
 | **TOTAL GÉNÉRAL** | **14 Sprints** | **CMS & CRM Associatif Kanso-ya v1.1** | **316 SP** | **81.6% Réalisé** | **222/222 Pass** |
 
@@ -522,7 +522,7 @@ flowchart LR
   - **Point 7 — Polissage des états interactifs du thème :** Cohérence visuelle des survols (`--brand-primary-hover`), bordures d'éléments sélectionnés, anneaux de focus et badges d'accentuation (`--brand-accent`) en mode clair et contrasté.
 
 ### 8.2. Sprint 13 : Parcours Sécurité (Mot de Passe Oublié & 2FA Multi-Méthode) & Inscription / Réinscription (21 SP — Points 8 à 14)
-* **Statut :** Planifié
+* **Statut :** ✅ **100% VALIDÉ EN RECETTE (238/238 Pass — Rapport : `docs/current-sprint/13-report-sprint13.md`)**
 * **Objectif :** Offrir une autonomie complète sur la récupération de compte et la double authentification multi-canal, et fluidifier le parcours d'inscription comme de réinscription.
 * **Découpage des Points :**
   - **Point 8 — Demande "Mot de passe oublié" anti-énumération :** Lien dédié sur `/login`, formulaire d'envoi d'e-mail connecté à `POST /api/v1/auth/forgot-password` générant un code à usage unique sans jamais révéler si l'adresse existe en base.

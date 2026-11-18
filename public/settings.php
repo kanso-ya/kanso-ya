@@ -163,10 +163,54 @@ ob_start();
                 </div>
             </div>
 
-            <!-- Texte explicatif après validation -->
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Texte explicatif affiché après validation d'une inscription</label>
-                <textarea name="registration_confirmation_text" rows="3" class="w-full border border-slate-300 rounded-xl p-3.5 text-sm"><?= htmlspecialchars($confirmTxt, ENT_QUOTES, 'UTF-8') ?></textarea>
+            <!-- Aperçu réaliste du texte post-inscription + Édition basculable (Point 17) -->
+            <div class="space-y-3 pt-2 border-t border-slate-100">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <label for="setting-confirm-text" class="block text-xs font-semibold uppercase text-slate-600">
+                            Message affiché aux adhérents à la fin de leur inscription
+                        </label>
+                        <p class="text-[11px] text-slate-500">Aperçu fidèle de l'encadré présenté au membre dès l'enregistrement de son dossier en ligne.</p>
+                    </div>
+                    <button type="button" id="btn-toggle-confirm-text-edit" data-testid="btn-toggle-confirm-text-edit"
+                            class="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold transition shrink-0">
+                        ✏️ Modifier le texte
+                    </button>
+                </div>
+
+                <!-- Encadré d'aperçu visuel identique à l'écran de fin d'inscription (/register) -->
+                <div id="confirm-text-preview-box" data-testid="confirm-text-preview-box"
+                     class="p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-4 cursor-pointer hover:border-brand-primary transition"
+                     title="Cliquez pour modifier ce texte">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-200/80">
+                        <div class="w-10 h-10 rounded-full bg-emerald-100 text-brand-primary flex items-center justify-center text-lg font-black shrink-0">✓</div>
+                        <div>
+                            <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-brand-primary text-[10px] font-bold uppercase tracking-wider">Aperçu écran adhérent</span>
+                            <h3 class="text-sm font-extrabold text-slate-900 mt-0.5">Votre demande d'adhésion est bien enregistrée !</h3>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Procédure de validation & Activation de votre compte par e-mail :</h4>
+                        <p id="confirm-text-preview-content" data-testid="confirm-text-preview-content" class="text-sm text-slate-700 leading-relaxed bg-white p-3.5 rounded-xl border border-slate-200/80">
+                            <?= nl2br(htmlspecialchars($confirmTxt !== '' ? $confirmTxt : 'Votre dossier a bien été enregistré par le secrétariat du club.', ENT_QUOTES, 'UTF-8')) ?>
+                        </p>
+                        <ol class="list-decimal pl-5 text-xs text-slate-600 space-y-1 pt-1">
+                            <li><strong>Étape 1 (Règlement) :</strong> Remettez votre règlement au Trésorier ou Secrétariat du club lors de votre premier cours.</li>
+                            <li><strong>Étape 2 (Vérification & Envoi du lien) :</strong> Le bureau vérifie vos cours/grades choisis et vous envoie un e-mail automatique avec un <strong>lien d'activation à usage unique valable 48h</strong>.</li>
+                            <li><strong>Étape 3 (Création du mot de passe) :</strong> Cliquez sur ce lien pour définir votre mot de passe et accéder à votre espace personnel.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Zone d'édition (affichée au clic sur "Modifier le texte" ou sur l'aperçu) -->
+                <div id="confirm-text-editor-wrapper" data-testid="confirm-text-editor-wrapper" class="hidden space-y-1.5">
+                    <label for="setting-confirm-text" class="block text-[11px] font-bold uppercase text-brand-primary">
+                        Édition en direct (l'aperçu ci-dessus se met à jour automatiquement)
+                    </label>
+                    <textarea id="setting-confirm-text" data-testid="setting-confirm-text" name="registration_confirmation_text" rows="4"
+                              class="w-full border-2 border-brand-primary rounded-xl p-3.5 text-sm bg-white focus:outline-none"><?= htmlspecialchars($confirmTxt, ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
             </div>
 
             <div class="flex justify-end pt-2">
