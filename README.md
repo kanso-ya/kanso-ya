@@ -55,6 +55,6 @@ npm run test:qa-full
 ## Documentation de Référence
 
 - **Architecture technique :** [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
-- **Feuille de route (Lots 4 à 7) :** [`docs/ROADMAP.md`](./docs/ROADMAP.md)
+- **Feuille de route (Lots 4 à 10) :** [`docs/ROADMAP.md`](./docs/ROADMAP.md)
 - **Dernier sprint clôturé (Lot 7 — Sprint 27 / V2.4 QA Intégrale) :** `docs/archive/sprint-27/`
 - **Archives historiques (V1 & V2) :** `docs/archive/reprise-docs/` (incluant `SDK-MODULES.md`, `DEPLOIEMENT-PRODUCTION.md`, `ETAT-DES-LIEUX.md` et les rapports de sprints).

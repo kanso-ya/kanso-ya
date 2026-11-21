@@ -94,6 +94,10 @@
 | **Lot 6 — Sprint 25** | **Module Boutique Club — Catalogue Avancé, Variantes, Remises Adhérents, Flocage & Lots** | V2.3 | Haute | **Terminé** |
 | **Lot 6 — Sprint 26** | **Module Boutique Club — Commandes, Paiement Hors-Ligne, Livraison, Suivi & Facturation PDF** | V2.3 | Moyenne | **Terminé** |
 | **Lot 7 — Sprint 27** | **QA Intégrale — Parcours 100 % UI (Boîte Noire), Matrice RBAC, Audit Vues, Multi-Navigateurs & E-mails Réels (Mailpit)** | V2.4 | Haute | **Terminé** |
+| **Lot 8 — Sprint 28** | **Mode Démo (Noyau) — Désactivation, Onboarding Premier Superadmin, Confirmation Mail, Reset & Purge Modules de Test** | V2.5 | Haute | **À faire** |
+| **Lot 8 — Sprint 29** | **Gouvernance des Comptes — Superadmins Secondaires, Création Président & Gestion Membres du Bureau** | V2.5 | Haute | **À faire** |
+| **Lot 9 — Sprint 30** | **Pages du Footer — Administration par Onglets, Builder Simplifié, Activation/Désactivation & Option Horaires/Tarifs** | V2.6 | Moyenne | **À faire** |
+| **Lot 10 — Sprint 31** | **Multi-Corrections — Lien Événements, Pages Templates Facturation, Champs Inscription Dynamiques, Urgences Tatami & Vue Superadmin** | V2.7 | Haute | **À faire** |
 
 ---
 
@@ -216,7 +220,68 @@
 
 ---
 
-### 2.6. Règles Transverses de Pilotage (Applicable à Tous les Sprints)
-1. **Non-régression stricte :** Aucune route API, classe CSS ou `data-testid` existant ne peut être supprimé ; les 324 tests E2E V2.3 doivent rester verts à chaque sprint.
+### 2.6. Lot 8 — Cycle de Vie « Mode Démo » (Noyau) & Gouvernance des Comptes (V2.5)
+
+**Vision du Lot :** Faire du Mode Démo un mécanisme natif du noyau Kanso-ya (et non un module) capable de basculer proprement et irréversiblement une instance de démonstration vers une instance de production vierge (premier Superadmin + URL furtive personnalisée + validation par e-mail + purge BDD/réglages + suppression des modules de test préfixés), puis doter le Superadmin et le Président d'écrans dédiés de gestion des comptes.
+
+#### Sprint 28 : Désactivation du Mode Démo, Onboarding Premier Superadmin, Reset & Purge des Modules de Test *(À faire)*
+- **Objectif métier :** Sécuriser le passage de l'environnement de démonstration à la production réelle en remplaçant les identifiants et l'URL par défaut par le premier Superadmin validé par e-mail, en réinitialisant les données de démo et en purgeant les fichiers des modules de test.
+- **Périmètre macro (User Stories) :**
+  - `US-LOT8-01` — **Mode Démo natif au Noyau (Core) :** Ancrer la gestion du Mode Démo directement dans le Core Kanso-ya (hors moteur de modules), avec avertissements explicites sur la suppression définitive des données de démo et le changement d'URL de la console.
+  - `US-LOT8-02` — **Onboarding Premier Superadmin & Confirmation par E-mail :** Lors de la désactivation du Mode Démo, afficher une page dédiée permettant de créer le premier compte Superadmin (identifiant, e-mail, mot de passe fort) et de définir la nouvelle URL furtive d'accès à la console de réglages (supplantant `SUPERADMIN_URL` par défaut). Envoyer un e-mail contenant un lien de confirmation sécurisé pour vérifier l'adresse/identifiant avant de valider définitivement la suppression du Mode Démo.
+  - `US-LOT8-03` — **Réinitialisation propre (Reset) à la création du premier Superadmin :** Dès confirmation du premier Superadmin, purger les tables de données de démonstration et les réglages par défaut (architecture de service `ResetService` réutilisable pour une future fonction globale de réinitialisation).
+  - `US-LOT8-04` — **Convention de préfixe & Purge des modules de test :** Normaliser les modules de test du moteur SDK sous un préfixe dédié (ex. `Test*` — hors `BoutiqueApi` qui est un module métier à part entière et n'est plus considéré comme un module de test) afin que la désactivation du Mode Démo supprime leurs fichiers proprement sans jamais risquer de régression sur les modules métier.
+- **Dépendances :** Transport SMTP réel (Sprint 20 / Mailpit Sprint 27), gestion `.env` / `sys_superadmins`, `ModuleManager`.
+- **Hors périmètre :** Fonctionnalité complète de « Reset Usine » à la demande depuis la console (préparée par le service interne mais exposée ultérieurement).
+- **Critères de sortie :** Parcours complet désactivation démo → création 1er Superadmin + URL personnalisée → confirmation lien e-mail (Mailpit) → purge BDD/réglages + suppression fichiers modules `Test*` (avec `BoutiqueApi` préservé), PHPStan niveau 5, nouvelle suite `29-sprint28-demo-offboarding.spec.ts` verte.
+
+#### Sprint 29 : Gouvernance des Comptes — Superadmins Secondaires, Président & Membres du Bureau *(À faire)*
+- **Objectif métier :** Doter le Superadmin et le Président d'interfaces dédiées et cloisonnées pour administrer la chaîne de gouvernance des comptes (Superadmins secondaires, Président, membres du Bureau).
+- **Périmètre macro (User Stories) :**
+  - `US-LOT8-05` — **Gestion des Superadmins secondaires & Création du Président (Espace Superadmin) :** Page dédiée au Superadmin pour créer, modifier et supprimer des comptes Superadmin secondaires (avec garde-fou interdisant la suppression du dernier Superadmin actif) et créer le compte **Président** du club.
+  - `US-LOT8-06` — **Gestion des Comptes Membres du Bureau (Espace Président) :** Page dédiée au Président pour créer, modifier et supprimer les comptes des membres du Bureau (Secrétaire, Trésorier, Entraîneur, Rédacteur, ou tout rôle non-Superadmin) en respectant strictement la matrice RBAC.
+- **Dépendances :** Sprint 28, tables `sys_superadmins`, `users`, `roles`.
+- **Hors périmètre :** Création/édition de comptes Superadmin par le Président (`403` strict), gestion des fiches sportives adhérents (déjà couverte par `/members`).
+- **Critères de sortie :** CRUD complet Superadmins secondaires + création Président côté Superadmin, CRUD complet membres du Bureau côté Président, gardes RBAC stricts (`403`), PHPStan niveau 5, nouvelle suite `30-sprint29-accounts-governance.spec.ts` verte.
+
+---
+
+### 2.7. Lot 9 — Gestion des Pages du Footer (Builder Simplifié & Visibilité) (V2.6)
+
+**Vision du Lot :** Permettre au Président d'administrer de façon autonome et ergonomique l'ensemble des pages du footer (Mentions légales, RGPD, CGV, Horaires et Tarifs, etc.) depuis une interface unifiée par onglets avec builder simplifié et contrôle d'activation par page.
+
+#### Sprint 30 : Éditeur des Pages du Footer (Onglets, Builder Simplifié, Désactivation & Horaires/Tarifs) *(À faire)*
+- **Objectif métier :** Centraliser l'édition et la visibilité des pages du footer pour le Président tout en offrant un mode simplifié sans composants lourds et une option dynamique pour « Horaires et Tarifs ».
+- **Périmètre macro (User Stories) :**
+  - `US-LOT9-01` — **Page dédiée d'administration & Navigation par onglets (Président) :** Créer une page dédiée réservée au Président regroupant l'ensemble des pages du footer avec une navigation fluide par onglets entre chacune d'elles.
+  - `US-LOT9-02` — **Builder de contenu simplifié :** Permettre la modification de chaque page du footer via un builder par blocs simplifié (titres, textes, encadrés, listes, citations, images simples — **sans bloc vidéo et sans carrousel**).
+  - `US-LOT9-03` — **Activation / Désactivation par page :** Permettre au Président de désactiver individuellement chaque page du footer ; dès désactivation, son lien disparaît de **toutes les vues** (footer et navigation) et son URL devient inaccessible (`404`).
+  - `US-LOT9-04` — **Option Disciplines & Grades sur « Horaires et Tarifs » :** Ajouter dans l'onglet de configuration de la page « Horaires et Tarifs » une option permettant d'activer ou désactiver l'affichage automatique des disciplines et grades du club.
+- **Dépendances :** Pages légales & `/horaires` existantes (`PageRouter`, table `pages`, `disciplines`/`levels`).
+- **Hors périmètre :** Création arbitraire de nouvelles routes CMS hors pages du footer, blocs vidéo ou carrousel dans cet éditeur.
+- **Critères de sortie :** Édition complète par onglets, absence vérifiée des blocs vidéo/carrousel, masquage global + `404` sur page désactivée, toggle Disciplines/Grades opérationnel sur `/horaires`, PHPStan niveau 5, nouvelle suite `31-sprint30-footer-pages.spec.ts` verte.
+
+---
+
+### 2.8. Lot 10 — Multi-Corrections & Finitions Transverses (V2.7)
+
+**Vision du Lot :** Corriger l'ensemble des irritants fonctionnels et incohérences d'interface relevés en recette manuelle sur les modules (Événements, Facturation), le formulaire d'inscription, les statistiques et la console Superadmin.
+
+#### Sprint 31 : Correctifs Sidebar Événements, Templates Facturation, Formulaire d'Inscription Dynamique, Urgences Tatami & Console Superadmin *(À faire)*
+- **Objectif métier :** Assurer la cohérence fonctionnelle et ergonomique de bout en bout entre la Sidebar, le module Facturation, le formulaire d'inscription, les vues Statistiques et la Console Superadmin.
+- **Périmètre macro (User Stories) :**
+  - `US-LOT10-01` — **Affichage du lien « Événements » dans la Sidebar :** Corriger l'injection/affichage du lien du module `EvenementsApi` dans la barre latérale UI afin qu'il soit bien visible et cliquable dès que le module est actif.
+  - `US-LOT10-02` — **Pages dédiées Templates E-mail & PDF dans Facturation + Envoi Auto fiable :** Séparer la configuration dans `FacturationUi` en **une page/vue dédiée au template d'e-mail** et **une page/vue dédiée au template PDF**, et vérifier que toute émission de facture génère le PDF et envoie automatiquement l'e-mail avec pièce jointe PDF et l'ensemble des renseignements exacts (validé en réel via Mailpit).
+  - `US-LOT10-03` — **Gestion complète des champs du formulaire d'inscription (`/register`) :** Permettre au Président/Bureau d'ajouter, modifier, ordonner et supprimer des champs du formulaire d'inscription public, et de définir pour chaque champ s'il est **obligatoire ou facultatif** (avec rendu dynamique sur `/register` et validation côté serveur).
+  - `US-LOT10-04` — **Renommage cohérent de « Liste d'Appel Tatami » :** Renommer l'onglet et les libellés de `/stats` affichant les contacts d'urgence des adhérents (ex. **« Contacts d'Urgence Tatami »**) afin d'éviter toute confusion avec le module « Présences & Suivi » (`PresenceApi`).
+  - `US-LOT10-05` — **Épuration stricte de la Vue d'Ensemble Superadmin & Cloisonnement Modules :** Retirer de `/sys-console` tout contenu résiduel issu des autres onglets/pages (Branding, SMTP, Modules, Logs) pour ne conserver que la véritable vue d'ensemble synthétique, et retirer au Superadmin l'accès aux vues métier des modules (réservées au Bureau au maximum, sauf spécification explicite déclarée dans le manifeste du module).
+- **Dépendances :** `EvenementsApi`, `FacturationApi`/`FacturationUi`, `/register`, `/stats`, `/sys-console`, `layout.php`, `ModuleManager`.
+- **Hors périmètre :** Ajout de nouveaux modules métier, refonte graphique globale du thème.
+- **Critères de sortie :** Lien `/evenements` visible en Sidebar, 2 vues distinctes Templates E-mail & PDF + envoi auto PDF vérifié dans Mailpit, champs dynamiques obligatoires/optionnels opérationnels sur `/register`, onglet renommé sans ambiguïté sur `/stats`, `/sys-console` épuré et accès modules Superadmin cloisonné (`403` sauf opt-in manifeste), PHPStan niveau 5, nouvelle suite `32-sprint31-multi-corrections.spec.ts` + non-régression complète vertes.
+
+---
+
+### 2.9. Règles Transverses de Pilotage (Applicable à Tous les Sprints)
+1. **Non-régression stricte :** Aucune route API, classe CSS ou `data-testid` existant ne peut être supprimé ; les 324 tests E2E V2.3 et la matrice QA Sprint 27 doivent rester verts à chaque sprint (hors adaptations explicitement spécifiées par les Lots 8 à 10).
 2. **Qualité obligatoire :** `npm run build:ts`, `npm run build:css`, `composer dump-autoload -o --strict-psr`, `vendor\bin\phpstan analyse` (niveau 5, 0 erreur) et `npm run test:e2e`.
 3. **Isolation des tests :** Chaque sprint ajoute son propre fichier `tests/e2e/XX-sprintYY-*.spec.ts` avec réinitialisation/isolation stricte de la base de données.
