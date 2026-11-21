@@ -270,12 +270,19 @@ final class ModuleManager
     }
 
     /**
-     * Démarre (boot) tous les modules actifs avec protection SAFE MODE (CA3).
-     * Si un module lève une exception, le CMS continue sans interruption
-     * et le module défaillant est automatiquement désactivé avec le statut 'crashed'.
+     * Démarre (boot) tous les modules actifs avec protection SAFE MODE (CA3 & Sprint 18 US 18.2).
+     * Si un module lève une exception lors du boot() OU lors de l'exécution d'un filtre/action UI,
+     * le CMS continue sans interruption et le module défaillant est automatiquement isolé ('crashed').
      */
     public function bootActiveModules(): void
     {
+        // Enregistre le gestionnaire de quarantaine Safe Mode pour tous les hooks (filtres & actions)
+        $this->eventManager->setQuarantineHandler(
+            function (string $folderName, Throwable $e, string $context): void {
+                $this->quarantineModule($folderName, $e, $context);
+            }
+        );
+
         try {
             $stmt = $this->db->query("SELECT * FROM modules WHERE is_active = 1");
             $activeModules = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -285,36 +292,56 @@ final class ModuleManager
 
         foreach ($activeModules as $mod) {
             $folder = (string) $mod['folder_name'];
-            $modId  = (int) $mod['id'];
 
+            $this->eventManager->setCurrentModule($folder);
             try {
                 $instance = $this->loadModuleInstance($folder);
                 if ($instance !== null) {
                     $instance->boot($this->eventManager);
                 }
             } catch (Throwable $e) {
-                // SAFE MODE AUTOMATIQUE : Capture sans planter le CMS
-                $errorMsg = sprintf('Crash du module %s : %s dans %s:%d', $folder, $e->getMessage(), basename($e->getFile()), $e->getLine());
-
-                for ($retry = 0; $retry < 5; $retry++) {
-                    try {
-                        $stmtCrash = $this->db->prepare("
-                            UPDATE modules
-                            SET is_active = 0, status = 'crashed', last_error = :err, updated_at = CURRENT_TIMESTAMP
-                            WHERE id = :id
-                        ");
-                        $stmtCrash->execute([
-                            'id'  => $modId,
-                            'err' => $errorMsg
-                        ]);
-
-                        $this->logAction(null, true, 'MODULE_SAFE_MODE_TRIGGERED', $errorMsg);
-                        break;
-                    } catch (Throwable) {
-                        usleep(50000);
-                    }
-                }
+                $this->quarantineModule($folder, $e, 'boot');
+            } finally {
+                $this->eventManager->setCurrentModule(null);
             }
+        }
+    }
+
+    /**
+     * Bascule immédiatement un module défaillant en quarantaine Safe Mode ('crashed', is_active = 0),
+     * purge ses assets publiés et consigne l'événement MODULE_SAFE_MODE_TRIGGERED dans sys_logs.
+     */
+    public function quarantineModule(string $folderName, Throwable $e, string $context = 'boot'): void
+    {
+        $errorMsg = $context === 'boot'
+            ? sprintf('Crash du module %s : %s dans %s:%d', $folderName, $e->getMessage(), basename($e->getFile()), $e->getLine())
+            : sprintf('Crash du module %s (%s) : %s dans %s:%d', $folderName, $context, $e->getMessage(), basename($e->getFile()), $e->getLine());
+
+        for ($retry = 0; $retry < 5; $retry++) {
+            try {
+                $stmtCrash = $this->db->prepare("
+                    UPDATE modules
+                    SET is_active = 0, status = 'crashed', last_error = :err, updated_at = CURRENT_TIMESTAMP
+                    WHERE folder_name = :folder
+                ");
+                $stmtCrash->execute([
+                    'folder' => $folderName,
+                    'err'    => $errorMsg,
+                ]);
+
+                $this->logAction(null, true, 'MODULE_SAFE_MODE_TRIGGERED', $errorMsg);
+                break;
+            } catch (Throwable) {
+                usleep(50000);
+            }
+        }
+
+        try {
+            $manifest = $this->readManifest($folderName);
+            if ($manifest !== []) {
+                $this->purgeModuleAssets($manifest);
+            }
+        } catch (Throwable) {
         }
     }
 

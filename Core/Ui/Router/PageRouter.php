@@ -79,12 +79,23 @@ final class PageRouter
 
         $defaultPagePath = $this->resolvePagePath((string) ($routeDef['page'] ?? ''));
         $pagePath = $defaultPagePath;
+        $pageId = pathinfo((string) ($routeDef['page'] ?? ''), PATHINFO_FILENAME);
 
-        // Point d'extension ui_page_override (avec validation stricte par realpath)
+        // Point d'extension ui_page_override (avec validation stricte par realpath + journalisation si bloqué)
         try {
-            $override = EventManager::getInstance()->applyFilters('ui_page_override', $defaultPagePath);
-            if (is_string($override) && $override !== '' && $this->isAllowedPagePath($override)) {
-                $pagePath = $override;
+            $override = EventManager::getInstance()->applyFilters('ui_page_override', $defaultPagePath, [
+                'route'   => $uri,
+                'page_id' => $pageId,
+                'role'    => (string) ($_SESSION['role_name'] ?? 'Visiteur'),
+                'params'  => $_GET,
+            ]);
+            if (is_string($override) && $override !== '' && $override !== $defaultPagePath) {
+                $candidatePath = $this->resolvePagePath($override);
+                if ($this->isAllowedPagePath($candidatePath)) {
+                    $pagePath = $candidatePath;
+                } else {
+                    $this->logBlockedOverride($uri, $override);
+                }
             }
         } catch (Throwable) {
         }
@@ -95,6 +106,25 @@ final class PageRouter
         }
 
         $this->includePage($pagePath);
+    }
+
+    /**
+     * Consigne toute tentative de surcharge ui_page_override hors liste blanche (path traversal, etc.).
+     */
+    private function logBlockedOverride(string $uri, string $attemptedPath): void
+    {
+        try {
+            $db = \Core\Api\Database\Database::getInstance();
+            $stmt = $db->prepare("
+                INSERT INTO sys_logs (superadmin_id, action, details, ip_address)
+                VALUES (NULL, 'UI_PAGE_OVERRIDE_BLOCKED', :det, :ip)
+            ");
+            $stmt->execute([
+                'det' => sprintf('Surcharge ui_page_override rejetée sur %s : chemin non autorisé (%s)', $uri, $attemptedPath),
+                'ip'  => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
+            ]);
+        } catch (Throwable) {
+        }
     }
 
     /**

@@ -13,6 +13,14 @@ $requireAuth   = true;
 $requiredPerms = ['system.admin', 'settings.manage'];
 $pageScripts   = ['/assets/ts/sys-console.js'];
 
+$defaultSmtpTabs = [
+    ['id' => 'config', 'label' => '⚙️ 1. Configuration Serveur Mail', 'active' => true],
+    ['id' => 'templates', 'label' => '📝 2. Modèles d\'Emails', 'active' => false],
+    ['id' => 'history', 'label' => '📬 3. Historique des Envois', 'active' => false],
+];
+$smtpTabs = \Core\Api\Sdk\UiHelpers::tabs('sys-smtp', $defaultSmtpTabs, ['role' => 'Superadmin']);
+$coreSmtpTabIds = ['config', 'templates', 'history'];
+
 ob_start();
 ?>
 <div class="space-y-6 text-slate-100">
@@ -24,35 +32,20 @@ ob_start();
         </div>
     </div>
 
-    <!-- Barre d'Onglets SMTP (Sprint 14 - Point 20) -->
+    <!-- Barre d'Onglets SMTP (Sprint 14 Point 20 & Sprint 18 ui_tabs) -->
     <div id="smtp-tabs-bar" data-testid="smtp-tabs" role="tablist" aria-label="Onglets messagerie SMTP" class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
-        <button type="button"
-                role="tab"
-                aria-selected="true"
-                aria-controls="smtp-panel-config"
-                data-smtp-target="config"
-                data-testid="smtp-tab-config"
-                class="smtp-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 bg-brand-primary text-white shadow-xs">
-            ⚙️ 1. Configuration Serveur Mail
-        </button>
-        <button type="button"
-                role="tab"
-                aria-selected="false"
-                aria-controls="smtp-panel-templates"
-                data-smtp-target="templates"
-                data-testid="smtp-tab-templates"
-                class="smtp-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800">
-            📝 2. Modèles d'Emails
-        </button>
-        <button type="button"
-                role="tab"
-                aria-selected="false"
-                aria-controls="smtp-panel-history"
-                data-smtp-target="history"
-                data-testid="smtp-tab-history"
-                class="smtp-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800">
-            📬 3. Historique des Envois
-        </button>
+        <?php foreach ($smtpTabs as $t): ?>
+            <?php $isActiveSmtp = !empty($t['active']); ?>
+            <button type="button"
+                    role="tab"
+                    aria-selected="<?= $isActiveSmtp ? 'true' : 'false' ?>"
+                    aria-controls="smtp-panel-<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>"
+                    data-smtp-target="<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>"
+                    data-testid="smtp-tab-<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>"
+                    class="smtp-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 <?= $isActiveSmtp ? 'bg-brand-primary text-white shadow-xs' : 'bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800' ?>">
+                <?= htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8') ?>
+            </button>
+        <?php endforeach; ?>
     </div>
 
     <!-- ONGLET 1 : Configuration Serveur Mail & Diagnostic -->
@@ -169,6 +162,21 @@ ob_start();
             </div>
         </section>
     </div>
+
+    <?php foreach ($smtpTabs as $t): ?>
+        <?php if (!in_array((string) $t['id'], $coreSmtpTabIds, true)): ?>
+            <div id="smtp-panel-<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>"
+                 data-smtp-panel="<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>"
+                 data-testid="smtp-panel-<?= htmlspecialchars((string) $t['id'], ENT_QUOTES, 'UTF-8') ?>"
+                 role="tabpanel"
+                 class="smtp-tab-panel hidden bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-3">
+                <h2 class="text-lg font-bold text-white"><?= htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8') ?></h2>
+                <div class="text-xs text-slate-300">
+                    <?= isset($t['content']) ? (string) $t['content'] : '' ?>
+                </div>
+            </div>
+        <?php endif; ?>
+    <?php endforeach; ?>
 </div>
 <?php
 $pageContent = ob_get_clean();

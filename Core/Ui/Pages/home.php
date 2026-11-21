@@ -19,24 +19,26 @@ ob_start();
     <section class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-8 md:p-10 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-slate-700/60">
         <div class="space-y-3 max-w-2xl">
             <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider">
-                Saison Sportive 2026-2027
+                <?= \Core\Api\Sdk\UiHelpers::text('home.hero.badge', 'Saison Sportive 2026-2027', ['page' => 'home']) ?>
             </span>
-            <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight">
-                Bienvenue au Dojo Kanso-ya
+            <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight" data-testid="home-hero-title">
+                <?= \Core\Api\Sdk\UiHelpers::text('home.hero.title', 'Bienvenue au Dojo Kanso-ya', ['page' => 'home']) ?>
             </h1>
             <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
-                Découvrez la vie du club, les résultats de nos compétiteurs et inscrivez-vous en ligne (individuel ou famille avec remise automatique de 10% dès le 2ème pratiquant).
+                <?= \Core\Api\Sdk\UiHelpers::text('home.hero.subtitle', 'Découvrez la vie du club, les résultats de nos compétiteurs et inscrivez-vous en ligne (individuel ou famille avec remise automatique de 10% dès le 2ème pratiquant).', ['page' => 'home']) ?>
             </p>
         </div>
         <div class="flex flex-wrap gap-3 shrink-0">
             <a href="/register" class="px-5 py-3 brand-primary-bg hover:opacity-95 text-white text-sm font-bold rounded-xl shadow-sm transition">
-                S'inscrire au Club →
+                <?= \Core\Api\Sdk\UiHelpers::text('home.hero.cta_register', "S'inscrire au Club →", ['page' => 'home']) ?>
             </a>
             <a href="/horaires" class="px-5 py-3 bg-slate-700/80 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl border border-slate-600 transition">
-                Horaires & Tarifs
+                <?= \Core\Api\Sdk\UiHelpers::text('home.hero.cta_schedule', 'Horaires & Tarifs', ['page' => 'home']) ?>
             </a>
         </div>
     </section>
+
+    <?= \Core\Api\Sdk\UiHelpers::slot('home_hero', ['page' => 'home']) ?>
 
     <!-- Filtres par catégorie & Flux des Actualités -->
     <section class="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8 space-y-6">
@@ -57,6 +59,8 @@ ob_start();
             <!-- Injecté par home.ts -->
         </div>
     </section>
+
+    <?= \Core\Api\Sdk\UiHelpers::slot('home_after_articles', ['page' => 'home']) ?>
 </div>
 
 <!-- Modale de lecture intégrale d'un article -->

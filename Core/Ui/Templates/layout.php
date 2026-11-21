@@ -203,8 +203,18 @@ $primaryHoverColor = $darkenHex($primaryColor, 14);
         .focus\:border-emerald-400:focus, .focus\:border-emerald-500:focus { border-color: var(--brand-primary) !important; }
     </style>
     <script type="module" src="/assets/ts/main.js" defer></script>
+    <?php
+    $resolvedUiAssets = \Core\Api\Sdk\UiHelpers::assets(
+        (string) $activeNav,
+        is_array($pageScripts) ? $pageScripts : [],
+        isset($pageStyles) && is_array($pageStyles) ? $pageStyles : []
+    );
+    ?>
     <?php if ($accessDeniedReason === null): ?>
-        <?php foreach ($pageScripts as $scriptUrl): ?>
+        <?php foreach ($resolvedUiAssets['styles'] as $styleUrl): ?>
+            <link rel="stylesheet" href="<?= htmlspecialchars($styleUrl, ENT_QUOTES, 'UTF-8') ?>">
+        <?php endforeach; ?>
+        <?php foreach ($resolvedUiAssets['scripts'] as $scriptUrl): ?>
             <script type="module" src="<?= htmlspecialchars($scriptUrl, ENT_QUOTES, 'UTF-8') ?>" defer></script>
         <?php endforeach; ?>
     <?php endif; ?>
@@ -396,6 +406,7 @@ $primaryHoverColor = $darkenHex($primaryColor, 14);
                     <a href="/rgpd" class="hover:underline transition text-slate-300" style="--hover-color: var(--brand-accent);">Politique RGPD</a>
                     <a href="/cgv" class="hover:underline transition text-slate-300" style="--hover-color: var(--brand-accent);">CGV</a>
                 </div>
+                <?= \Core\Api\Sdk\UiHelpers::slot('footer_links', ['page' => (string) $activeNav, 'role' => $currentRole]) ?>
                 <div class="text-[11px] text-slate-600 pt-1 border-t border-slate-800/80 flex justify-between">
                     <span><?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></span>
                     <span>2026-2027</span>

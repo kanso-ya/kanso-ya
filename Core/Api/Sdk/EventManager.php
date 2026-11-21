@@ -14,11 +14,17 @@ final class EventManager
 {
     private static ?EventManager $instance = null;
 
-    /** @var array<string, array<int, array{callback: callable, priority: int}>> */
+    /** @var array<string, array<int, array{callback: callable, priority: int, module: ?string}>> */
     private array $actions = [];
 
-    /** @var array<string, array<int, array{callback: callable, priority: int}>> */
+    /** @var array<string, array<int, array{callback: callable, priority: int, module: ?string}>> */
     private array $filters = [];
+
+    /** @var ?string Nom du dossier du module en cours d'initialisation (pour attribution Safe Mode). */
+    private ?string $currentModule = null;
+
+    /** @var ?callable Gestionnaire de quarantaine Safe Mode : fn(string $moduleFolder, Throwable $e, string $context): void */
+    private $quarantineHandler = null;
 
     private function __construct() {}
 
@@ -28,6 +34,32 @@ final class EventManager
             self::$instance = new self();
         }
         return self::$instance;
+    }
+
+    /**
+     * Définit le module actuellement en cours de boot pour étiqueter ses hooks.
+     */
+    public function setCurrentModule(?string $folderName): void
+    {
+        $this->currentModule = $folderName !== null && trim($folderName) !== '' ? trim($folderName) : null;
+    }
+
+    /**
+     * Retourne le module actuellement en cours de boot (ou null pour le Core).
+     */
+    public function getCurrentModule(): ?string
+    {
+        return $this->currentModule;
+    }
+
+    /**
+     * Enregistre le gestionnaire de quarantaine Safe Mode appelé si un hook de module lève une exception.
+     *
+     * @param ?callable $handler fn(string $moduleFolder, Throwable $e, string $context): void
+     */
+    public function setQuarantineHandler(?callable $handler): void
+    {
+        $this->quarantineHandler = $handler;
     }
 
     /**
@@ -41,7 +73,8 @@ final class EventManager
     {
         $this->actions[$actionName][] = [
             'callback' => $callback,
-            'priority' => $priority
+            'priority' => $priority,
+            'module'   => $this->currentModule,
         ];
     }
 
@@ -55,7 +88,7 @@ final class EventManager
 
     /**
      * Émet une Action et exécute séquentiellement tous les écouteurs abonnés.
-     * Chaque écouteur est encapsulé dans un try/catch pour isoler les erreurs.
+     * Chaque écouteur est encapsulé dans un try/catch pour isoler les erreurs et déclencher le Safe Mode si besoin.
      *
      * @param string               $actionName Nom de l'action émise.
      * @param array<string, mixed> $payload    Données contextuelles de l'événement.
@@ -74,6 +107,7 @@ final class EventManager
                 ($listener['callback'])($payload);
             } catch (Throwable $e) {
                 error_log(sprintf('[EventManager] Erreur dans l\'action "%s": %s', $actionName, $e->getMessage()));
+                $this->notifyQuarantine($listener['module'], $e, 'action:' . $actionName);
             }
         }
     }
@@ -89,12 +123,14 @@ final class EventManager
     {
         $this->filters[$filterName][] = [
             'callback' => $callback,
-            'priority' => $priority
+            'priority' => $priority,
+            'module'   => $this->currentModule,
         ];
     }
 
     /**
      * Applique la chaîne des filtres enregistrés sur une valeur.
+     * En cas d'exception d'un module, la valeur précédente est préservée et le module est mis en quarantaine (Safe Mode).
      *
      * @param string               $filterName Nom du filtre.
      * @param mixed                $value      Donnée initiale transmise par le Core.
@@ -111,14 +147,33 @@ final class EventManager
         usort($filters, static fn(array $a, array $b): int => $a['priority'] <=> $b['priority']);
 
         foreach ($filters as $filter) {
+            $previousValue = $value;
             try {
                 $value = ($filter['callback'])($value, $context);
             } catch (Throwable $e) {
+                $value = $previousValue;
                 error_log(sprintf('[EventManager] Erreur dans le filtre "%s": %s', $filterName, $e->getMessage()));
+                $this->notifyQuarantine($filter['module'], $e, 'filter:' . $filterName);
             }
         }
 
         return $value;
+    }
+
+    /**
+     * Déclenche le gestionnaire de quarantaine Safe Mode si un module est identifié.
+     */
+    private function notifyQuarantine(?string $moduleFolder, Throwable $e, string $context): void
+    {
+        if ($moduleFolder === null || $this->quarantineHandler === null) {
+            return;
+        }
+
+        try {
+            ($this->quarantineHandler)($moduleFolder, $e, $context);
+        } catch (Throwable) {
+            // Le Safe Mode ne doit jamais interrompre le rendu HTTP
+        }
     }
 
     /**
@@ -144,6 +199,7 @@ final class EventManager
     {
         $this->actions = [];
         $this->filters = [];
+        $this->currentModule = null;
     }
 }
 

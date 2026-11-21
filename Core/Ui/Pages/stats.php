@@ -46,7 +46,7 @@ $paymentsByMethod         = $statsData['payments_by_method'];
 $defaultCapacity          = $statsData['default_capacity'];
 $disciplineStats          = $statsData['discipline_stats'];
 
-// 6. Onglets modulaires extensibles via hook stats_tabs (Point 28 & Sprint 14 Point 11)
+// 6. Onglets modulaires extensibles via hooks ui_tabs + alias rétrocompatible stats_tabs (Sprint 18 US 18.1)
 $defaultTabs = [
     ['id' => 'kpis', 'label' => '📊 Vue Générale', 'active' => true],
 ];
@@ -57,7 +57,7 @@ $defaultTabs[] = ['id' => 'occupancy', 'label' => '🥋 Démographie & Occupatio
 $defaultTabs[] = ['id' => 'attendance', 'label' => '📋 Liste d\'Appel Tatami', 'active' => false];
 
 /** @var array<int, array{id: string, label: string, active?: bool, content?: string}> $tabs */
-$tabs = EventManager::getInstance()->applyFilters('stats_tabs', $defaultTabs, ['role' => $currentRole]);
+$tabs = \Core\Api\Sdk\UiHelpers::tabs('stats', $defaultTabs, ['role' => $currentRole, 'user_id' => $currentUserId]);
 $coreTabIds = ['kpis', 'finances', 'occupancy', 'attendance'];
 
 ob_start();

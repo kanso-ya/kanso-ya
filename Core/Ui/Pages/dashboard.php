@@ -46,6 +46,7 @@ if (!$isUnauthenticatedVisitor) {
 ob_start();
 ?>
 <div class="space-y-8">
+    <?= \Core\Api\Sdk\UiHelpers::slot('dashboard_top', ['page' => 'dashboard', 'role' => $currentRole, 'user_id' => $currentUserId]) ?>
     <!-- En-tête Mon Profil & Navigation à 2 Onglets -->
     <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -290,6 +291,7 @@ ob_start();
         </form>
     </div>
 </div>
+<?= \Core\Api\Sdk\UiHelpers::slot('dashboard_bottom', ['page' => 'dashboard', 'role' => $currentRole, 'user_id' => $currentUserId]) ?>
 <?php
 $pageContent = ob_get_clean();
 require __DIR__ . '/../Templates/layout.php';
