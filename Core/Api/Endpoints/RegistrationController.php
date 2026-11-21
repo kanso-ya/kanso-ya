@@ -38,7 +38,7 @@ final class RegistrationController
                 if ($this->db->inTransaction()) {
                     $this->db->exec('ROLLBACK');
                 }
-                $this->db->exec('BEGIN IMMEDIATE');
+                Database::beginWriteTransaction($this->db);
                 $result = $operation();
                 $this->db->exec('COMMIT');
                 return $result;
@@ -380,9 +380,20 @@ final class RegistrationController
                 $registrationId = (int) $this->db->lastInsertId();
 
                 $createdMemberIds = [];
+                $insertIgnore = Database::insertIgnorePrefix($this->db);
                 foreach ($members as $m) {
                     $bdate = trim((string) $m['birth_date']);
                     $age   = $this->calculateAge($bdate);
+
+                    $rawGender = $m['gender'] ?? null;
+                    $gender = null;
+                    if ($rawGender !== null && trim((string) $rawGender) !== '') {
+                        $upperGender = strtoupper(trim((string) $rawGender));
+                        if (!in_array($upperGender, ['M', 'F', 'O'], true)) {
+                            throw new \InvalidArgumentException('Valeur de genre invalide (valeurs autorisées : M, F, O ou vide).');
+                        }
+                        $gender = $upperGender;
+                    }
 
                     $emergRel = htmlspecialchars(trim((string) ($m['emergency_contact_relation'] ?? '')), ENT_QUOTES, 'UTF-8');
                     $emergSec = htmlspecialchars(trim((string) ($m['emergency_contact_secondary_phone'] ?? '')), ENT_QUOTES, 'UTF-8');
@@ -390,13 +401,14 @@ final class RegistrationController
                     $healthDate = $healthSigned ? (new DateTimeImmutable())->format('Y-m-d H:i:s') : null;
 
                     $stmtMem = $this->db->prepare("
-                        INSERT INTO members (first_name, last_name, birth_date, email, status, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, emergency_contact_secondary_phone, health_attestation_signed, health_attestation_date)
-                        VALUES (:fname, :lname, :bdate, :email, 'pending', :ename, :ephone, :erel, :esec, :hsigned, :hdate)
+                        INSERT INTO members (first_name, last_name, birth_date, gender, email, status, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, emergency_contact_secondary_phone, health_attestation_signed, health_attestation_date)
+                        VALUES (:fname, :lname, :bdate, :gender, :email, 'pending', :ename, :ephone, :erel, :esec, :hsigned, :hdate)
                     ");
                     $stmtMem->execute([
                         'fname'  => htmlspecialchars(trim((string) $m['first_name']), ENT_QUOTES, 'UTF-8'),
                         'lname'  => htmlspecialchars(trim((string) $m['last_name']), ENT_QUOTES, 'UTF-8'),
                         'bdate'  => $bdate,
+                        'gender' => $gender,
                         'email'  => !empty($m['email']) ? strtolower(trim((string) $m['email'])) : null,
                         'ename'  => htmlspecialchars(trim((string) ($m['emergency_contact_name'] ?? '')), ENT_QUOTES, 'UTF-8'),
                         'ephone' => htmlspecialchars(trim((string) ($m['emergency_contact_phone'] ?? '')), ENT_QUOTES, 'UTF-8'),
@@ -410,7 +422,7 @@ final class RegistrationController
 
                     foreach ($tutorIds as $tId) {
                         $stmtPivot = $this->db->prepare("
-                            INSERT OR IGNORE INTO member_tutor (member_id, tutor_id, info_shared)
+                            {$insertIgnore} member_tutor (member_id, tutor_id, info_shared)
                             VALUES (:mid, :tid, 0)
                         ");
                         $stmtPivot->execute(['mid' => $memberId, 'tid' => $tId]);
@@ -464,6 +476,13 @@ final class RegistrationController
                 'code'    => 201,
                 'message' => 'Dossier d\'inscription enregistré en attente de validation.',
                 'data'    => $result
+            ];
+        } catch (\InvalidArgumentException $e) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => $e->getMessage(),
+                'data'    => null
             ];
         } catch (Throwable $e) {
             return [

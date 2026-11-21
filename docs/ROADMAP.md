@@ -2,8 +2,8 @@
 
 **Rôle :** @cp (Chef de Projet)  
 **Dernière mise à jour :** 21 novembre 2026  
-**État courant :** **V2.0 homologuée** (284/284 tests E2E Playwright Desktop & Mobile · PHPStan niveau 5 : 0 erreur · PSR-4 strict : 26 classes, 0 avertissement)  
-**Sprint actif :** **Lot 4 — Sprint 20 : Transport SMTP Réel & Fiabilité Messagerie** ([`docs/current-sprint/01-scope.md`](./current-sprint/01-scope.md))
+**État courant :** **V2.1 homologuée (Lot 4 complet : Sprints 20 & 21 validés)** (298/298 tests E2E Playwright Desktop & Mobile · PHPStan niveau 5 : 0 erreur · PSR-4 strict : 28 classes, 0 avertissement)  
+**Sprint actif :** *Aucun* (`docs/current-sprint/` est vide, prêt pour le démarrage du **Lot 5 — Sprint 22**).
 
 ---
 
@@ -44,6 +44,16 @@
 - **Safe Mode étendu :** quarantaine automatique (`status = 'crashed'`, `is_active = 0`, purge assets, log `MODULE_SAFE_MODE_TRIGGERED`) sur crash au `boot()` **et** sur exception dans un filtre/action UI.
 - Démonstrateurs validés : `BoutiqueApi` + `BoutiqueUi`, `CrashTestApi`, `IncompatibleModuleApi`.
 
+### 1.6. Transport SMTP Réel & Fiabilité Messagerie (Lot 4 — Sprint 20)
+- **Client SMTP natif PHP (`Core\Api\Services\SmtpClient`) :** support TCP clair (`none`), SSL/TLS (`ssl`) et STARTTLS (`tls`), authentification `AUTH LOGIN` / `AUTH PLAIN`, composition MIME UTF-8 base64 et dot-stuffing RFC 5321, timeout configurable (`2` à `30` s).
+- **Service centralisé (`Core\Api\Services\MailerService`) :** chiffrement AES-256-GCM (`enc:v1:...`) du mot de passe SMTP en base + surcharge prioritaire `SMTP_PASSWORD` dans `.env`, masquage strict sur `GET /api/v1/settings`, mode `log/stub` et confinement sécurité sous `APP_ENV=testing` (blocage des hôtes externes).
+- **Traçabilité & relance (`/sys-smtp` & `POST /api/v1/sys/email-logs/{id}/retry`) :** archivage `body_html`, `retry_count`, `last_retry_at` (`004_smtp_reliability.php`), badges de statut `Envoyé`/`Échec` et relance manuelle réservée au Superadmin ; centralisation des envois hors transaction SQLite dans `AuthController` et `MemberController`.
+
+### 1.7. Données Réelles Stats & Compatibilité MySQL/MariaDB (Lot 4 — Sprint 21)
+- **Champ optionnel `gender` (RGPD) :** colonne nullable `members.gender` (`M`, `F`, `O` ou `NULL` par défaut, migration `005_member_gender.php`), sélecteurs optionnels sur `/register` et `/members` (création/édition) et validation API `422`.
+- **Statistiques démographiques réelles :** suppression définitive du ratio statique `54 % / 46 %` dans `StatsService` et `SystemController::getDemographics()`, remplacé par les effectifs/pourcentages réels (`male`, `female`, `other`, `unspecified`) affichés sur `/stats`.
+- **Portabilité SQLite WAL & MySQL 8 / MariaDB 10.6+ :** abstraction dialectale centralisée dans `Core\Api\Database\Database` (`beginWriteTransaction`, `tableHasColumn`, `insertIgnorePrefix`, `upsertSettingSql`, `adaptDdlForDriver`, `execDdlStatements`) et script d'audit `npm run db:check-mysql`.
+
 ---
 
 ## 2. Prochains Lots / Sprints à Venir (Backlog V2.1+)
@@ -52,8 +62,8 @@
 
 | Lot / Sprint | Intitulé | Version cible | Priorité | Statut |
 | :---: | :--- | :---: | :---: | :---: |
-| **Lot 4 — Sprint 20** | **Transport SMTP Réel & Fiabilité Messagerie** | V2.1 | Haute | **En cours** |
-| **Lot 4 — Sprint 21** | **Données Réelles Stats & Compatibilité MySQL/MariaDB** | V2.1 | Moyenne | À faire |
+| **Lot 4 — Sprint 20** | **Transport SMTP Réel & Fiabilité Messagerie** | V2.1 | Haute | **Terminé** |
+| **Lot 4 — Sprint 21** | **Données Réelles Stats & Compatibilité MySQL/MariaDB** | V2.1 | Moyenne | **Terminé** |
 | **Lot 5 — Sprint 22** | **Module Présences & Appel Numérique Tatami** | V2.2 | Moyenne | À faire |
 | **Lot 5 — Sprint 23** | **Module Événements, Stages & Compétitions** | V2.2 | Basse | À faire |
 | **Lot 6 — Sprint 24** | **Paiement en Ligne (HelloAsso / Stripe) & Facturation** | V2.3 | Basse | À faire |
@@ -64,7 +74,7 @@
 
 **Vision du Lot :** Supprimer les derniers éléments simulés/statiques hérités de la V2.0 (envoi d'e-mails simulé `250 OK`, répartition H/F figée) et garantir la portabilité de la base de données vers **MySQL/MariaDB** en production tout en préservant l'exécution locale rapide sur SQLite WAL.
 
-#### Sprint 20 : Transport SMTP Réel & Fiabilité Messagerie *(En cours)*
+#### Sprint 20 : Transport SMTP Réel & Fiabilité Messagerie *(Terminé — archivé dans `docs/archive/sprint-20/`)*
 - **Objectif métier :** Assurer l'acheminement réel et fiable des e-mails transactionnels du club (OTP, 2FA e-mail, mot de passe oublié, confirmations d'inscription, tests SMTP) via un transport SMTP natif PHP sécurisé, tout en conservant un mode `log/stub` déterministe pour les tests automatisés.
 - **Périmètre macro (User Stories) :**
   - `US-LOT4-01` — **Client SMTP natif PHP sécurisé :** Remplacer la simulation `250 OK` par une implémentation SMTP native sans dépendance lourde (support STARTTLS, SSL/TLS, authentification `AUTH LOGIN`/`PLAIN`, gestion des timeouts).
@@ -74,7 +84,7 @@
 - **Hors périmètre :** Campagnes d'e-mailing de masse / newsletters, files d'attente asynchrones avec workers/cron, intégration d'APIs tierces propriétaires (SendGrid, Mailgun, Brevo).
 - **Critères de sortie :** Build TS/CSS OK, PHPStan niveau 5 (0 erreur), suite E2E existante + nouvelle suite `21-sprint20-smtp.spec.ts` 100 % verte.
 
-#### Sprint 21 : Données Réelles Stats & Compatibilité MySQL/MariaDB *(À faire)*
+#### Sprint 21 : Données Réelles Stats & Compatibilité MySQL/MariaDB *(Terminé — archivé dans `docs/archive/sprint-21/`)*
 - **Objectif métier :** Fiabiliser les indicateurs démographiques de `/stats` avec de vraies données adhérents conformes au RGPD et certifier le fonctionnement complet du CMS sur un moteur **MySQL/MariaDB** en plus de SQLite WAL.
 - **Périmètre macro (User Stories) :**
   - `US-LOT4-05` — **Champ `gender` optionnel (RGPD) :** Ajouter un attribut optionnel non obligatoire sur les fiches adhérents (inscription `/register`, CRM `/members`, profil) avec choix neutre / « Non renseigné » par défaut.

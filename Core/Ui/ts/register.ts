@@ -37,6 +37,7 @@ interface CartMember {
     first_name: string;
     last_name: string;
     birth_date: string;
+    gender?: string;
     email?: string;
     discipline_id: number;
     practices: PracticeSelection[];
@@ -830,6 +831,7 @@ function readCurrentMemberInputs(): CartMember | null {
     const firstName = (document.getElementById('reg-first-name') as HTMLInputElement | null)?.value.trim() || '';
     const lastName = (document.getElementById('reg-last-name') as HTMLInputElement | null)?.value.trim() || '';
     const birthDate = (document.getElementById('reg-birth-date') as HTMLInputElement | null)?.value.trim() || '';
+    const gender = (document.getElementById('reg-member-gender') as HTMLSelectElement | null)?.value.trim() || '';
     const email = (document.getElementById('reg-email') as HTMLInputElement | null)?.value.trim() || '';
     const emergName = (document.getElementById('reg-emerg-name') as HTMLInputElement | null)?.value.trim() || '';
     const emergPhone = (document.getElementById('reg-emerg-phone') as HTMLInputElement | null)?.value.trim() || '';
@@ -867,6 +869,7 @@ function readCurrentMemberInputs(): CartMember | null {
         first_name: firstName,
         last_name: lastName,
         birth_date: birthDate,
+        gender: gender || undefined,
         email,
         discipline_id: practices[0].discipline_id,
         practices,
@@ -909,9 +912,11 @@ function readTutorsInputs(): CartTutor[] {
 function resetMemberInputsForNextSibling(): void {
     const fn = document.getElementById('reg-first-name') as HTMLInputElement | null;
     const birth = document.getElementById('reg-birth-date') as HTMLInputElement | null;
+    const genderEl = document.getElementById('reg-member-gender') as HTMLSelectElement | null;
     const container = document.getElementById('reg-practices-container');
     if (fn) fn.value = '';
     if (birth) birth.value = '';
+    if (genderEl) genderEl.value = '';
     if (container) {
         container.innerHTML = '';
         appendPracticeSelectorRow(null);

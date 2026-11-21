@@ -490,6 +490,15 @@ final class CoreApiRoutes
             return (new SystemController())->getEmailLogs();
         });
 
+        $router->addRoute('POST', '#^/api/v1/sys/email-logs/(\d+)/retry$#', static function (array $ctx, array $m): array {
+            if (!$ctx['is_superadmin']) {
+                ApiKernel::logUnauthorizedAttempt((string) $ctx['uri']);
+                return ['status' => 'error', 'code' => 403, 'message' => 'Réservé au Superadmin.', 'data' => null];
+            }
+            $uid = (int) $ctx['user_id'];
+            return (new SystemController())->retryEmailLog((int) $m[1], $uid > 0 ? $uid : 1);
+        });
+
         $router->addRoute('POST', '/api/v1/sys/test-email', static function (array $ctx): array {
             if (!$ctx['is_superadmin']) {
                 return ['status' => 'error', 'code' => 403, 'message' => 'Réservé au Superadmin.', 'data' => null];

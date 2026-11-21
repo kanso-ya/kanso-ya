@@ -703,6 +703,7 @@ function readCurrentMemberInputs() {
     const firstName = document.getElementById('reg-first-name')?.value.trim() || '';
     const lastName = document.getElementById('reg-last-name')?.value.trim() || '';
     const birthDate = document.getElementById('reg-birth-date')?.value.trim() || '';
+    const gender = document.getElementById('reg-member-gender')?.value.trim() || '';
     const email = document.getElementById('reg-email')?.value.trim() || '';
     const emergName = document.getElementById('reg-emerg-name')?.value.trim() || '';
     const emergPhone = document.getElementById('reg-emerg-phone')?.value.trim() || '';
@@ -735,6 +736,7 @@ function readCurrentMemberInputs() {
         first_name: firstName,
         last_name: lastName,
         birth_date: birthDate,
+        gender: gender || undefined,
         email,
         discipline_id: practices[0].discipline_id,
         practices,
@@ -774,11 +776,14 @@ function readTutorsInputs() {
 function resetMemberInputsForNextSibling() {
     const fn = document.getElementById('reg-first-name');
     const birth = document.getElementById('reg-birth-date');
+    const genderEl = document.getElementById('reg-member-gender');
     const container = document.getElementById('reg-practices-container');
     if (fn)
         fn.value = '';
     if (birth)
         birth.value = '';
+    if (genderEl)
+        genderEl.value = '';
     if (container) {
         container.innerHTML = '';
         appendPracticeSelectorRow(null);

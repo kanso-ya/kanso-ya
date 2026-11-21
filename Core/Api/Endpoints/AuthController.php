@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Api\Endpoints;
 
 use Core\Api\Database\Database;
+use Core\Api\Services\MailerService;
 use PDO;
 use Throwable;
 
@@ -30,8 +31,7 @@ final class AuthController
     private function ensureTwoFactorMethodColumn(): void
     {
         try {
-            $cols = $this->db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
-            if (is_array($cols) && !in_array('two_factor_method', $cols, true)) {
+            if (!Database::tableHasColumn($this->db, 'users', 'two_factor_method')) {
                 $this->db->exec("ALTER TABLE users ADD COLUMN two_factor_method VARCHAR(20) NOT NULL DEFAULT 'totp'");
             }
         } catch (Throwable) {
@@ -54,7 +54,7 @@ final class AuthController
                 if ($this->db->inTransaction()) {
                     $this->db->exec('ROLLBACK');
                 }
-                $this->db->exec('BEGIN IMMEDIATE');
+                Database::beginWriteTransaction($this->db);
                 $result = $operation();
                 $this->db->exec('COMMIT');
                 return $result;
@@ -100,14 +100,14 @@ final class AuthController
         $neutralMessage = 'Si un compte est associé à cette adresse e-mail, un code de réinitialisation vient de vous être envoyé.';
 
         try {
-            $this->executeImmediateTransaction(function () use ($email): void {
+            $dispatchData = $this->executeImmediateTransaction(function () use ($email): ?array {
                 $stmt = $this->db->prepare("SELECT id, email, first_name FROM users WHERE LOWER(email) = :email AND is_active = 1 LIMIT 1");
                 $stmt->execute(['email' => $email]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 $stmt->closeCursor();
 
                 if (!$user) {
-                    return;
+                    return null;
                 }
 
                 $resetCode = strtoupper(bin2hex(random_bytes(4)));
@@ -124,22 +124,27 @@ final class AuthController
                     'id'   => (int) $user['id']
                 ]);
 
-                $stmtMail = $this->db->prepare("
-                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
-                    VALUES (:email, :subject, 'PASSWORD_RESET', 'sent', :resp)
-                ");
-                $stmtMail->execute([
-                    'email'   => (string) $user['email'],
-                    'subject' => 'Réinitialisation de votre mot de passe',
-                    'resp'    => '250 OK (Code de réinitialisation envoyé)'
-                ]);
-
                 $stmtLog = $this->db->prepare("
                     INSERT INTO app_logs (user_id, action, target_type, target_id, details)
                     VALUES (:uid, 'PASSWORD_RESET_REQUESTED', 'user', :uid, 'Demande de réinitialisation du mot de passe')
                 ");
                 $stmtLog->execute(['uid' => (int) $user['id']]);
+
+                return [
+                    'email' => (string) $user['email'],
+                    'code'  => $resetCode,
+                ];
             });
+
+            // Expédition hors transaction SQLite pour éviter tout verrou pendant un appel réseau SMTP
+            if ($dispatchData !== null) {
+                (new MailerService($this->db))->send(
+                    $dispatchData['email'],
+                    'Réinitialisation de votre mot de passe',
+                    '<p>Votre code temporaire de réinitialisation Kanso-ya est : <strong>' . htmlspecialchars($dispatchData['code'], ENT_QUOTES, 'UTF-8') . '</strong> (valable 48 heures).</p>',
+                    'PASSWORD_RESET'
+                );
+            }
         } catch (Throwable) {
             // Maintien de la réponse neutre anti-énumération même en cas d'incident mineur
         }
@@ -186,7 +191,7 @@ final class AuthController
         $expiresAt = (new \DateTimeImmutable('+10 minutes'))->format('Y-m-d H:i:s');
 
         try {
-            $this->executeImmediateTransaction(function () use ($userId, $user, $code, $expiresAt): void {
+            $this->executeImmediateTransaction(function () use ($userId, $code, $expiresAt): void {
                 $this->db->prepare("
                     UPDATE users
                     SET otp_code = :code, otp_expires_at = :exp
@@ -196,16 +201,15 @@ final class AuthController
                     'exp'  => $expiresAt,
                     'id'   => $userId
                 ]);
-
-                $this->db->prepare("
-                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
-                    VALUES (:email, :subject, '2FA_EMAIL_CODE', 'sent', :resp)
-                ")->execute([
-                    'email'   => (string) $user['email'],
-                    'subject' => 'Votre code de vérification de sécurité',
-                    'resp'    => '250 OK (Code 2FA envoyé par e-mail)'
-                ]);
             });
+
+            // Expédition hors transaction SQLite
+            (new MailerService($this->db))->send(
+                (string) $user['email'],
+                'Votre code de vérification de sécurité',
+                '<p>Votre code de double authentification Kanso-ya est : <strong>' . htmlspecialchars($code, ENT_QUOTES, 'UTF-8') . '</strong> (valable 10 minutes).</p>',
+                '2FA_EMAIL_CODE'
+            );
         } catch (Throwable $e) {
             return [
                 'status'  => 'error',

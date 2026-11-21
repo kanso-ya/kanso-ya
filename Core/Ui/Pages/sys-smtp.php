@@ -54,13 +54,20 @@ ob_start();
             <h2 class="text-lg font-bold text-white border-b border-slate-800 pb-3">Paramètres du Serveur SMTP Sortant</h2>
             <form id="smtp-settings-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Mode de transport *</label>
+                    <select id="smtp-transport" name="smtp_transport" data-testid="smtp-transport-select" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                        <option value="log">Simulation / Log local (sans envoi réseau)</option>
+                        <option value="smtp">Serveur SMTP réel (PHP natif)</option>
+                    </select>
+                </div>
+                <div>
                     <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Serveur Hôte SMTP *</label>
                     <input type="text" id="smtp-host" name="smtp_host" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Port SMTP & Chiffrement *</label>
                     <div class="grid grid-cols-2 gap-2">
-                        <input type="number" id="smtp-port" name="smtp_port" value="587" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                        <input type="number" id="smtp-port" name="smtp_port" min="1" max="65535" value="587" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
                         <select id="smtp-encryption" name="smtp_encryption" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
                             <option value="tls">STARTTLS (587)</option>
                             <option value="ssl">SSL/TLS (465)</option>
@@ -69,8 +76,23 @@ ob_start();
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Identifiant / Compte SMTP *</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Identifiant / Compte SMTP</label>
                     <input type="text" id="smtp-username" name="smtp_username" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="block text-xs font-semibold uppercase text-slate-400">Mot de passe SMTP</label>
+                        <span id="smtp-password-status" data-testid="smtp-password-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400">Non configuré</span>
+                    </div>
+                    <input type="password" id="smtp-password" name="smtp_password" data-testid="smtp-password-input" autocomplete="new-password" placeholder="Mot de passe SMTP" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                    <label id="smtp-password-clear-wrapper" class="mt-1.5 hidden items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
+                        <input type="checkbox" id="smtp-password-clear" name="smtp_password_clear" value="1" data-testid="smtp-password-clear" class="rounded border-slate-600 bg-slate-950 text-red-500">
+                        <span>Effacer le mot de passe enregistré en base</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Timeout réseau (secondes)</label>
+                    <input type="number" id="smtp-timeout" name="smtp_timeout" data-testid="smtp-timeout-input" min="2" max="30" value="10" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Email Expéditeur (From) *</label>
@@ -81,7 +103,7 @@ ob_start();
                     <input type="text" id="smtp-from-name" name="smtp_from_name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
                 </div>
                 <div class="flex items-end justify-end">
-                    <button type="submit" id="btn-save-smtp" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition">
+                    <button type="submit" id="btn-save-smtp" data-testid="btn-save-smtp" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition">
                         Sauvegarder la configuration SMTP
                     </button>
                 </div>
@@ -94,8 +116,8 @@ ob_start();
                 <p class="text-xs text-slate-400 mt-0.5">Expédiez un message de diagnostic pour vérifier votre serveur sortant.</p>
             </div>
             <div class="flex items-center gap-2">
-                <input type="email" id="test-smtp-recipient" placeholder="destinataire@test.fr" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-                <button type="button" id="btn-send-test-email" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shrink-0">
+                <input type="email" id="test-smtp-recipient" data-testid="test-smtp-recipient" placeholder="destinataire@test.fr" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                <button type="button" id="btn-send-test-email" data-testid="btn-send-test-email" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shrink-0">
                     ✉️ Envoyer un mail de test
                 </button>
             </div>
@@ -153,8 +175,10 @@ ob_start();
                             <th class="p-2.5">Destinataire</th>
                             <th class="p-2.5">Sujet</th>
                             <th class="p-2.5">Type</th>
+                            <th class="p-2.5">Statut</th>
                             <th class="p-2.5">Réponse Serveur SMTP</th>
                             <th class="p-2.5">Date d'envoi</th>
+                            <th class="p-2.5 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody id="email-logs-tbody" class="divide-y divide-slate-800 font-mono"></tbody>

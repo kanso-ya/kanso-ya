@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Api\Endpoints;
 
 use Core\Api\Database\Database;
+use Core\Api\Services\MailerService;
 use finfo;
 use PDO;
 use Throwable;
@@ -39,17 +40,32 @@ final class SystemController
 
     /**
      * Récupère tous les paramètres clé/valeur de sys_settings.
+     * Masque systématiquement smtp_password et expose son état de configuration.
      *
      * @return array<string, mixed> Réponse JSend.
      */
     public function getSettings(): array
     {
+        /** @var array<string, string> $rows */
         $rows = $this->db->query("SELECT setting_key, setting_value FROM sys_settings")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $passwordSource = MailerService::resolvePasswordSource($rows);
+        unset($rows['smtp_password']);
+
+        $rows['smtp_password_configured'] = $passwordSource !== 'none' ? '1' : '0';
+        $rows['smtp_password_source'] = $passwordSource;
+        if (!isset($rows['smtp_transport']) || $rows['smtp_transport'] === '') {
+            $rows['smtp_transport'] = 'log';
+        }
+        if (!isset($rows['smtp_timeout']) || $rows['smtp_timeout'] === '') {
+            $rows['smtp_timeout'] = '10';
+        }
+
         return [
             'status'  => 'success',
             'code'    => 200,
             'message' => 'Paramètres récupérés.',
-            'data'    => $rows ?: []
+            'data'    => $rows
         ];
     }
 
@@ -87,28 +103,87 @@ final class SystemController
             ];
         }
 
-        try {
-            $this->db->exec('BEGIN IMMEDIATE');
+        // Validations SMTP (Lot 4 — Sprint 20)
+        if (isset($settings['smtp_port']) && (string) $settings['smtp_port'] !== '') {
+            $port = filter_var($settings['smtp_port'], FILTER_VALIDATE_INT);
+            if ($port === false || $port < 1 || $port > 65535) {
+                return [
+                    'status'  => 'error',
+                    'code'    => 422,
+                    'message' => 'Port SMTP invalide (entier entre 1 et 65535 attendu).',
+                    'data'    => null
+                ];
+            }
+        }
+        if (isset($settings['smtp_encryption']) && !in_array((string) $settings['smtp_encryption'], ['tls', 'ssl', 'none'], true)) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Protocole de chiffrement SMTP invalide (tls, ssl ou none attendu).',
+                'data'    => null
+            ];
+        }
+        if (isset($settings['smtp_transport']) && !in_array((string) $settings['smtp_transport'], ['log', 'smtp'], true)) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Mode de transport SMTP invalide (log ou smtp attendu).',
+                'data'    => null
+            ];
+        }
+        if (isset($settings['smtp_timeout']) && (string) $settings['smtp_timeout'] !== '') {
+            $timeout = filter_var($settings['smtp_timeout'], FILTER_VALIDATE_INT);
+            if ($timeout === false || $timeout < 2 || $timeout > 30) {
+                return [
+                    'status'  => 'error',
+                    'code'    => 422,
+                    'message' => 'Timeout SMTP invalide (entier entre 2 et 30 secondes attendu).',
+                    'data'    => null
+                ];
+            }
+        }
 
-            $stmt = $this->db->prepare("
-                INSERT INTO sys_settings (setting_key, setting_value, updated_at)
-                VALUES (:key, :val, CURRENT_TIMESTAMP)
-                ON CONFLICT(setting_key) DO UPDATE SET
-                    setting_value = excluded.setting_value,
-                    updated_at = CURRENT_TIMESTAMP
-            ");
+        $clearSmtpPassword = isset($settings['smtp_password_clear'])
+            && in_array((string) $settings['smtp_password_clear'], ['1', 'true', 'on'], true);
+        unset($settings['smtp_password_clear'], $settings['smtp_password_configured'], $settings['smtp_password_source']);
+
+        try {
+            Database::beginWriteTransaction($this->db);
+
+            $stmt = $this->db->prepare(Database::upsertSettingSql($this->db));
 
             $updatedKeys = [];
+
+            if ($clearSmtpPassword) {
+                $this->db->prepare("DELETE FROM sys_settings WHERE setting_key = 'smtp_password'")->execute();
+                $updatedKeys[] = 'smtp_password (effacé)';
+            }
+
             foreach ($settings as $key => $val) {
                 if (!is_string($key) || $key === '') {
                     continue;
                 }
+                $cleanKey = trim($key);
+                if ($cleanKey === 'smtp_password') {
+                    $rawPassword = (string) $val;
+                    if ($rawPassword === '' || $clearSmtpPassword) {
+                        continue;
+                    }
+                    $encrypted = MailerService::encryptSecret($rawPassword);
+                    $stmt->execute([
+                        'key' => 'smtp_password',
+                        'val' => $encrypted
+                    ]);
+                    $updatedKeys[] = 'smtp_password (chiffré)';
+                    continue;
+                }
+
                 $stringVal = is_array($val) ? json_encode($val, JSON_UNESCAPED_UNICODE) : (string) $val;
                 $stmt->execute([
-                    'key' => trim($key),
+                    'key' => $cleanKey,
                     'val' => trim((string) $stringVal)
                 ]);
-                $updatedKeys[] = $key;
+                $updatedKeys[] = $cleanKey;
             }
 
             // Écriture d'un vrai log d'audit dans sys_logs ou app_logs
@@ -215,9 +290,9 @@ final class SystemController
     }
 
     /**
-     * Simule ou déclenche un envoi d'email via la configuration SMTP active et le trace dans email_logs (Point 1).
+     * Déclenche un envoi d'email via MailerService (mode log ou SMTP réel) et le trace dans email_logs.
      *
-     * @param array<string, mixed> $payload Contient recipient_email, subject, template_type.
+     * @param array<string, mixed> $payload Contient recipient_email, subject, template_type, body_html.
      * @return array<string, mixed> Réponse JSend.
      */
     public function sendTrackedEmail(array $payload): array
@@ -225,6 +300,7 @@ final class SystemController
         $recipient = trim((string) ($payload['recipient_email'] ?? ''));
         $subject   = trim((string) ($payload['subject'] ?? 'Test de configuration SMTP Kanso-ya'));
         $type      = trim((string) ($payload['template_type'] ?? 'SMTP_TEST'));
+        $bodyHtml  = trim((string) ($payload['body_html'] ?? ''));
 
         if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
             return [
@@ -235,30 +311,48 @@ final class SystemController
             ];
         }
 
-        $smtpHost = (string) ($this->db->query("SELECT setting_value FROM sys_settings WHERE setting_key = 'smtp_host'")->fetchColumn() ?: 'smtp.kanso-ya.fr');
-        $smtpPort = (string) ($this->db->query("SELECT setting_value FROM sys_settings WHERE setting_key = 'smtp_port'")->fetchColumn() ?: '587');
-        $responseMsg = sprintf('250 2.0.0 OK: Relayed via %s:%s [Queue-%s]', $smtpHost, $smtpPort, strtoupper(bin2hex(random_bytes(3))));
+        if ($bodyHtml === '') {
+            $bodyHtml = '<p>Message de diagnostic SMTP expédié depuis la console Superadmin Kanso-ya.</p>';
+        }
 
-        $stmt = $this->db->prepare("
-            INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
-            VALUES (:email, :subj, :type, 'sent', :resp)
-        ");
-        $stmt->execute([
-            'email' => $recipient,
-            'subj'  => $subject,
-            'type'  => $type,
-            'resp'  => $responseMsg
-        ]);
+        $mailer = new MailerService($this->db);
+        $result = $mailer->send($recipient, $subject, $bodyHtml, $type);
+
+        if ($result['success']) {
+            return [
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => "Email envoyé et tracé vers {$recipient}.",
+                'data'    => [
+                    'id'            => $result['id'],
+                    'status'        => $result['status'],
+                    'smtp_response' => $result['smtp_response']
+                ]
+            ];
+        }
 
         return [
-            'status'  => 'success',
-            'code'    => 200,
-            'message' => "Email envoyé et tracé vers {$recipient}.",
+            'status'  => 'error',
+            'code'    => 502,
+            'message' => "Échec de l'envoi SMTP : " . $result['smtp_response'],
             'data'    => [
-                'id'            => (int) $this->db->lastInsertId(),
-                'smtp_response' => $responseMsg
+                'id'            => $result['id'],
+                'status'        => $result['status'],
+                'smtp_response' => $result['smtp_response']
             ]
         ];
+    }
+
+    /**
+     * Relance un e-mail précédemment en échec depuis email_logs.
+     *
+     * @param int $logId        Identifiant de la ligne email_logs.
+     * @param int $superadminId Identifiant du Superadmin déclenchant la relance.
+     * @return array<string, mixed> Réponse JSend.
+     */
+    public function retryEmailLog(int $logId, int $superadminId = 1): array
+    {
+        return (new MailerService($this->db))->retryEmailLog($logId, $superadminId);
     }
 
     /**
@@ -441,18 +535,22 @@ final class SystemController
         // Membres du périmètre
         if ($isTeacher) {
             $members = $this->db->query("
-                SELECT DISTINCT m.id, m.birth_date, m.status
+                SELECT DISTINCT m.id, m.birth_date, m.gender, m.status
                 FROM members m
                 INNER JOIN member_practices mp ON m.id = mp.member_id
                 WHERE mp.discipline_id IN ($inClause)
             ")->fetchAll(PDO::FETCH_ASSOC);
         } else {
-            $members = $this->db->query("SELECT id, birth_date, status FROM members")->fetchAll(PDO::FETCH_ASSOC);
+            $members = $this->db->query("SELECT id, birth_date, gender, status FROM members")->fetchAll(PDO::FETCH_ASSOC);
         }
 
         $now = new \DateTimeImmutable();
         $minors = 0;
         $adults = 0;
+        $maleCount = 0;
+        $femaleCount = 0;
+        $otherCount = 0;
+        $unspecifiedCount = 0;
         $ageBands = [
             '4-7 ans'   => 0,
             '8-11 ans'  => 0,
@@ -462,6 +560,17 @@ final class SystemController
         ];
 
         foreach ($members as $m) {
+            $g = strtoupper(trim((string) ($m['gender'] ?? '')));
+            if ($g === 'M') {
+                $maleCount++;
+            } elseif ($g === 'F') {
+                $femaleCount++;
+            } elseif ($g === 'O') {
+                $otherCount++;
+            } else {
+                $unspecifiedCount++;
+            }
+
             try {
                 $dob = new \DateTimeImmutable((string) $m['birth_date']);
                 $age = $now->diff($dob)->y;
@@ -489,12 +598,16 @@ final class SystemController
         }
 
         $total = count($members);
-        // Ratio de répartition hommes/femmes estimé
+        // Ratio de répartition démographique réel basé sur members.gender (Sprint 21)
         $genderRatio = [
-            'male'        => $total > 0 ? (int) round($total * 0.54) : 0,
-            'female'      => $total > 0 ? (int) ($total - round($total * 0.54)) : 0,
-            'male_pct'    => $total > 0 ? 54 : 0,
-            'female_pct'  => $total > 0 ? 46 : 0
+            'male'            => $maleCount,
+            'female'          => $femaleCount,
+            'other'           => $otherCount,
+            'unspecified'     => $unspecifiedCount,
+            'male_pct'        => $total > 0 ? (int) round(($maleCount / $total) * 100) : 0,
+            'female_pct'      => $total > 0 ? (int) round(($femaleCount / $total) * 100) : 0,
+            'other_pct'       => $total > 0 ? (int) round(($otherCount / $total) * 100) : 0,
+            'unspecified_pct' => $total > 0 ? (int) round(($unspecifiedCount / $total) * 100) : 0,
         ];
 
         // Ratios d'occupation par discipline

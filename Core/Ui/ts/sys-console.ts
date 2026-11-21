@@ -17,6 +17,9 @@ interface SysLogItem {
     created_at: string;
 }
 
+/**
+ * Trace d'un e-mail transactionnel dans la table email_logs.
+ */
 interface EmailLogItem {
     id: number;
     recipient_email: string;
@@ -24,6 +27,8 @@ interface EmailLogItem {
     template_type: string;
     status: string;
     smtp_response: string;
+    retry_count?: number;
+    last_retry_at?: string | null;
     sent_at: string;
 }
 
@@ -197,12 +202,60 @@ async function loadSystemSettings(): Promise<void> {
     setVal('sys-color-sidebar', d.theme_sidebar_color);
     setVal('sys-color-header', d.theme_header_color);
 
+    setVal('smtp-transport', d.smtp_transport || 'log');
     setVal('smtp-host', d.smtp_host);
     setVal('smtp-port', d.smtp_port);
     setVal('smtp-encryption', d.smtp_encryption);
+    setVal('smtp-timeout', d.smtp_timeout || '10');
     setVal('smtp-username', d.smtp_username);
     setVal('smtp-from-email', d.smtp_from_email);
     setVal('smtp-from-name', d.smtp_from_name);
+    updateSmtpPasswordUi(d.smtp_password_source || 'none');
+}
+
+/**
+ * Met à jour le badge d'état du secret SMTP, le placeholder et l'option d'effacement.
+ *
+ * @param source Source active du secret ('env' | 'db' | 'none').
+ */
+function updateSmtpPasswordUi(source: string): void {
+    const badge = document.getElementById('smtp-password-status');
+    const pwdInput = document.getElementById('smtp-password') as HTMLInputElement | null;
+    const clearWrapper = document.getElementById('smtp-password-clear-wrapper');
+    const clearCheckbox = document.getElementById('smtp-password-clear') as HTMLInputElement | null;
+
+    if (pwdInput) {
+        pwdInput.value = '';
+        pwdInput.placeholder = source !== 'none'
+            ? '•••••••• (laisser vide pour conserver)'
+            : 'Mot de passe SMTP';
+    }
+    if (clearCheckbox) {
+        clearCheckbox.checked = false;
+    }
+
+    if (badge) {
+        if (source === 'env') {
+            badge.textContent = 'Piloté par .env';
+            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30';
+        } else if (source === 'db') {
+            badge.textContent = 'Configuré (Base chiffrée)';
+            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        } else {
+            badge.textContent = 'Non configuré';
+            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400';
+        }
+    }
+
+    if (clearWrapper) {
+        if (source === 'db') {
+            clearWrapper.classList.remove('hidden');
+            clearWrapper.classList.add('flex');
+        } else {
+            clearWrapper.classList.add('hidden');
+            clearWrapper.classList.remove('flex');
+        }
+    }
 }
 
 function initBrandingForm(): void {
@@ -276,6 +329,9 @@ function initBrandingForm(): void {
     });
 }
 
+/**
+ * Initialise le formulaire de configuration SMTP et le bouton d'envoi de diagnostic.
+ */
 function initSmtpForm(): void {
     const form = document.getElementById('smtp-settings-form') as HTMLFormElement | null;
     const btn = document.getElementById('btn-save-smtp') as HTMLButtonElement | null;
@@ -285,13 +341,26 @@ function initSmtpForm(): void {
         e.preventDefault();
         setButtonLoading(btn, true, 'Sauvegarder la configuration SMTP');
         try {
-            const payload = Object.fromEntries(new FormData(form).entries());
+            const payload: Record<string, string> = {};
+            new FormData(form).forEach((val, key) => {
+                payload[key] = String(val);
+            });
+            if (!payload.smtp_password) {
+                delete payload.smtp_password;
+            }
+            const clearEl = document.getElementById('smtp-password-clear') as HTMLInputElement | null;
+            if (clearEl?.checked) {
+                payload.smtp_password_clear = '1';
+                delete payload.smtp_password;
+            }
+
             const res = await fetchApi('/api/v1/settings', {
                 method: 'PATCH',
                 body: JSON.stringify(payload)
             });
             if (res.status === 'success') {
                 showToast('Paramètres SMTP enregistrés avec succès.', 'success');
+                await loadSystemSettings();
                 await loadSystemLogs();
             }
         } finally {
@@ -315,14 +384,17 @@ function initSmtpForm(): void {
             });
             if (res.status === 'success') {
                 showToast(`Email de test expédié et tracé vers ${recipient}`, 'success');
-                await loadEmailLogs();
             }
+            await loadEmailLogs();
         } finally {
             setButtonLoading(testBtn, false, '✉️ Envoyer un mail de test');
         }
     });
 }
 
+/**
+ * Charge et affiche l'historique des e-mails (email_logs) avec statut, relances et bouton Relancer.
+ */
 async function loadEmailLogs(): Promise<void> {
     const tbody = document.getElementById('email-logs-tbody');
     if (!tbody) return;
@@ -332,17 +404,60 @@ async function loadEmailLogs(): Promise<void> {
 
     tbody.innerHTML = '';
     res.data.forEach((mail) => {
+        const isFailed = mail.status === 'failed';
+        const retryCount = Number(mail.retry_count ?? 0);
+        const statusBadge = isFailed
+            ? `<span data-testid="email-log-status-${mail.id}" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30">Échec</span>`
+            : `<span data-testid="email-log-status-${mail.id}" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Envoyé</span>`;
+        const retryMeta = retryCount > 0
+            ? `<div data-testid="email-log-retries-${mail.id}" class="text-[10px] text-slate-400 mt-1">Relances : ${retryCount}</div>`
+            : '';
+        const actionCell = isFailed
+            ? `<button type="button" data-retry-email-id="${mail.id}" data-testid="btn-retry-email-${mail.id}" class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold transition">↻ Relancer</button>`
+            : `<span class="text-slate-600 text-[11px]">—</span>`;
+
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-800/50';
         tr.innerHTML = `
-            <td class="p-2.5 text-emerald-400 font-semibold">${mail.recipient_email}</td>
-            <td class="p-2.5 text-slate-200">${mail.subject}</td>
-            <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300">${mail.template_type}</span></td>
-            <td class="p-2.5 text-slate-400">${mail.smtp_response || '250 OK'}</td>
-            <td class="p-2.5 text-slate-500">${mail.sent_at}</td>
+            <td class="p-2.5 text-emerald-400 font-semibold">${escapeHtml(mail.recipient_email)}</td>
+            <td class="p-2.5 text-slate-200">${escapeHtml(mail.subject)}</td>
+            <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300">${escapeHtml(mail.template_type)}</span></td>
+            <td class="p-2.5">${statusBadge}${retryMeta}</td>
+            <td class="p-2.5 text-slate-400 max-w-xs truncate" title="${escapeHtml(mail.smtp_response || '')}">${escapeHtml(mail.smtp_response || '250 OK')}</td>
+            <td class="p-2.5 text-slate-500 whitespace-nowrap">${escapeHtml(mail.sent_at)}</td>
+            <td class="p-2.5 text-right">${actionCell}</td>
         `;
         tbody.appendChild(tr);
     });
+
+    tbody.querySelectorAll<HTMLButtonElement>('[data-retry-email-id]').forEach((retryBtn) => {
+        retryBtn.addEventListener('click', async () => {
+            const id = Number(retryBtn.getAttribute('data-retry-email-id'));
+            if (!id) return;
+            await retryFailedEmail(id, retryBtn);
+        });
+    });
+}
+
+/**
+ * Déclenche la relance manuelle d'un e-mail en échec via POST /api/v1/sys/email-logs/{id}/retry.
+ *
+ * @param logId Identifiant de la trace email_logs.
+ * @param btn   Bouton déclencheur pour l'état de chargement.
+ */
+async function retryFailedEmail(logId: number, btn: HTMLButtonElement): Promise<void> {
+    setButtonLoading(btn, true, '↻ Relancer');
+    try {
+        const res = await fetchApi(`/api/v1/sys/email-logs/${logId}/retry`, {
+            method: 'POST'
+        });
+        if (res.status === 'success') {
+            showToast(res.message || `E-mail #${logId} relancé avec succès.`, 'success');
+        }
+        await loadEmailLogs();
+    } finally {
+        setButtonLoading(btn, false, '↻ Relancer');
+    }
 }
 
 async function loadSystemLogs(): Promise<void> {

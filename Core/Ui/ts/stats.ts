@@ -32,8 +32,12 @@ interface DemographicsData {
     gender_ratio: {
         male: number;
         female: number;
+        other?: number;
+        unspecified?: number;
         male_pct: number;
         female_pct: number;
+        other_pct?: number;
+        unspecified_pct?: number;
     };
     discipline_occupancy: Array<{
         discipline_id: number;
@@ -167,6 +171,14 @@ async function loadDemographicsStats(): Promise<void> {
         setTxt('kpi-minors-adults', `${d.minors_count} / ${d.adults_count}`);
         if (d.gender_ratio) {
             setTxt('kpi-gender-ratio', `${d.gender_ratio.male_pct}% / ${d.gender_ratio.female_pct}%`);
+            const otherPct = d.gender_ratio.other_pct ?? 0;
+            const unspecPct = d.gender_ratio.unspecified_pct ?? 0;
+            setTxt(
+                'kpi-gender-details',
+                otherPct > 0 || unspecPct > 0
+                    ? `Autre ${otherPct}% · Non renseigné ${unspecPct}%`
+                    : 'Données réelles déclarées'
+            );
         }
     } catch {
         // Mode dégradé silencieux basé sur le rendu SSR

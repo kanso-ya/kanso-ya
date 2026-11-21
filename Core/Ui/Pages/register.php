@@ -130,6 +130,16 @@ ob_start();
                 </div>
 
                 <div>
+                    <label for="reg-member-gender" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Genre (optionnel — statistiques anonymisées du club)</label>
+                    <select id="reg-member-gender" name="gender" data-testid="reg-member-gender" class="w-full sm:w-72 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white">
+                        <option value="">Non renseigné</option>
+                        <option value="M">Homme</option>
+                        <option value="F">Femme</option>
+                        <option value="O">Autre / Non binaire</option>
+                    </select>
+                </div>
+
+                <div>
                     <div id="adult-email-wrapper">
                         <label for="reg-email" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Email personnel (Pratiquant Majeur) *</label>
                         <input type="email" id="reg-email" name="email" placeholder="lucas.martin@mail.com" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm">

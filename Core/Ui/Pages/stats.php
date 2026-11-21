@@ -40,6 +40,8 @@ $now                      = new DateTimeImmutable();
 $renewalRate              = $statsData['renewal_rate'];
 $genderRatioMale          = $statsData['gender_ratio_male'];
 $genderRatioFemale        = $statsData['gender_ratio_female'];
+$genderRatioOther         = $statsData['gender_ratio_other'];
+$genderRatioUnspecified   = $statsData['gender_ratio_unspecified'];
 $totalValidatedRevenue    = $statsData['total_validated_revenue'];
 $totalPendingRevenue      = $statsData['total_pending_revenue'];
 $paymentsByMethod         = $statsData['payments_by_method'];
@@ -136,8 +138,12 @@ ob_start();
 
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
                 <span class="text-[11px] font-bold uppercase text-purple-600 block">Ratio H / F</span>
-                <span id="kpi-gender-ratio" class="text-2xl font-black text-purple-600 mt-1 block"><?= $genderRatioMale ?>% / <?= $genderRatioFemale ?>%</span>
-                <span class="text-[11px] text-slate-500">Répartition estimée</span>
+                <span id="kpi-gender-ratio" data-testid="kpi-gender-ratio" class="text-2xl font-black text-purple-600 mt-1 block"><?= $genderRatioMale ?>% / <?= $genderRatioFemale ?>%</span>
+                <span id="kpi-gender-details" data-testid="kpi-gender-details" class="text-[11px] text-slate-500">
+                    <?= $genderRatioUnspecified > 0 || $genderRatioOther > 0
+                        ? sprintf('Autre %d%% · Non renseigné %d%%', $genderRatioOther, $genderRatioUnspecified)
+                        : 'Données réelles déclarées' ?>
+                </span>
             </div>
         </div>
 

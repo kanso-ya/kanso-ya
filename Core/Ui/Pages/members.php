@@ -157,9 +157,20 @@ ob_start();
                     <input type="text" name="last_name" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
                 </div>
             </div>
-            <div>
-                <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Date de naissance *</label>
-                <input type="date" name="birth_date" value="2012-04-15" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Date de naissance *</label>
+                    <input type="date" name="birth_date" value="2012-04-15" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Genre (optionnel)</label>
+                    <select id="create-member-gender" name="gender" data-testid="create-member-gender" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+                        <option value="">Non renseigné</option>
+                        <option value="M">Homme</option>
+                        <option value="F">Femme</option>
+                        <option value="O">Autre / Non binaire</option>
+                    </select>
+                </div>
             </div>
             <div>
                 <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Email (Invitation d'activation 48h)</label>
@@ -192,6 +203,15 @@ ob_start();
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Date de naissance *</label>
                     <input type="date" id="edit-birth-date" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Genre (optionnel)</label>
+                    <select id="edit-member-gender" data-testid="edit-member-gender" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+                        <option value="">Non renseigné</option>
+                        <option value="M">Homme</option>
+                        <option value="F">Femme</option>
+                        <option value="O">Autre / Non binaire</option>
+                    </select>
                 </div>
             </div>
 

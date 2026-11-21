@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/001_core_schema.php';
 require_once __DIR__ . '/003_modules_schema.php';
+require_once __DIR__ . '/004_smtp_reliability.php';
+require_once __DIR__ . '/005_member_gender.php';
 
 use Core\Api\Database\Database;
 
@@ -21,7 +23,7 @@ function runCoreSeed(): void
     $db = Database::getInstance();
     $hash = password_hash('password123', PASSWORD_DEFAULT);
 
-    $db->exec('BEGIN IMMEDIATE');
+    Database::beginWriteTransaction($db);
 
     // Nettoyage préalable pour idempotence totale
     $db->exec("DELETE FROM member_practices");
@@ -33,16 +35,17 @@ function runCoreSeed(): void
     $db->exec("DELETE FROM email_logs");
     $db->exec("DELETE FROM sys_logs");
     $db->exec("DELETE FROM app_logs");
+    $db->exec("DELETE FROM sys_settings WHERE setting_key = 'smtp_password'");
 
     // 1. Superadmin (Mot de passe : password123)
     $db->exec("
-        INSERT OR REPLACE INTO sys_superadmins (id, username, email, password_hash, failed_login_attempts, locked_until)
+        REPLACE INTO sys_superadmins (id, username, email, password_hash, failed_login_attempts, locked_until)
         VALUES (1, 'superadmin', 'superadmin@kanso-ya.local', '$hash', 0, NULL)
     ");
 
     // 2. Paramètres Système & Métier
     $db->exec("
-        INSERT OR REPLACE INTO sys_settings (setting_key, setting_value) VALUES
+        REPLACE INTO sys_settings (setting_key, setting_value) VALUES
             ('site_name', 'Kanso-ya - Clubs et Associations'),
             ('site_logo_url', ''),
             ('site_watermark_url', ''),
@@ -54,6 +57,8 @@ function runCoreSeed(): void
             ('smtp_host', 'smtp.kanso-ya.fr'),
             ('smtp_port', '587'),
             ('smtp_encryption', 'tls'),
+            ('smtp_transport', 'log'),
+            ('smtp_timeout', '10'),
             ('smtp_username', 'notifications@kanso-ya.fr'),
             ('smtp_from_email', 'ne-pas-repondre@kanso-ya.fr'),
             ('smtp_from_name', 'Secrétariat Kanso-ya'),
@@ -72,7 +77,7 @@ function runCoreSeed(): void
 
     // 3. Rôles RBAC
     $db->exec("
-        INSERT OR REPLACE INTO roles (id, name, is_system, permissions) VALUES
+        REPLACE INTO roles (id, name, is_system, permissions) VALUES
             (1, 'Président', 1, '[\"members.view\",\"members.edit\",\"roles.manage\",\"finances.manage\",\"articles.write\",\"articles.publish\",\"pages.manage\",\"settings.manage\",\"logs.view\",\"stats.view\"]'),
             (2, 'Entraîneur', 0, '[\"members.view\",\"articles.write\",\"stats.view\"]'),
             (3, 'Rédacteur', 0, '[\"articles.write\"]'),
@@ -83,7 +88,7 @@ function runCoreSeed(): void
 
     // 4. Comptes Utilisateurs (Staff + Enseignants + Tuteurs/Parents + Majeurs) — Mot de passe unique : password123
     $db->exec("
-        INSERT OR REPLACE INTO users (id, email, password_hash, first_name, last_name, phone, address, custom_fields, role_id, is_active, two_factor_enabled, two_factor_secret) VALUES
+        REPLACE INTO users (id, email, password_hash, first_name, last_name, phone, address, custom_fields, role_id, is_active, two_factor_enabled, two_factor_secret) VALUES
             (1, 'president@kanso-ya.local', '$hash', 'Kenji', 'Takahashi', '06 01 02 03 04', '12 Rue du Dojo, 79100 Thouars', '[{\"label\":\"Licence Fédérale\",\"value\":\"FFJDA-2026-001\"}]', 1, 1, 0, 'JBSWY3DPEHPK3PXP'),
             (2, 'tutorB@mail.com', '$hash', 'Hélène', 'Martin-sensei', '06 22 33 44 55', '8 Avenue Victor Hugo, 79100 Sainte-Verge', '[{\"label\":\"Diplôme\",\"value\":\"DEJEPS Judo / Karaté\"}]', 2, 1, 0, 'JBSWY3DPEHPK3PX2'),
             (3, 'radie_user@mail.com', '$hash', 'Marc', 'Ancien', '06 00 00 00 00', 'Ancienne adresse', '[]', 3, 0, 0, NULL),
@@ -293,12 +298,13 @@ function runCoreSeed(): void
         $extraMembers[] = [$id, $fn, $ln, $bdate, $email, $phone, $addr, $status, $emergName, $emergPhone, $tutors, $practices];
     }
 
+    $insertIgnore = Database::insertIgnorePrefix($db);
     $stmtMem = $db->prepare("
-        INSERT INTO members (id, first_name, last_name, birth_date, email, phone, address, status, emergency_contact_name, emergency_contact_phone)
-        VALUES (:id, :fn, :ln, :bd, :em, :ph, :ad, :st, :en, :ep)
+        INSERT INTO members (id, first_name, last_name, birth_date, gender, email, phone, address, status, emergency_contact_name, emergency_contact_phone)
+        VALUES (:id, :fn, :ln, :bd, :gd, :em, :ph, :ad, :st, :en, :ep)
     ");
     $stmtTut = $db->prepare("
-        INSERT OR IGNORE INTO member_tutor (member_id, tutor_id, relationship, info_shared)
+        {$insertIgnore} member_tutor (member_id, tutor_id, relationship, info_shared)
         VALUES (:mid, :tid, :rel, :sh)
     ");
     $stmtPrac = $db->prepare("
@@ -308,11 +314,18 @@ function runCoreSeed(): void
 
     foreach ($extraMembers as $row) {
         [$id, $fn, $ln, $bdate, $email, $phone, $addr, $status, $emergName, $emergPhone, $tutors, $practices] = $row;
+        // Répartition démographique réaliste RGPD (~43% M, ~41% F, ~5% O, ~10% NULL)
+        $mod = $id % 20;
+        $gender = $mod === 0 || $mod === 10
+            ? null
+            : ($mod === 19 ? 'O' : ($mod % 2 === 1 ? 'M' : 'F'));
+
         $stmtMem->execute([
             'id' => $id,
             'fn' => $fn,
             'ln' => $ln,
             'bd' => $bdate,
+            'gd' => $gender,
             'em' => $email,
             'ph' => $phone,
             'ad' => $addr,
@@ -372,17 +385,17 @@ function runCoreSeed(): void
 
     // 10. Catégories, Articles & Pages Légales
     $db->exec("
-        INSERT OR REPLACE INTO article_categories (id, name, badge_color) VALUES
+        REPLACE INTO article_categories (id, name, badge_color) VALUES
             (1, 'Vie du club', 'bg-emerald-100 text-emerald-800'),
             (2, 'Compétition', 'bg-red-100 text-red-800'),
             (3, 'Événements', 'bg-amber-100 text-amber-800');
 
-        INSERT OR REPLACE INTO articles (id, title, content, category_id, author_id, visibility, status) VALUES
+        REPLACE INTO articles (id, title, content, category_id, author_id, visibility, status) VALUES
             (1, 'Ouverture des inscriptions pour la saison 2026-2027', '<p>Bienvenue au Dojo Kanso-ya ! Les inscriptions pour la nouvelle saison de <strong>Judo</strong>, <strong>Karaté</strong> et <strong>Aïkido</strong> sont officiellement ouvertes.</p><h2>Tarif familial dégressif</h2><p>Profitez de 10% de remise automatique dès le deuxième membre d''une même famille.</p>', 1, 1, 'public', 'published'),
             (2, 'Résultats du Tournoi Régional Nouvelle-Aquitaine', '<p>Félicitations à nos 14 compétiteurs engagés ce week-end à Poitiers ! Le club remporte <strong>4 médailles d''or</strong> et 3 médailles d''argent.</p>', 2, 1, 'public', 'published'),
             (3, 'Stage d''arbitrage & Passage de grades interne (Réservé Adhérents)', '<p>Le prochain passage de grades aura lieu le samedi 12 décembre à 14h00 au Dojo principal.</p>', 3, 1, 'members', 'published');
 
-        INSERT OR REPLACE INTO pages (id, slug, title, content, status) VALUES
+        REPLACE INTO pages (id, slug, title, content, status) VALUES
             (1, 'mentions-legales', 'Mentions Légales', '<h2>Éditeur du site</h2><p>Association sportive loi 1901 <strong>Kanso-ya - Clubs et Associations</strong>.</p>', 'published'),
             (2, 'rgpd', 'Politique de Confidentialité (RGPD)', '<h2>Protection des données personnelles & familiales</h2><p>Les coordonnées des responsables légaux sont strictement isolées par défaut entre co-tuteurs.</p>', 'published'),
             (3, 'cgv', 'Conditions Générales d''Adhésion (CGV)', '<h2>Cotisation annuelle 2026-2027</h2><p>La cotisation annuelle de base est fixée à 150,00 € par pratiquant.</p>', 'published'),

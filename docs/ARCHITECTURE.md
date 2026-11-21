@@ -9,12 +9,12 @@
 
 ## 1. Stack Technique & Principes Directeurs
 
-- **Backend :** Vanilla PHP 8.5+ (`declare(strict_types=1)`), zéro framework lourd, autoloader PSR-4 strict (`composer.json` : `Core\` → `Core/`, `Modules\` → `modules/`, 26 classes, 0 avertissement sous `composer dump-autoload -o --strict-psr`), analyse statique **PHPStan niveau 5** (`phpstan.neon`, 0 erreur).
+- **Backend :** Vanilla PHP 8.5+ (`declare(strict_types=1)`), zéro framework lourd, autoloader PSR-4 strict (`composer.json` : `Core\` → `Core/`, `Modules\` → `modules/`, 28 classes, 0 avertissement sous `composer dump-autoload -o --strict-psr`), analyse statique **PHPStan niveau 5** (`phpstan.neon`, 0 erreur).
 - **Base de Données :** PDO pur avec requêtes préparées via le Singleton `Core\Api\Database\Database`.
   - Moteur actif : **SQLite 3 en mode WAL** (`storage/db/kanso-ya.sqlite`, `PRAGMA busy_timeout = 15000`, `PRAGMA journal_mode = WAL`, `PRAGMA synchronous = NORMAL`), transactions `BEGIN IMMEDIATE` avec retries.
   - Compatibilité MySQL/MariaDB prévue via `.env` (`DB_CONNECTION=mysql`).
 - **Frontend :** Architecture MPA derrière un Front-Controller unique (`public/index.php` → `Core\Ui\Router\PageRouter`), **TypeScript strict** (`Core/Ui/ts/` → `public/assets/ts/`), **Tailwind CSS compilé localement** (`tailwind.config.js` → `public/assets/css/tailwind.css`, 44 Ko, zéro CDN), thème dynamique CSS réel (`--brand-primary`, `--brand-primary-hover`, `--brand-sidebar`, `--brand-header`, `--brand-accent`).
-- **Qualité & Non-Régression :** 21 suites Playwright E2E dans `tests/e2e/` (**284/284 Pass** Desktop Chrome + Mobile Chrome Pixel 5) avec snapshot/restauration bit-à-bit de la base SQLite (`tests/setup/`).
+- **Qualité & Non-Régression :** 23 suites Playwright E2E dans `tests/e2e/` (**298/298 Pass** Desktop Chrome + Mobile Chrome Pixel 5) avec snapshot/restauration bit-à-bit de la base SQLite (`tests/setup/`).
 
 ---
 
@@ -35,11 +35,14 @@ kanso-ya/
 ├── Core/                               # NOYAU APPLICATIF (strictement hors accès HTTP)
 │   ├── Api/                            # Couche Backend (namespace Core\Api\*)
 │   │   ├── Database/
-│   │   │   ├── Database.php            # Singleton PDO + Database::transaction()
+│   │   │   ├── Database.php               # Singleton PDO + helpers dialectaux SQLite/MySQL + transaction()
+│   │   │   ├── check_mysql_compat.php     # Audit SQLite-only & validation DDL MySQL 8 / MariaDB 10.6+
 │   │   │   └── Migrations/
-│   │   │       ├── 001_core_schema.php # 17 tables Core
-│   │   │       ├── 002_core_seed.php   # Fixtures QA (58 adhérents, 3 disciplines, 6 dossiers)
-│   │   │       └── 003_modules_schema.php # Table modules
+│   │   │       ├── 001_core_schema.php      # 17 tables Core (incluant members.gender)
+│   │   │       ├── 002_core_seed.php        # Fixtures QA (58 adhérents, 3 disciplines, 21 grades/niveaux, 6 dossiers)
+│   │   │       ├── 003_modules_schema.php   # Table modules
+│   │   │       ├── 004_smtp_reliability.php # Colonnes relance email_logs & défauts smtp_transport/timeout
+│   │   │       └── 005_member_gender.php    # Colonne optionnelle members.gender (RGPD)
 │   │   ├── Endpoints/                  # 7 contrôleurs métier REST (JSend HTTP 200)
 │   │   │   ├── AuthController.php
 │   │   │   ├── CmsController.php
@@ -59,10 +62,12 @@ kanso-ya/
 │   │   │   ├── ModuleInterface.php     # Contrat install(), uninstall(), boot(EventManager)
 │   │   │   └── UiHelpers.php           # Helpers statiques text(), tabs(), slot(), assets()
 │   │   └── Services/
+│   │       ├── MailerService.php       # Envoi centralisé, chiffrement AES-256-GCM, garde testing & retry
 │   │       ├── ModuleManager.php       # Cycle de vie, publication/purge assets, quarantineModule()
 │   │       ├── ModuleScanner.php       # Découverte modules/*Api/manifest.json (Core 2.0.0)
 │   │       ├── RolloverService.php     # Bascule annuelle de saison
 │   │       ├── ScheduleService.php     # Données publiques /horaires
+│   │       ├── SmtpClient.php          # Client SMTP natif PHP (TCP/SSL/STARTTLS, AUTH LOGIN/PLAIN)
 │   │       └── StatsService.php        # Agrégations KPIs, finances & occupation /stats
 │   │
 │   └── Ui/                             # Couche Frontend (namespace Core\Ui\*)
@@ -148,7 +153,7 @@ Toute route API transite par `public/api.php` → `Core\Api\Http\ApiKernel::hand
 | **CMS & Pages** | `GET/POST /api/v1/articles`, `GET/PUT/DELETE /api/v1/articles/{id}`, `PATCH /api/v1/articles/{id}/status`, `POST /api/v1/articles/media`, `POST /api/v1/articles/media/cleanup`, `GET /api/v1/pages`, `GET/PUT /api/v1/pages/{slug}` |
 | **Rôles & Disciplines** | `GET/POST /api/v1/roles`, `PATCH /api/v1/roles/{id}[/permissions]`, `DELETE /api/v1/roles/{id}`, `GET/POST /api/v1/disciplines`, `PUT/PATCH/DELETE /api/v1/disciplines/{id}` |
 | **Stats & Saison** | `GET /api/v1/stats/kpis`, `GET /api/v1/stats/demographics`, `POST /api/v1/tasks/rollover-season` (alias `POST /api/v1/rollover`) |
-| **Système & Modules** | `GET/PATCH/PUT /api/v1/settings`, `GET /api/v1/app-logs`, `GET /api/v1/sys/logs`, `GET /api/v1/sys/email-logs`, `POST /api/v1/sys/test-email`, `GET /api/v1/sys/email-templates`, `PUT/PATCH /api/v1/sys/email-templates/{key}`, `POST /api/v1/sys/branding-upload`, `GET/POST /api/v1/sys/superadmins`, `PATCH /api/v1/sys/password`, `GET /api/v1/sys/metrics`, `POST /api/v1/sys/backup`, `GET /api/v1/sys/modules`, `POST /api/v1/sys/modules/scan`, `PATCH /api/v1/sys/modules/{id}/toggle`, `POST /api/v1/sys/modules/{id}/uninstall`, `DELETE /api/v1/sys/modules/{id}` |
+| **Système & Modules** | `GET/PATCH/PUT /api/v1/settings`, `GET /api/v1/app-logs`, `GET /api/v1/sys/logs`, `GET /api/v1/sys/email-logs`, `POST /api/v1/sys/email-logs/{id}/retry`, `POST /api/v1/sys/test-email`, `GET /api/v1/sys/email-templates`, `PUT/PATCH /api/v1/sys/email-templates/{key}`, `POST /api/v1/sys/branding-upload`, `GET/POST /api/v1/sys/superadmins`, `PATCH /api/v1/sys/password`, `GET /api/v1/sys/metrics`, `POST /api/v1/sys/backup`, `GET /api/v1/sys/modules`, `POST /api/v1/sys/modules/scan`, `PATCH /api/v1/sys/modules/{id}/toggle`, `POST /api/v1/sys/modules/{id}/uninstall`, `DELETE /api/v1/sys/modules/{id}` |
 | **Modules (`api_routes`)** | Confinés sous `/api/v1/modules/{slug}/*` (ex. `GET /api/v1/modules/boutique/products`) |
 
 ---

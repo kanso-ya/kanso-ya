@@ -37,6 +37,7 @@ interface MemberRow {
     first_name: string;
     last_name: string;
     birth_date: string;
+    gender?: string | null;
     email?: string;
     phone?: string;
     address?: string;
@@ -747,6 +748,8 @@ function openEditMemberModal(member: MemberRow): void {
     (document.getElementById('edit-first-name') as HTMLInputElement).value = member.first_name;
     (document.getElementById('edit-last-name') as HTMLInputElement).value = member.last_name;
     (document.getElementById('edit-birth-date') as HTMLInputElement).value = member.birth_date;
+    const editGenderEl = document.getElementById('edit-member-gender') as HTMLSelectElement | null;
+    if (editGenderEl) editGenderEl.value = member.gender || '';
     (document.getElementById('edit-phone') as HTMLInputElement).value = member.phone || '';
     (document.getElementById('edit-address') as HTMLInputElement).value = member.address || '';
     (document.getElementById('edit-emerg-name') as HTMLInputElement).value = member.emergency_contact_name || '';
@@ -817,6 +820,7 @@ function initEditMemberModal(): void {
             first_name: firstName,
             last_name: lastName,
             birth_date: birthDate,
+            gender: (document.getElementById('edit-member-gender') as HTMLSelectElement | null)?.value || '',
             phone: (document.getElementById('edit-phone') as HTMLInputElement).value.trim(),
             address: (document.getElementById('edit-address') as HTMLInputElement).value.trim(),
             emergency_contact_name: (document.getElementById('edit-emerg-name') as HTMLInputElement).value.trim(),

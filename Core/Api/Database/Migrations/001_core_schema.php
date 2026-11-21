@@ -57,9 +57,12 @@ function runCoreSchemaMigration(): void
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         recipient_email VARCHAR(255) NOT NULL,
         subject VARCHAR(255) NOT NULL,
+        body_html TEXT NULL,
         template_type VARCHAR(50) NOT NULL DEFAULT 'OTP',
         status VARCHAR(30) NOT NULL DEFAULT 'sent',
         smtp_response VARCHAR(255) NULL,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        last_retry_at DATETIME NULL,
         sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -111,6 +114,7 @@ function runCoreSchemaMigration(): void
         first_name VARCHAR(100) NOT NULL,
         last_name VARCHAR(100) NOT NULL,
         birth_date DATE NOT NULL,
+        gender VARCHAR(16) NULL DEFAULT NULL,
         email VARCHAR(255) NULL,
         phone VARCHAR(50) NULL,
         address TEXT NULL,
@@ -229,7 +233,7 @@ function runCoreSchemaMigration(): void
     );
 SQL;
 
-    $db->exec($sql);
+    Database::execDdlStatements($db, $sql);
 
     // Ajout idempotent des nouvelles colonnes si la BDD existait déjà
     $alters = [
@@ -237,9 +241,10 @@ SQL;
         "ALTER TABLE users ADD COLUMN last_name VARCHAR(100) NULL",
         "ALTER TABLE users ADD COLUMN phone VARCHAR(50) NULL",
         "ALTER TABLE users ADD COLUMN address TEXT NULL",
-        "ALTER TABLE users ADD COLUMN custom_fields TEXT NOT NULL DEFAULT '[]'",
+        "ALTER TABLE users ADD COLUMN custom_fields TEXT NULL",
         "ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(64) NULL",
+        "ALTER TABLE members ADD COLUMN gender VARCHAR(16) NULL DEFAULT NULL",
         "ALTER TABLE members ADD COLUMN email VARCHAR(255) NULL",
         "ALTER TABLE members ADD COLUMN phone VARCHAR(50) NULL",
         "ALTER TABLE members ADD COLUMN address TEXT NULL",

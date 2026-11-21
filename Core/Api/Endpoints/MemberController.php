@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Api\Endpoints;
 
 use Core\Api\Database\Database;
+use Core\Api\Services\MailerService;
 use DateTimeImmutable;
 use finfo;
 use PDO;
@@ -33,7 +34,7 @@ final class MemberController
                 if ($this->db->inTransaction()) {
                     $this->db->exec('ROLLBACK');
                 }
-                $this->db->exec('BEGIN IMMEDIATE');
+                Database::beginWriteTransaction($this->db);
                 $result = $operation();
                 $this->db->exec('COMMIT');
                 return $result;
@@ -165,6 +166,27 @@ final class MemberController
     }
 
     /**
+     * Valide et normalise le champ optionnel gender ('M', 'F', 'O' ou null).
+     *
+     * @param mixed $raw Valeur brute reçue dans le payload.
+     * @return array{valid: bool, value: ?string}
+     */
+    private function normalizeGender(mixed $raw): array
+    {
+        if ($raw === null) {
+            return ['valid' => true, 'value' => null];
+        }
+        $clean = strtoupper(trim((string) $raw));
+        if ($clean === '') {
+            return ['valid' => true, 'value' => null];
+        }
+        if (in_array($clean, ['M', 'F', 'O'], true)) {
+            return ['valid' => true, 'value' => $clean];
+        }
+        return ['valid' => false, 'value' => null];
+    }
+
+    /**
      * Crée manuellement un adhérent depuis le back-office avec génération d'OTP et trace app_logs.
      *
      * @param array<string, mixed> $payload     Données du nouvel adhérent.
@@ -183,6 +205,17 @@ final class MemberController
         $emergPhone = trim((string) ($payload['emergency_contact_phone'] ?? ''));
         $status     = trim((string) ($payload['status'] ?? 'active'));
 
+        $genderCheck = $this->normalizeGender($payload['gender'] ?? null);
+        if (!$genderCheck['valid']) {
+            return [
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Valeur de genre invalide (valeurs autorisées : M, F, O ou vide).',
+                'data'    => null
+            ];
+        }
+        $gender = $genderCheck['value'];
+
         if ($firstName === '' || $lastName === '') {
             return [
                 'status'  => 'error',
@@ -197,16 +230,17 @@ final class MemberController
             $expiresAt = (new DateTimeImmutable('+48 hours'))->format('Y-m-d H:i:s');
             $tempHash = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
 
-            $this->db->exec('BEGIN IMMEDIATE');
+            Database::beginWriteTransaction($this->db);
 
             $stmt = $this->db->prepare("
-                INSERT INTO members (first_name, last_name, birth_date, email, phone, address, status, emergency_contact_name, emergency_contact_phone)
-                VALUES (:fname, :lname, :bdate, :email, :phone, :addr, :status, :ename, :ephone)
+                INSERT INTO members (first_name, last_name, birth_date, gender, email, phone, address, status, emergency_contact_name, emergency_contact_phone)
+                VALUES (:fname, :lname, :bdate, :gender, :email, :phone, :addr, :status, :ename, :ephone)
             ");
             $stmt->execute([
                 'fname'  => htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'),
                 'lname'  => htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'),
                 'bdate'  => $birthDate,
+                'gender' => $gender,
                 'email'  => $email !== '' ? strtolower($email) : null,
                 'phone'  => htmlspecialchars($phone, ENT_QUOTES, 'UTF-8'),
                 'addr'   => htmlspecialchars($address, ENT_QUOTES, 'UTF-8'),
@@ -217,8 +251,9 @@ final class MemberController
             $memberId = (int) $this->db->lastInsertId();
 
             if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $insertIgnore = Database::insertIgnorePrefix($this->db);
                 $stmtUser = $this->db->prepare("
-                    INSERT OR IGNORE INTO users (email, password_hash, first_name, last_name, role_id, is_active, otp_code, otp_expires_at)
+                    {$insertIgnore} users (email, password_hash, first_name, last_name, role_id, is_active, otp_code, otp_expires_at)
                     VALUES (:email, :hash, :fname, :lname, 1, 1, :otp, :exp)
                 ");
                 $stmtUser->execute([
@@ -229,12 +264,6 @@ final class MemberController
                     'otp'   => $otpCode,
                     'exp'   => $expiresAt
                 ]);
-
-                // Traçabilité de l'envoi d'email OTP
-                $this->db->prepare("
-                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
-                    VALUES (:email, 'Invitation Kanso-ya - Votre lien OTP (48h)', 'OTP_INVITE', 'sent', '250 2.0.0 OK: Queued')
-                ")->execute(['email' => strtolower($email)]);
             }
 
             $stmtLog = $this->db->prepare("
@@ -247,6 +276,18 @@ final class MemberController
             ]);
 
             $this->db->exec('COMMIT');
+
+            if ($email !== '' && $otpCode !== null) {
+                try {
+                    (new MailerService($this->db))->send(
+                        strtolower($email),
+                        'Invitation Kanso-ya - Votre lien OTP (48h)',
+                        '<p>Bienvenue chez Kanso-ya. Votre code d\'activation (valable 48h) est : <strong>' . htmlspecialchars($otpCode, ENT_QUOTES, 'UTF-8') . '</strong>.</p>',
+                        'OTP_INVITE'
+                    );
+                } catch (Throwable) {
+                }
+            }
 
             try {
                 if (class_exists('\\Core\\Sdk\\EventManager')) {
@@ -308,6 +349,21 @@ final class MemberController
         $emergPhone = trim((string) ($payload['emergency_contact_phone'] ?? ''));
         $status     = trim((string) ($payload['status'] ?? 'active'));
 
+        $hasGenderKey = array_key_exists('gender', $payload);
+        $genderValue = null;
+        if ($hasGenderKey) {
+            $genderCheck = $this->normalizeGender($payload['gender']);
+            if (!$genderCheck['valid']) {
+                return [
+                    'status'  => 'error',
+                    'code'    => 422,
+                    'message' => 'Valeur de genre invalide (valeurs autorisées : M, F, O ou vide).',
+                    'data'    => null
+                ];
+            }
+            $genderValue = $genderCheck['value'];
+        }
+
         if ($firstName === '' || $lastName === '' || $birthDate === '') {
             return [
                 'status'  => 'error',
@@ -318,13 +374,15 @@ final class MemberController
         }
 
         try {
-            $this->db->exec('BEGIN IMMEDIATE');
+            Database::beginWriteTransaction($this->db);
 
+            $genderClause = $hasGenderKey ? 'gender = :gender,' : '';
             $stmt = $this->db->prepare("
                 UPDATE members
                 SET first_name = :fname,
                     last_name = :lname,
                     birth_date = :bdate,
+                    {$genderClause}
                     email = COALESCE(NULLIF(:email, ''), email),
                     phone = :phone,
                     address = :addr,
@@ -333,7 +391,7 @@ final class MemberController
                     status = :status
                 WHERE id = :id
             ");
-            $stmt->execute([
+            $params = [
                 'fname'  => htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'),
                 'lname'  => htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'),
                 'bdate'  => $birthDate,
@@ -344,7 +402,11 @@ final class MemberController
                 'ephone' => htmlspecialchars($emergPhone, ENT_QUOTES, 'UTF-8'),
                 'status' => in_array($status, ['active', 'pending', 'radiated'], true) ? $status : 'active',
                 'id'     => $memberId
-            ]);
+            ];
+            if ($hasGenderKey) {
+                $params['gender'] = $genderValue;
+            }
+            $stmt->execute($params);
 
             if (isset($payload['practices']) && is_array($payload['practices'])) {
                 $this->db->prepare("DELETE FROM member_practices WHERE member_id = :mid")->execute(['mid' => $memberId]);
@@ -437,7 +499,7 @@ final class MemberController
         $recipientEmail = (string) ($targetUser['email'] ?? $member['email'] ?? ('adherent' . $memberId . '@kanso-ya.fr'));
 
         try {
-            return $this->executeImmediateTransaction(function () use ($targetUser, $otpCode, $expiresAt, $recipientEmail, $adminUserId, $memberId): array {
+            $response = $this->executeImmediateTransaction(function () use ($targetUser, $otpCode, $expiresAt, $recipientEmail, $adminUserId, $memberId): array {
                 if ($targetUser) {
                     $this->db->prepare("
                         UPDATE users
@@ -449,12 +511,6 @@ final class MemberController
                         'uid' => (int) $targetUser['id']
                     ]);
                 }
-
-                // Trace dans email_logs (Point 1 & Point 8)
-                $this->db->prepare("
-                    INSERT INTO email_logs (recipient_email, subject, template_type, status, smtp_response)
-                    VALUES (:email, 'Nouveau lien d''activation OTP (48h) - Kanso-ya', 'OTP_RESEND', 'sent', '250 2.0.0 OK: Relayed')
-                ")->execute(['email' => $recipientEmail]);
 
                 // Trace dans app_logs
                 $this->db->prepare("
@@ -478,6 +534,19 @@ final class MemberController
                     ]
                 ];
             });
+
+            // Expédition hors transaction SQLite
+            try {
+                (new MailerService($this->db))->send(
+                    $recipientEmail,
+                    'Nouveau lien d\'activation OTP (48h) - Kanso-ya',
+                    '<p>Voici votre nouveau code d\'activation OTP Kanso-ya (valable 48h) : <strong>' . htmlspecialchars($otpCode, ENT_QUOTES, 'UTF-8') . '</strong>.</p>',
+                    'OTP_RESEND'
+                );
+            } catch (Throwable) {
+            }
+
+            return $response;
         } catch (\Throwable $e) {
             return [
                 'status'  => 'error',
@@ -498,7 +567,7 @@ final class MemberController
     public function deleteMember(int $memberId, int $adminUserId = 1): array
     {
         try {
-            $this->db->exec('BEGIN IMMEDIATE');
+            Database::beginWriteTransaction($this->db);
 
             $this->db->prepare("DELETE FROM member_tutor WHERE member_id = :id")->execute(['id' => $memberId]);
             $this->db->prepare("DELETE FROM member_practices WHERE member_id = :id")->execute(['id' => $memberId]);

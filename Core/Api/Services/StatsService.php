@@ -38,8 +38,14 @@ final class StatsService
      *     minors_count: int,
      *     adults_count: int,
      *     renewal_rate: float,
+     *     gender_male_count: int,
+     *     gender_female_count: int,
+     *     gender_other_count: int,
+     *     gender_unspecified_count: int,
      *     gender_ratio_male: int,
      *     gender_ratio_female: int,
+     *     gender_ratio_other: int,
+     *     gender_ratio_unspecified: int,
      *     total_validated_revenue: float,
      *     total_pending_revenue: float,
      *     payments_by_method: array<int, array<string, mixed>>,
@@ -66,8 +72,14 @@ final class StatsService
             'minors_count'               => 0,
             'adults_count'               => 0,
             'renewal_rate'               => 0.0,
+            'gender_male_count'          => 0,
+            'gender_female_count'        => 0,
+            'gender_other_count'         => 0,
+            'gender_unspecified_count'   => 0,
             'gender_ratio_male'          => 0,
             'gender_ratio_female'        => 0,
+            'gender_ratio_other'         => 0,
+            'gender_ratio_unspecified'   => 0,
             'total_validated_revenue'    => 0.0,
             'total_pending_revenue'      => 0.0,
             'payments_by_method'         => [],
@@ -101,7 +113,7 @@ final class StatsService
         // 2. Récupération des adhérents du périmètre autorisé
         if ($isTeacher) {
             $stmtMembers = $db->query("
-                SELECT DISTINCT m.id, m.first_name, m.last_name, m.birth_date, m.status,
+                SELECT DISTINCT m.id, m.first_name, m.last_name, m.birth_date, m.gender, m.status,
                                 m.emergency_contact_name, m.emergency_contact_phone
                 FROM members m
                 INNER JOIN member_practices mp ON m.id = mp.member_id
@@ -120,6 +132,10 @@ final class StatsService
         $radiatedCount = 0;
         $minorsCount = 0;
         $adultsCount = 0;
+        $genderMaleCount = 0;
+        $genderFemaleCount = 0;
+        $genderOtherCount = 0;
+        $genderUnspecifiedCount = 0;
 
         foreach ($members as $m) {
             if (($m['status'] ?? '') === 'active') {
@@ -128,6 +144,17 @@ final class StatsService
                 $pendingCount++;
             } else {
                 $radiatedCount++;
+            }
+
+            $g = strtoupper(trim((string) ($m['gender'] ?? '')));
+            if ($g === 'M') {
+                $genderMaleCount++;
+            } elseif ($g === 'F') {
+                $genderFemaleCount++;
+            } elseif ($g === 'O') {
+                $genderOtherCount++;
+            } else {
+                $genderUnspecifiedCount++;
             }
 
             try {
@@ -142,10 +169,12 @@ final class StatsService
             }
         }
 
-        // 3. Taux de renouvellement et ratios démographiques (CA2)
+        // 3. Taux de renouvellement et ratios démographiques réels (Sprint 21)
         $renewalRate = $totalMembers > 0 ? round(($activeCount / $totalMembers) * 100, 1) : 0.0;
-        $genderRatioMale = $totalMembers > 0 ? 54 : 0;
-        $genderRatioFemale = $totalMembers > 0 ? 46 : 0;
+        $genderRatioMale = $totalMembers > 0 ? (int) round(($genderMaleCount / $totalMembers) * 100) : 0;
+        $genderRatioFemale = $totalMembers > 0 ? (int) round(($genderFemaleCount / $totalMembers) * 100) : 0;
+        $genderRatioOther = $totalMembers > 0 ? (int) round(($genderOtherCount / $totalMembers) * 100) : 0;
+        $genderRatioUnspecified = $totalMembers > 0 ? (int) round(($genderUnspecifiedCount / $totalMembers) * 100) : 0;
 
         // 4. Indicateurs financiers réservés au Bureau (CA3 - Anonymisation stricte pour Entraîneur)
         $totalValidatedRevenue = 0.0;
@@ -220,8 +249,14 @@ final class StatsService
             'minors_count'               => $minorsCount,
             'adults_count'               => $adultsCount,
             'renewal_rate'               => $renewalRate,
+            'gender_male_count'          => $genderMaleCount,
+            'gender_female_count'        => $genderFemaleCount,
+            'gender_other_count'         => $genderOtherCount,
+            'gender_unspecified_count'   => $genderUnspecifiedCount,
             'gender_ratio_male'          => $genderRatioMale,
             'gender_ratio_female'        => $genderRatioFemale,
+            'gender_ratio_other'         => $genderRatioOther,
+            'gender_ratio_unspecified'   => $genderRatioUnspecified,
             'total_validated_revenue'    => $totalValidatedRevenue,
             'total_pending_revenue'      => $totalPendingRevenue,
             'payments_by_method'         => $paymentsByMethod,

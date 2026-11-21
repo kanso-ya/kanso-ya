@@ -188,12 +188,11 @@ final class RolloverService
                 }
 
                 // 5. Mise à jour de la saison active dans sys_settings
-                $stmtSetSeason = $this->db->prepare("
-                    INSERT INTO sys_settings (setting_key, setting_value, updated_at)
-                    VALUES ('current_season', :ts, CURRENT_TIMESTAMP)
-                    ON CONFLICT(setting_key) DO UPDATE SET setting_value = :ts, updated_at = CURRENT_TIMESTAMP
-                ");
-                $stmtSetSeason->execute(['ts' => $targetSeason]);
+                $stmtSetSeason = $this->db->prepare(Database::upsertSettingSql($this->db));
+                $stmtSetSeason->execute([
+                    'key' => 'current_season',
+                    'val' => $targetSeason,
+                ]);
 
                 // 6. Enregistrement détaillé dans app_logs (CA4)
                 $logDetailsText = sprintf(
@@ -266,7 +265,7 @@ final class RolloverService
                 if ($this->db->inTransaction()) {
                     $this->db->exec('ROLLBACK');
                 }
-                $this->db->exec('BEGIN IMMEDIATE');
+                Database::beginWriteTransaction($this->db);
                 $result = $operation();
                 $this->db->exec('COMMIT');
                 return $result;

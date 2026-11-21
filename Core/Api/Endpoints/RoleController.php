@@ -199,7 +199,7 @@ final class RoleController
                 if ($this->db->inTransaction()) {
                     $this->db->exec('ROLLBACK');
                 }
-                $this->db->exec('BEGIN IMMEDIATE');
+                Database::beginWriteTransaction($this->db);
                 $result = $operation();
                 $this->db->exec('COMMIT');
                 return $result;

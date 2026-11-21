@@ -639,6 +639,9 @@ function openEditMemberModal(member) {
     document.getElementById('edit-first-name').value = member.first_name;
     document.getElementById('edit-last-name').value = member.last_name;
     document.getElementById('edit-birth-date').value = member.birth_date;
+    const editGenderEl = document.getElementById('edit-member-gender');
+    if (editGenderEl)
+        editGenderEl.value = member.gender || '';
     document.getElementById('edit-phone').value = member.phone || '';
     document.getElementById('edit-address').value = member.address || '';
     document.getElementById('edit-emerg-name').value = member.emergency_contact_name || '';
@@ -698,6 +701,7 @@ function initEditMemberModal() {
             first_name: firstName,
             last_name: lastName,
             birth_date: birthDate,
+            gender: document.getElementById('edit-member-gender')?.value || '',
             phone: document.getElementById('edit-phone').value.trim(),
             address: document.getElementById('edit-address').value.trim(),
             emergency_contact_name: document.getElementById('edit-emerg-name').value.trim(),

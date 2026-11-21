@@ -99,7 +99,7 @@ final class DisciplineController
         }
 
         try {
-            $this->db->exec('BEGIN IMMEDIATE');
+            Database::beginWriteTransaction($this->db);
 
             $stmtCheck = $this->db->prepare("SELECT id FROM disciplines WHERE LOWER(name) = LOWER(:name)");
             $stmtCheck->execute(['name' => $name]);
@@ -176,7 +176,7 @@ final class DisciplineController
         }
 
         try {
-            $this->db->exec('BEGIN IMMEDIATE');
+            Database::beginWriteTransaction($this->db);
 
             $stmt = $this->db->prepare("UPDATE disciplines SET name = :name WHERE id = :id");
             $stmt->execute([

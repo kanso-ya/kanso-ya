@@ -28,7 +28,7 @@ function runModulesSchemaMigration(): void
     );
 SQL;
 
-    $db->exec($sql);
+    Database::execDdlStatements($db, $sql);
     echo "[OK] Migration 003 : Table modules créée avec succès.\n";
 }
 

@@ -112,6 +112,11 @@ async function loadDemographicsStats() {
         setTxt('kpi-minors-adults', `${d.minors_count} / ${d.adults_count}`);
         if (d.gender_ratio) {
             setTxt('kpi-gender-ratio', `${d.gender_ratio.male_pct}% / ${d.gender_ratio.female_pct}%`);
+            const otherPct = d.gender_ratio.other_pct ?? 0;
+            const unspecPct = d.gender_ratio.unspecified_pct ?? 0;
+            setTxt('kpi-gender-details', otherPct > 0 || unspecPct > 0
+                ? `Autre ${otherPct}% · Non renseigné ${unspecPct}%`
+                : 'Données réelles déclarées');
         }
     }
     catch {
