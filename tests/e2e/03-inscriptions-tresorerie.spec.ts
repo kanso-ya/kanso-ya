@@ -17,7 +17,7 @@ test.describe('DOMAINE 3 — Wizard d\'Inscription Public, Panier Familial, Tré
     });
 
     test('US 3.1 : Transfert automatique de l\'email vers le Responsable Légal 1 si mineur (< 18 ans)', async ({ page }) => {
-        await page.goto('/register.php');
+        await page.goto('/register');
 
         const birthInput = page.locator('#reg-birth-date');
         const memberEmailInput = page.locator('#reg-email');
@@ -50,7 +50,7 @@ test.describe('DOMAINE 3 — Wizard d\'Inscription Public, Panier Familial, Tré
                 });
             });
 
-            await page.goto('/register.php');
+            await page.goto('/register');
             const banner = page.locator('#connected-re-enrollment-banner');
             await expect(banner).toBeVisible();
 

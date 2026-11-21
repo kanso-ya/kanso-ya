@@ -51,7 +51,7 @@ if (preg_match('/^[0-9a-fA-F]{6}$/', $cleanHex)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
     <title>Connexion à l'Espace Club — <?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/assets/css/tailwind.css">
     <style id="kanso-dynamic-theme" data-testid="kanso-dynamic-theme">
         :root {
             --brand-primary: <?= htmlspecialchars($primaryColor, ENT_QUOTES, 'UTF-8') ?>;

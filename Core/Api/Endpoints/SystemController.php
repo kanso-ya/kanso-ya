@@ -902,6 +902,15 @@ final class SystemController
 
         $fileSize = filesize($destination);
 
+        // Politique de rétention automatique : conserve les 10 sauvegardes les plus récentes (Sprint 19 — US 19.2)
+        $backups = glob($backupDir . '/kanso-ya-backup-*.sqlite') ?: [];
+        if (count($backups) > 10) {
+            usort($backups, static fn(string $a, string $b): int => (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0));
+            foreach (array_slice($backups, 10) as $oldBackup) {
+                @unlink($oldBackup);
+            }
+        }
+
         // Traçabilité
         $logStmt = $this->db->prepare("
             INSERT INTO sys_logs (superadmin_id, action, details, ip_address)

@@ -19,7 +19,7 @@ if (empty($_SESSION['csrf_token'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
     <title>Console Système - Kanso-ya - Clubs et Associations</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/assets/css/tailwind.css">
     <script type="module" src="/assets/ts/sys-login.js" defer></script>
 </head>
 <body class="bg-slate-950 text-slate-100 h-screen flex items-center justify-center">

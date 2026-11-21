@@ -61,7 +61,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.context().clearCookies();
 
         // 2. Le visiteur anonyme navigue sur le formulaire public
-        await page.goto('/register.php');
+        await page.goto('/register');
         await expect(page.locator('#public-registration-form')).toBeVisible();
 
         // --- MEMBRE 1 : ADULTE (Lucas Martin, né en 1990) ---
@@ -174,14 +174,14 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         expect(regId).toBeGreaterThan(0);
 
         // 3. Connexion du Trésorier via la page de connexion standard /login
-        await page.goto('/login.php');
+        await page.goto('/login');
         await page.fill('input[name="email"]', 'tresorier@kanso-ya.local');
         await page.fill('input[name="password"]', 'password123');
         await page.click('button[type="submit"]');
 
         // Redirection vers l'accueil ou navigation sur /registrations.php
         await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('registrations') || url.pathname.includes('dashboard'), { timeout: 10000 });
-        await page.goto('/registrations.php');
+        await page.goto('/registrations');
 
         // Inspection du dossier créé
         const regRow = page.locator('#registrations-tbody tr', { hasText: `#${regId}` }).first();
@@ -229,7 +229,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         expect(otpCode).toBeTruthy();
 
         // 4. Activation du compte adhérent sur /activate-otp.php avec le jeton OTP reçu
-        await page.goto(`/activate-otp.php?otp=${otpCode}`);
+        await page.goto(`/activate-otp?otp=${otpCode}`);
         await expect(page.locator('#otp-code-input')).toHaveValue(otpCode!);
 
         await page.fill('#otp-new-password', 'Secret123!');
@@ -240,7 +240,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await expect(page.locator('#toast-container')).toContainText(/activé/i);
 
         // 5. Connexion de l'adhérent (le parent référent) avec son nouveau mot de passe
-        await page.goto('/login.php');
+        await page.goto('/login');
         await page.fill('input[name="email"]', tutorEmail);
         await page.fill('input[name="password"]', 'Secret123!');
         await page.click('button[type="submit"]');
@@ -248,7 +248,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('dashboard'), { timeout: 10000 });
 
         // Vérification de l'accès à ses rattachements sur /members.php
-        await page.goto('/members.php');
+        await page.goto('/members');
         await expect(page.locator('#club-name-heading')).toBeVisible();
         await expect(page.locator('body')).toContainText(/Léo|Chloé|Martin/i);
 
@@ -261,13 +261,13 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         const articleTitle = `Stage International d'Automne 2026 - UAT ${Date.now()}`;
 
         // 1. Connexion du Rédacteur via /login.php
-        await page.goto('/login.php');
+        await page.goto('/login');
         await page.fill('input[name="email"]', 'redacteur@kanso-ya.local');
         await page.fill('input[name="password"]', 'password123');
         await page.click('button[type="submit"]');
 
         await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('cms') || url.pathname.includes('dashboard'), { timeout: 10000 });
-        await page.goto('/cms.php');
+        await page.goto('/cms');
 
         // 2. Création de l'article multi-colonnes dans le Builder
         await page.fill('#art-title', articleTitle);
@@ -294,13 +294,13 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
         await expect(homeGrid).not.toContainText(articleTitle);
 
         // 4. Déconnexion et Relecture / Publication par le Président
-        await page.goto('/login.php');
+        await page.goto('/login');
         await page.fill('input[name="email"]', 'president@kanso-ya.local');
         await page.fill('input[name="password"]', 'password123');
         await page.click('button[type="submit"]');
 
         await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('cms') || url.pathname.includes('dashboard'), { timeout: 10000 });
-        await page.goto('/cms.php');
+        await page.goto('/cms');
 
         // Bascule sur l'onglet 2 "Publications & Pages"
         await page.click('#cms-tab-btn-publications');
@@ -343,7 +343,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
     // =========================================================================
 
     test('AXE 2.1 : Blocage UI & Rejet 422 sur formulaires incomplets, dates futures et tuteurs mineurs', async ({ page, request }) => {
-        await page.goto('/register.php');
+        await page.goto('/register');
 
         // 1. Soumission d'un formulaire vide -> toast d'erreur bloquant
         await page.click('#btn-next-from-identity');
@@ -488,7 +488,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
 
     test('AXE 3.1 : Discipline à 100% de capacité (Judo >= 30 inscrits) affiche l\'alerte visuelle de saturation sans rupture sur stats.php', async ({ page, request }) => {
         // Consultation de /stats.php en tant que Président
-        await page.goto('/stats.php');
+        await page.goto('/stats');
         await expect(page.locator('#club-name-heading')).toBeVisible();
 
         // Ouverture de l'onglet Démographie & Occupation (Sprint 14 - Point 11)
@@ -528,7 +528,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
     });
 
     test('AXE 3.2 : Recherche instantanée 0ms et filtrage combiné (Statut + Discipline) sur annuaire massif (~60 adhérents)', async ({ page }) => {
-        await page.goto('/members.php');
+        await page.goto('/members');
         await expect(page.locator('#club-name-heading')).toBeVisible();
 
         const table = page.locator('#members-table');
@@ -626,13 +626,13 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
     test('AXE 4.3 : Absence absolue de débordement horizontal (scrollWidth <= clientWidth) sur les 8 pages clés', async ({ page, request }) => {
         const pagesToCheck = [
             { path: '/', auth: 'visitor' },
-            { path: '/register.php', auth: 'visitor' },
-            { path: '/members.php', auth: 'president' },
-            { path: '/registrations.php', auth: 'president' },
-            { path: '/cms.php', auth: 'president' },
-            { path: '/roles.php', auth: 'president' },
-            { path: '/stats.php', auth: 'president' },
-            { path: '/sys-console.php', auth: 'superadmin' }
+            { path: '/register', auth: 'visitor' },
+            { path: '/members', auth: 'president' },
+            { path: '/registrations', auth: 'president' },
+            { path: '/cms', auth: 'president' },
+            { path: '/roles', auth: 'president' },
+            { path: '/stats', auth: 'president' },
+            { path: '/sys-console', auth: 'superadmin' }
         ];
 
         const viewports = [
@@ -661,7 +661,7 @@ test.describe('DOMAINE 8 — Deep Audit E2E & UAT, Visual & Responsive Stress', 
 
     test('AXE 4.4 : Isolation visuelle sombre (bg-slate-950 / accents techniques) sur la console Superadmin', async ({ page, request }) => {
         await request.post('/api/v1/auth/switch-persona', { data: { persona: 'superadmin' } });
-        await page.goto('/sys-console.php');
+        await page.goto('/sys-console');
 
         await expect(page.locator('#club-name-heading')).toBeVisible();
 

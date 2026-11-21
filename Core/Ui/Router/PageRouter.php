@@ -212,29 +212,7 @@ final class PageRouter
             '/sys-smtp'            => ['page' => 'sys-smtp.php'],
             '/sys-modules'         => ['page' => 'sys-modules.php'],
             '/sys-logs'            => ['page' => 'sys-logs.php'],
-
-            // Alias .php legacy (conservés temporairement jusqu'au Sprint 19 pour compatibilité E2E)
             '/index.php'           => ['page' => 'home.php'],
-            '/login.php'           => ['page' => 'login.php'],
-            '/register.php'        => ['page' => 'register.php'],
-            '/activate-otp.php'    => ['page' => 'activate-otp.php'],
-            '/health-check.php'    => ['page' => 'health-check.php'],
-            '/horaires.php'        => ['page' => 'horaires.php'],
-            '/legal.php'           => ['page' => 'legal.php'],
-            '/dashboard.php'       => ['page' => 'dashboard.php'],
-            '/settings.php'        => ['page' => 'settings.php'],
-            '/stats.php'           => ['page' => 'stats.php'],
-            '/members.php'         => ['page' => 'members.php'],
-            '/registrations.php'   => ['page' => 'registrations.php'],
-            '/cms.php'             => ['page' => 'cms.php'],
-            '/disciplines.php'     => ['page' => 'disciplines.php'],
-            '/roles.php'           => ['page' => 'roles.php'],
-            '/sys-admin-login.php' => ['page' => 'sys-admin-login.php'],
-            '/sys-console.php'     => ['page' => 'sys-console.php'],
-            '/sys-branding.php'    => ['page' => 'sys-branding.php'],
-            '/sys-smtp.php'        => ['page' => 'sys-smtp.php'],
-            '/sys-modules.php'     => ['page' => 'sys-modules.php'],
-            '/sys-logs.php'        => ['page' => 'sys-logs.php'],
         ];
 
         return $routes;

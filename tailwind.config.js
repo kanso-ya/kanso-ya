@@ -1,12 +1,25 @@
 ﻿/** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   content: [
-    "./core/Ui/**/*.{html,php,ts}",
-    "./module/**/xxUi/**/*.{html,php,ts}",
-    "./public/**/*.html"
+    './Core/Ui/**/*.{php,ts,html}',
+    './modules/**/*Ui/**/*.{php,ts,html}',
+    './public/index.php',
+  ],
+  safelist: [
+    'hidden',
+    'flex',
+    'grid',
+    'block',
+    'inline-flex',
+    'bg-brand-primary',
+    'text-brand-primary',
+    'border-brand-primary',
+    'bg-brand-accent',
+    'text-brand-accent',
+    'border-brand-accent',
   ],
   theme: {
     extend: {},
   },
   plugins: [],
-}
+};

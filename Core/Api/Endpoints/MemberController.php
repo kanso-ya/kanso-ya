@@ -631,7 +631,7 @@ final class MemberController
      */
     public function exportMembers(int $userId, string $role, array $permissions, array $filters = []): array
     {
-        $listRes = $this->listMembers($userId, $role, $permissions);
+        $listRes = $this->listMembers($userId, $role);
         if ($listRes['status'] !== 'success' || !is_array($listRes['data'])) {
             return $listRes;
         }

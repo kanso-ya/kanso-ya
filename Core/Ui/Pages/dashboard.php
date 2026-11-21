@@ -33,7 +33,7 @@ $basePrice  = '';
 $regEnabled = '';
 $confirmTxt = '';
 
-$isUnauthenticatedVisitor = !$isSuperadmin && ($currentUserId <= 0 || $currentRole === 'Visiteur');
+$isUnauthenticatedVisitor = ($currentUserId <= 0 || $currentRole === 'Visiteur');
 if (!$isUnauthenticatedVisitor) {
     $db = Database::getInstance();
     $settings = $db->query("SELECT setting_key, setting_value FROM sys_settings")->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];

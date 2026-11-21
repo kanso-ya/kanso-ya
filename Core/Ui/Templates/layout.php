@@ -168,7 +168,7 @@ $primaryHoverColor = $darkenHex($primaryColor, 14);
     <link rel="icon" type="image/png" href="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?> — <?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/assets/css/tailwind.css">
     <style id="kanso-dynamic-theme" data-testid="kanso-dynamic-theme">
         :root {
             --brand-primary: <?= htmlspecialchars($primaryColor, ENT_QUOTES, 'UTF-8') ?>;

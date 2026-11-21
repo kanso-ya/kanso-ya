@@ -628,7 +628,7 @@ flowchart LR
 * **Critères de Validation (DoD) :** 100 % des nouveaux tests surcharge UI + non-régression complète au vert.
 
 ### 9.5. Sprint 19 (Lots R5, R6 & R7) : Verrouillage HTTP Définitif, Qualité Production & Documentation Finale (16 SP)
-* **Statut :** Planifié (Priorité P1/P2 — Dépend des Sprints 16 à 18)
+* **Statut :** ✅ **100% VALIDÉ EN RECETTE (284/284 Pass — Rapport : `docs/current-sprint/19-report-sprint19.md`)**
 * **Objectif :** Verrouiller définitivement l'accès direct HTTP, éliminer les dettes de build/qualité (CDN Tailwind, PHPStan L0, rétention backups) et livrer la documentation V2 complète.
 * **User Stories & Tâches :**
   - **US 19.1 — Verrouillage `.htaccess` définitif & Tests de non-exposition (Lot R5) :** Migrer les derniers tests E2E des URLs `.php` legacy vers les URLs propres, puis activer le blocage strict `403` dans `/public/.htaccess` sur tout `.php` direct hors `index.php`/`api.php`. Ajouter la suite E2E de sécurité vérifiant un refus `403`/`404` sur `/Core/`, `/modules/`, `/storage/`, `/docs/`, `/tests/`, `/vendor/`, `/.env`, `/stats.php`, `/uploads/test.php`.
@@ -644,8 +644,8 @@ flowchart LR
 | **Sprint 16** | R1, R2 | Arborescence PSR-4 (`Core/Api`, `Core/Ui`) & Front-Controller Unique | 21 SP | P1 | ✅ **100% VALIDÉ EN RECETTE (262/262 Pass — Rapport : `docs/current-sprint/16-report-sprint16.md`)** |
 | **Sprint 17** | R3 | Modules Normalisés (`{NomModule}Api` / `{NomModule}Ui`) & Assets | 18 SP | P1 | ✅ **100% VALIDÉ EN RECETTE (268/268 Pass — Rapport : `docs/current-sprint/17-report-sprint17.md`)** |
 | **Sprint 18** | R4 | Moteur de Surcharge UI (`EventManager`) & Safe Mode Étendu | 18 SP | P1 | ✅ **100% VALIDÉ EN RECETTE (276/276 Pass — Rapport : `docs/current-sprint/18-report-sprint18.md`)** |
-| **Sprint 19** | R5, R6, R7 | Verrouillage HTTP Définitif, Build Production (Tailwind/PHPStan L5) & Docs V2 | 16 SP | P1/P2 | Planifié |
-| **Total** | **R0–R7** | **Refactorisation Majeure & Durcissement V2** | **86 SP** | — | **Prêt à exécuter** |
+| **Sprint 19** | R5, R6, R7 | Verrouillage HTTP Définitif, Build Production (Tailwind/PHPStan L5) & Docs V2 | 16 SP | P1/P2 | ✅ **100% VALIDÉ EN RECETTE (284/284 Pass — Rapport : `docs/current-sprint/19-report-sprint19.md`)** |
+| **Total** | **R0–R7** | **Refactorisation Majeure & Durcissement V2** | **86 SP** | — | ✅ **PHASE V2 100 % ACHEVÉE & HOMOLOGUÉE** |
 
 
 

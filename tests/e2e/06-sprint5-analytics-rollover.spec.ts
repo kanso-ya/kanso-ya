@@ -316,7 +316,7 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
             body: JSON.stringify({ persona: 'entraineur' })
         }));
 
-        await page.goto('/stats.php');
+        await page.goto('/stats');
 
         // La section financière réservée au bureau ne doit PAS exister
         await expect(page.locator('#financial-stats-section')).toHaveCount(0);
@@ -342,7 +342,7 @@ test.describe('SPRINT 5 — Automatisation, Rollover Annuel & Tableaux de Bord A
             body: JSON.stringify({ persona: 'president' })
         }));
 
-        await page.goto('/stats.php');
+        await page.goto('/stats');
 
         // Cartes KPIs globales visibles sur l'onglet Vue Générale par défaut
         await expect(page.locator('#kpi-total-members')).toBeVisible();

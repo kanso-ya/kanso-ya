@@ -17,7 +17,7 @@ test.describe('DOMAINE 4 — Studio CMS, Builder Multi-Colonnes, Workflow Édito
     });
 
     test('TC-CMS-BUILDER : Navigation entre les 2 onglets du Studio CMS, ajout d\'une rangée 2 colonnes et modal Aperçu', async ({ page }) => {
-        await page.goto('/cms.php');
+        await page.goto('/cms');
 
         // 1. Onglet 1 par défaut : Studio Builder
         await expect(page.locator('#cms-tab-panel-editor')).toBeVisible();

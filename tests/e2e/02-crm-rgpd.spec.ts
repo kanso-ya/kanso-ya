@@ -19,7 +19,7 @@ test.describe('DOMAINE 2 — CRM Adhérents, Rattachements Familiaux, RGPD & San
     });
 
     test('TC-CRM-01 : Le filtre de recherche instantané (0ms) masque les lignes non correspondantes sur /members.php', async ({ page }) => {
-        await page.goto('/members.php');
+        await page.goto('/members');
         await page.waitForSelector('#members-table tbody tr.member-row');
 
         const searchInput = page.locator('#member-search');
@@ -35,7 +35,7 @@ test.describe('DOMAINE 2 — CRM Adhérents, Rattachements Familiaux, RGPD & San
     });
 
     test('US 2.3 : L\'accordéon TS déploie la fiche détaillée et les coordonnées des tuteurs légaux au clic', async ({ page }) => {
-        await page.goto('/members.php');
+        await page.goto('/members');
         await page.waitForSelector('#members-table tbody tr.member-row');
 
         const memberRow = page.locator('.member-row', { hasText: 'Test' }).first();
@@ -131,7 +131,7 @@ test.describe('DOMAINE 2 — CRM Adhérents, Rattachements Familiaux, RGPD & San
     });
 
     test('TC-STAT-01 : Page Statistiques (/stats.php) — Enseignant restreint à ses cours avec anonymisation stricte', async ({ page }) => {
-        await page.goto('/stats.php');
+        await page.goto('/stats');
         await expect(page.locator('#club-name-heading')).toBeVisible();
         await expect(page.locator('text=Pilotage Général du Club')).toBeVisible();
 
@@ -144,7 +144,7 @@ test.describe('DOMAINE 2 — CRM Adhérents, Rattachements Familiaux, RGPD & San
                 });
             });
 
-            await page.goto('/stats.php');
+            await page.goto('/stats');
             await expect(page.locator('text=Périmètre Pédagogique Enseignant (Anonymisé RGPD)')).toBeVisible();
             await page.locator('[data-testid="stats-tab-occupancy"]').click();
             await expect(page.locator('text=Aïkido & Self-Défense')).toHaveCount(0);
@@ -246,7 +246,7 @@ test.describe('DOMAINE 2 — CRM Adhérents, Rattachements Familiaux, RGPD & San
     });
 
     test('US 2.4 : Distinction Discipline / Grade (Âge) / Niveau (Ceinture) et affichage des badges numérotés sur /disciplines.php', async ({ page }) => {
-        await page.goto('/disciplines.php');
+        await page.goto('/disciplines');
         const judoCard = page.locator('#disciplines-list > div', { hasText: 'Judo' }).first();
         await expect(judoCard).toBeVisible();
         await expect(judoCard).toContainText('adhérent(s)');

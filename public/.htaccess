@@ -26,21 +26,26 @@ DirectoryIndex index.php
     # 1. Conserver l'en-tête Authorization pour l'API REST et Playwright
     SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 
-    # 2. Interdiction de toute tentative d'accès à des segments internes via /public/
+    # 2. Blocage strict de tout accès direct à un fichier .php hors index.php et api.php (Sprint 19 — Lot R5)
+    RewriteCond %{THE_REQUEST} \s/+[^\s?]*\.php[\s?] [NC]
+    RewriteCond %{REQUEST_URI} !^/(index|api)\.php$ [NC]
+    RewriteRule \.php$ - [F,L,NC]
+
+    # 3. Interdiction de toute tentative d'accès à des segments internes via /public/
     RewriteRule ^(Core|core|modules|storage|docs|tests|vendor)(/|$) - [F,L,NC]
 
-    # 3. Ne pas réécrire les deux front-controllers autorisés
+    # 4. Ne pas réécrire les deux front-controllers autorisés
     RewriteRule ^(index|api)\.php$ - [L,NC]
 
-    # 4. Trafic API -> Front-Controller API unique
+    # 5. Trafic API -> Front-Controller API unique
     RewriteCond %{REQUEST_URI} ^/api(/|$) [NC]
     RewriteRule ^(.*)$ api.php [L,QSA]
 
-    # 5. Assets statiques existants (assets/, uploads/, etc.) servis directement (hors .php)
+    # 6. Assets statiques existants (assets/, uploads/, etc.) servis directement (hors .php)
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteCond %{REQUEST_URI} !\.php$ [NC]
     RewriteRule ^ - [L]
 
-    # 6. Tout le reste (routes propres + alias .php legacy gérés par PageRouter) -> Front-Controller UI unique
+    # 7. Tout le reste -> Front-Controller UI unique (PageRouter)
     RewriteRule ^ index.php [L,QSA]
 </IfModule>

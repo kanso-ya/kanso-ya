@@ -144,7 +144,7 @@ test.describe('DOMAINE 1 — Authentification, Shadow Login, Sécurité, Profil 
 
     test('TC-PROF-01 : Page "Mon profil" à 2 onglets, champs dynamiques et 2FA TOTP', async ({ page, request }) => {
         await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'president' } });
-        await page.goto('/dashboard.php');
+        await page.goto('/dashboard');
         await expect(page.locator('h1')).toContainText('Mon profil');
 
         // Onglet 1 : Ajout d'un champ personnalisé dynamique et sauvegarde
@@ -233,7 +233,7 @@ test.describe('DOMAINE 1 — Authentification, Shadow Login, Sécurité, Profil 
 
     test('TC-RBAC-04 : Tableau Unique Multi-Colonnes — Ajout d\'un rôle, renommage, mise à jour des droits et suppression', async ({ page, request }) => {
         await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'president' } });
-        await page.goto('/roles.php');
+        await page.goto('/roles');
         await expect(page.locator('#rbac-matrix-table')).toBeVisible();
 
         const customRoleName = `Bénévole-${Date.now()}`;

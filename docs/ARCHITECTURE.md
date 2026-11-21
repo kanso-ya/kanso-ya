@@ -2,7 +2,7 @@
 
 **Projet :** Kanso-ya CMS Associatif (Core)  
 **Rôle :** @architect (Architecture Logicielle & Référentiel Technique)  
-**Statut :** Référence Actuelle v1.1 (Post-Sprint 14) — Trajectoire V2 spécifiée dans [`ARCHITECTURE-CIBLE-V2.md`](./ARCHITECTURE-CIBLE-V2.md)  
+**Statut :** Référence Active V2.0 (Post-Sprint 19 — PSR-4, Modules Api/Ui, Surcharge UI & Verrouillage Sécurité)  
 **Dernière révision :** 21 novembre 2026
 
 ---
@@ -496,20 +496,22 @@ Pour mettre fin aux incohérences visuelles causées par les classes Tailwind `e
 
 ---
 
-## 11. Trajectoire d'Architecture Cible V2 & Verrouillage Sécurité
+## 11. Architecture Active V2.0 & Verrouillage Sécurité (Sprints 15 à 19 — ✅ Validé)
 
 > [!IMPORTANT]
-> Les sections 1 à 10 décrivent l'état actuel du code (v1.1, post-Sprint 14). La **refactorisation majeure V2** — détaillée exhaustivement dans [`ARCHITECTURE-CIBLE-V2.md`](./ARCHITECTURE-CIBLE-V2.md) et mise en regard du bilan [`ETAT-DES-LIEUX.md`](./ETAT-DES-LIEUX.md) — fait évoluer l'architecture autour de **quatre piliers normatifs** :
+> Les Sprints 15 à 19 ont intégralement déployé l'architecture V2 spécifiée dans [`ARCHITECTURE-CIBLE-V2.md`](./ARCHITECTURE-CIBLE-V2.md). Pour la création d'extensions, voir [`SDK-MODULES.md`](./SDK-MODULES.md) ; pour la mise en ligne, voir [`DEPLOIEMENT-PRODUCTION.md`](./DEPLOIEMENT-PRODUCTION.md).
 
 1. **Arborescence PSR-4 stricte (sensible à la casse Linux/Production) :**
-   - `/Core/Api/` : regroupe exclusivement la couche backend (`Database`, `Endpoints`, `Http`, `Middleware`, `Services`, `Sdk`), avec déplacement de `Core\Sdk` vers `Core\Api\Sdk`.
-   - `/Core/Ui/` : regroupe exclusivement la couche frontend (`Router`, `Templates`, `Components`, `Pages`, `ts/`).
-   - `/public/` : réduit aux seuls points d'entrée `index.php` (Front-Controller UI unique routant vers `/Core/Ui/Pages/`), `api.php` (Front-Controller API unique), `.htaccess`, et aux assets publics (`assets/`, `uploads/`). Aucun fichier `.php` métier n'est plus exposé dans `/public/`.
+   - `/Core/Api/` : couche backend unique (`Database`, `Endpoints`, `Http/ApiKernel`, `Http/ApiRouter`, `Http/Routes/CoreApiRoutes`, `Middleware`, `Services`, `Sdk`).
+   - `/Core/Ui/` : couche frontend unique (`Router/PageRouter`, `Templates/layout.php`, `Components/feedback.php`, `Pages/`, `ts/`).
+   - `/public/` : réduit exclusivement à `index.php` (Front-Controller UI), `api.php` (Front-Controller API), `.htaccess`, `assets/` (`css/tailwind.css` compilé sans CDN, `ts/`, `modules/`) et `uploads/` (avec `.htaccess` no-exec).
 2. **Structure normalisée des Modules :**
-   - Séparation systématique en deux répertoires frères : `/modules/{NomModule}Api/` (manifeste v2, `Module.php`, endpoints, services, migrations `mod_*`) et `/modules/{NomModule}Ui/` (vues, composants, sources TS compilées et publiées vers `/public/assets/modules/{slug}/`).
-   - Fin des fichiers de module dans `/public/` (ex. suppression de `public/boutique.php`, remplacé par une route déclarée via `ui_routes`).
-3. **Système de surcharge UI via `EventManager` :**
-   - Extension des filtres officiels au-delà de `admin_sidebar_menu` et `stats_tabs` : `ui_text` (surcharge de libellés), `ui_tabs` (ajout/modification/remplacement d'onglets), `ui_page_override` (remplacement sécurisé d'une page complète avec contrôle anti-path-traversal), `ui_slot_*` (injection de blocs dans des zones dédiées), `ui_routes`, `api_routes` et `ui_assets`.
-   - Extension du **Safe Mode** de `ModuleManager` aux exceptions levées durant l'exécution des filtres UI.
-4. **Verrouillage de sécurité multi-couches :**
-   - Règles `.htaccess` à la racine et dans `/public/` interdisant tout accès HTTP direct à `/Core/`, `/modules/`, `/storage/`, `/docs/`, `/tests/`, `/vendor/`, `/.env` ainsi qu'à tout fichier `.php` hors passage par `index.php` ou `api.php`, complétées par `/public/uploads/.htaccess` (no-exec), les en-têtes HTTP de sécurité, la garde `KANSO_ENTRY` et le confinement des hooks QA (`switch-persona`, `stub-*`) à `APP_ENV=testing` + `QA_HOOKS_ENABLED=1`.
+   - Séparation en `/modules/{NomModule}Api/` (manifeste v2, `Module.php`, contrôleurs, services, migrations `mod_*`) et `/modules/{NomModule}Ui/` (vues, composants, `dist/` publié automatiquement vers `public/assets/modules/{slug}/`).
+   - Démonstrateurs migrés : `BoutiqueApi` + `BoutiqueUi`, `CrashTestApi`, `IncompatibleModuleApi`.
+3. **Système de surcharge UI (`EventManager` & `UiHelpers`) :**
+   - Filtres officiels : `ui_text`, `ui_tabs` (+ alias `stats_tabs`), `ui_page_override` (contrôle `realpath()` + log `UI_PAGE_OVERRIDE_BLOCKED`), `ui_slot_*`, `ui_routes`, `api_routes`, `ui_assets`.
+   - **Safe Mode étendu** aux exceptions dans les filtres/actions UI (`ModuleManager::quarantineModule()`).
+4. **Verrouillage de sécurité & Qualité Production :**
+   - `.htaccess` racine + `/public/.htaccess` (blocage `403` strict sur tout `.php` direct hors `index.php`/`api.php` et sur les dossiers internes, en-têtes HTTP de sécurité) + `/public/uploads/.htaccess` + garde `KANSO_ENTRY`.
+   - Confinement des hooks QA (`switch-persona`, `stub-*`) à `APP_ENV=testing` + `QA_HOOKS_ENABLED=1`.
+   - Build Tailwind local sans CDN (`tailwind.config.js`), PHPStan **niveau 5** (`phpstan.neon`, 0 erreur), rétention automatique des 10 dernières sauvegardes SQLite.

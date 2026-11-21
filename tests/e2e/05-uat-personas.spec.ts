@@ -23,7 +23,7 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
         const uniqueTutorEmail = `parent.famille.${Date.now()}@kanso-ya.fr`;
 
         // 1. Le parent arrive sur la page publique d'inscription
-        await page.goto('/register.php');
+        await page.goto('/register');
         await expect(page.locator('#public-registration-form')).toBeVisible();
 
         // 2. Inscription via API reproduisant exactement le parcours du formulaire wizard
@@ -188,7 +188,7 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
                 });
             });
 
-            await page.goto('/registrations.php');
+            await page.goto('/registrations');
             await expect(page.locator('h1')).toContainText('Cotisations');
 
             // 3. Validation administrative via API avec ajustement de grade/ceinture
@@ -225,7 +225,7 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
             expect(otpCode).toBeDefined();
 
             // 4. Le parent active son compte via /activate-otp.php
-            await page.goto(`/activate-otp.php?otp=${otpCode}`);
+            await page.goto(`/activate-otp?otp=${otpCode}`);
             await page.fill('#otp-new-password', 'MonSuperMotDePasse2026!');
             await page.fill('#otp-confirm-password', 'MonSuperMotDePasse2026!');
             await page.click('#btn-submit-otp');
@@ -257,7 +257,7 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
             });
 
             // 2. Consultation de la page Statistiques
-            await page.goto('/stats.php');
+            await page.goto('/stats');
             await expect(page.locator('text=Périmètre Pédagogique Enseignant (Anonymisé RGPD)')).toBeVisible();
 
             // L'entraîneur voit ses disciplines (Judo et Karaté) dans l'onglet Démographie & Occupation, pas l'Aïkido
@@ -266,7 +266,7 @@ test.describe('DOMAINE 5 — UAT Personas : Parcours Utilisateurs Complets de Bo
             await expect(page.locator('text=Aïkido & Self-Défense')).toHaveCount(0);
 
             // 3. Consultation de la page Adhérents pour faire l'appel
-            await page.goto('/members.php');
+            await page.goto('/members');
             await page.waitForSelector('#members-table tbody tr.member-row');
             const tableRows = page.locator('#members-table tbody tr.member-row');
             await expect(tableRows.first()).toBeVisible();

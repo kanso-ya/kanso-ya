@@ -78,7 +78,7 @@ test.describe('SPRINT 6 — Moteur de Modules & SDK Kanso-ya (Lot 3)', () => {
         });
 
         // Vérification sur sys-console.php
-        await page.goto('/sys-console.php');
+        await page.goto('/sys-console');
         await expect(page.locator('#modules-tbody')).toBeVisible();
 
         const row = page.locator('#module-row-IncompatibleModuleApi');
@@ -132,7 +132,7 @@ test.describe('SPRINT 6 — Moteur de Modules & SDK Kanso-ya (Lot 3)', () => {
                 body: JSON.stringify({ persona: 'secretaire' })
             });
         });
-        await page.goto('/dashboard.php');
+        await page.goto('/dashboard');
         await expect(page.locator('#module-hooks-zone a[href="/boutique"]')).toHaveCount(0);
 
         // Rétablir persona president sur la page
@@ -166,7 +166,7 @@ test.describe('SPRINT 6 — Moteur de Modules & SDK Kanso-ya (Lot 3)', () => {
         expect(Boolean(jsonDeact.data.is_active)).toBe(false);
 
         // Le lien ne doit plus être dans la sidebar
-        await page.goto('/dashboard.php');
+        await page.goto('/dashboard');
         await expect(page.locator('#module-hooks-zone a[href="/boutique"]')).toHaveCount(0);
 
         // 2. Désinstallation complète (suppression des données mod_boutique_products)
@@ -199,7 +199,7 @@ test.describe('SPRINT 6 — Moteur de Modules & SDK Kanso-ya (Lot 3)', () => {
 
         // 2. Charger une page quelconque du CMS (layout.php déclenche bootActiveModules())
         // Le crash volontaire est levé dans boot(), capturé par le Safe Mode sans jamais faire planter la page (HTTP 200)
-        const responsePage = await page.goto('/dashboard.php');
+        const responsePage = await page.goto('/dashboard');
         expect(responsePage?.status()).toBe(200);
         await expect(page.locator('h1')).toBeVisible();
 
@@ -222,7 +222,7 @@ test.describe('SPRINT 6 — Moteur de Modules & SDK Kanso-ya (Lot 3)', () => {
         expect(crashLog.details).toContain('Crash du module CrashTestApi');
 
         // 5. Vérifier l'affichage sur la console d'administration
-        await page.goto('/sys-console.php');
+        await page.goto('/sys-console');
         const rowCrash = page.locator('#module-row-CrashTestApi');
         await expect(rowCrash).toBeVisible({ timeout: 10000 });
         await expect(rowCrash).toContainText('Crashé (Safe Mode)');
