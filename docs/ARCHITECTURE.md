@@ -2,8 +2,8 @@
 
 **Projet :** Kanso-ya CMS Associatif (Core)  
 **Rôle :** @architect (Architecture Logicielle & Référentiel Technique)  
-**Statut :** Référence Officielle de Production (Baseline Post-Correctifs v1.0 & Préparation Finitions v1.1)  
-**Dernière révision :** 18 novembre 2026
+**Statut :** Référence Actuelle v1.1 (Post-Sprint 14) — Trajectoire V2 spécifiée dans [`ARCHITECTURE-CIBLE-V2.md`](./ARCHITECTURE-CIBLE-V2.md)  
+**Dernière révision :** 21 novembre 2026
 
 ---
 
@@ -15,7 +15,7 @@ Le projet **Kanso-ya** est un système de gestion intégrée (CMS & CRM) conçu 
 
 - **Environnement Serveur Local :** Laragon sur Windows (`https://kanso-ya.fr`, vHost Apache avec SSL auto-signé).
 - **Backend Core :** PHP 8.5+ natif, typage strict (`declare(strict_types=1)`), Programmation Orientée Objet sans framework lourd (pas de Symfony/Laravel) afin de garantir une empreinte mémoire minimale (< 10 Mo) et une vitesse d'exécution instantanée.
-- **Base de Données :** Abstraction PDO via le Singleton `Core\Api\Database\Database`. Moteur principal : **SQLite 3 en mode WAL** (`storage/db/kanso_ya.sqlite`) avec configuration anti-verrouillage :
+- **Base de Données :** Abstraction PDO via le Singleton `Core\Api\Database\Database`. Moteur principal : **SQLite 3 en mode WAL** (`storage/db/kanso-ya.sqlite`) avec configuration anti-verrouillage :
   - `PRAGMA busy_timeout = 15000;` (15 secondes d'attente active avant timeout) ;
   - `PRAGMA journal_mode = WAL;` (Write-Ahead Logging pour lecture/écriture concurrentes) ;
   - `PRAGMA synchronous = NORMAL;`.
@@ -111,7 +111,7 @@ c:\laragon\www\kanso-ya/
 │
 ├── storage/                              # Stockage persistant privé (protégé par .htaccess)
 │   ├── db/
-│   │   └── kanso_ya.sqlite               # Fichier de base de données SQLite
+│   │   └── kanso-ya.sqlite               # Fichier de base de données SQLite
 │   └── private_uploads/                  # Certificats médicaux et pièces sensibles
 │
 └── tests/                                # Automatisation des tests
@@ -493,3 +493,23 @@ Pour mettre fin aux incohérences visuelles causées par les classes Tailwind `e
 - Ajout de la clé `demo_mode_enabled` (`'1'` ou `'0'`, défaut `'0'` en production, `'1'` en environnement de démonstration/sandbox) dans la table `sys_settings`.
 - Exposée via `GET /api/v1/settings` et modifiable par le Superadmin via `PATCH /api/v1/settings` (avec journalisation dans `sys_logs`).
 - Permet à la vue d'ensemble Superadmin (`/sys-console`) d'afficher en permanence un indicateur d'état d'exploitation du CMS (*Mode Démonstration* vs *Mode Production*) afin d'éviter toute confusion entre un environnement bac à sable et le site associatif en production.
+
+---
+
+## 11. Trajectoire d'Architecture Cible V2 & Verrouillage Sécurité
+
+> [!IMPORTANT]
+> Les sections 1 à 10 décrivent l'état actuel du code (v1.1, post-Sprint 14). La **refactorisation majeure V2** — détaillée exhaustivement dans [`ARCHITECTURE-CIBLE-V2.md`](./ARCHITECTURE-CIBLE-V2.md) et mise en regard du bilan [`ETAT-DES-LIEUX.md`](./ETAT-DES-LIEUX.md) — fait évoluer l'architecture autour de **quatre piliers normatifs** :
+
+1. **Arborescence PSR-4 stricte (sensible à la casse Linux/Production) :**
+   - `/Core/Api/` : regroupe exclusivement la couche backend (`Database`, `Endpoints`, `Http`, `Middleware`, `Services`, `Sdk`), avec déplacement de `Core\Sdk` vers `Core\Api\Sdk`.
+   - `/Core/Ui/` : regroupe exclusivement la couche frontend (`Router`, `Templates`, `Components`, `Pages`, `ts/`).
+   - `/public/` : réduit aux seuls points d'entrée `index.php` (Front-Controller UI unique routant vers `/Core/Ui/Pages/`), `api.php` (Front-Controller API unique), `.htaccess`, et aux assets publics (`assets/`, `uploads/`). Aucun fichier `.php` métier n'est plus exposé dans `/public/`.
+2. **Structure normalisée des Modules :**
+   - Séparation systématique en deux répertoires frères : `/modules/{NomModule}Api/` (manifeste v2, `Module.php`, endpoints, services, migrations `mod_*`) et `/modules/{NomModule}Ui/` (vues, composants, sources TS compilées et publiées vers `/public/assets/modules/{slug}/`).
+   - Fin des fichiers de module dans `/public/` (ex. suppression de `public/boutique.php`, remplacé par une route déclarée via `ui_routes`).
+3. **Système de surcharge UI via `EventManager` :**
+   - Extension des filtres officiels au-delà de `admin_sidebar_menu` et `stats_tabs` : `ui_text` (surcharge de libellés), `ui_tabs` (ajout/modification/remplacement d'onglets), `ui_page_override` (remplacement sécurisé d'une page complète avec contrôle anti-path-traversal), `ui_slot_*` (injection de blocs dans des zones dédiées), `ui_routes`, `api_routes` et `ui_assets`.
+   - Extension du **Safe Mode** de `ModuleManager` aux exceptions levées durant l'exécution des filtres UI.
+4. **Verrouillage de sécurité multi-couches :**
+   - Règles `.htaccess` à la racine et dans `/public/` interdisant tout accès HTTP direct à `/Core/`, `/modules/`, `/storage/`, `/docs/`, `/tests/`, `/vendor/`, `/.env` ainsi qu'à tout fichier `.php` hors passage par `index.php` ou `api.php`, complétées par `/public/uploads/.htaccess` (no-exec), les en-têtes HTTP de sécurité, la garde `KANSO_ENTRY` et le confinement des hooks QA (`switch-persona`, `stub-*`) à `APP_ENV=testing` + `QA_HOOKS_ENABLED=1`.

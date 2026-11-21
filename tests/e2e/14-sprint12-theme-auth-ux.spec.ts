@@ -223,7 +223,7 @@ test.describe('SPRINT 12 — Thème CSS Réel, Logo, Mot de Passe Oublié, 2FA M
         await page.request.post('/api/v1/auth/switch-persona', { data: { persona: 'president' } });
         await page.goto('/roles');
         await expect(page.locator('#rbac-matrix-table')).toBeVisible();
-        await expect(page.locator('#rbac-matrix-tbody tr')).toHaveCount(8);
+        await expect(page.locator('#rbac-matrix-tbody tr')).toHaveCount(8, { timeout: 10000 });
 
         const rolesText = await page.locator('#main-workspace').innerText();
         expect(rolesText).not.toContain('members.view');

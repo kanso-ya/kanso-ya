@@ -1,0 +1,26 @@
+# ==============================================================================
+# KANSO-YA V2 — VERROUILLAGE RACINE (Défense en profondeur mutualisé / VPS)
+# ==============================================================================
+Options -Indexes -MultiViews
+ServerSignature Off
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Interdiction absolue d'accès HTTP direct aux répertoires internes et sensibles
+    RewriteRule ^(Core|core|modules|storage|docs|tests|vendor|node_modules|src|allure-results|error-reports|test-results)(/|$) - [F,L,NC]
+
+    # 2. Interdiction d'accès aux fichiers cachés (.env, .git, .htaccess) et fichiers de build/config
+    RewriteRule ^\. - [F,L]
+    RewriteRule ^(composer\.(json|lock)|package(-lock)?\.json|playwright\.config\.ts|tsconfig\.json|tailwind\.config\.js|AGENTS\.md|license)$ - [F,L,NC]
+
+    # 3. Si le DocumentRoot pointe par erreur sur la racine, rediriger silencieusement vers /public/
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</IfModule>

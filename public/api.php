@@ -17,6 +17,34 @@ if (session_status() === PHP_SESSION_NONE) {
 header('Content-Type: application/json; charset=utf-8');
 
 /**
+ * Détermine si les hooks QA (switch-persona et stub tokens) sont activés.
+ * Retourne true uniquement si APP_ENV === 'testing' et QA_HOOKS_ENABLED === '1'.
+ */
+function isQaHooksEnabled(): bool
+{
+    $envFile = __DIR__ . '/../.env';
+    $parsed = null;
+    $readEnv = static function (string $key) use ($envFile, &$parsed): ?string {
+        $val = getenv($key);
+        if ($val !== false && $val !== '') {
+            return (string) $val;
+        }
+        if (isset($_ENV[$key]) && (string) $_ENV[$key] !== '') {
+            return (string) $_ENV[$key];
+        }
+        if ($parsed === null) {
+            $parsed = is_file($envFile) ? (@parse_ini_file($envFile) ?: []) : [];
+        }
+        return isset($parsed[$key]) ? (string) $parsed[$key] : null;
+    };
+
+    $appEnv = $readEnv('APP_ENV');
+    $qaHooks = $readEnv('QA_HOOKS_ENABLED');
+
+    return $appEnv === 'testing' && (string) $qaHooks === '1';
+}
+
+/**
  * Envoie une réponse JSON normalisée JSend (HTTP 200 constant).
  *
  * @param array<string, mixed> $response Tableau contenant code, message, data.
@@ -104,6 +132,14 @@ try {
     };
 
     if ($method === 'POST' && $uri === '/api/v1/auth/switch-persona') {
+        if (!isQaHooksEnabled()) {
+            sendJson([
+                'status'  => 'error',
+                'code'    => 404,
+                'message' => 'Route non trouvée',
+                'data'    => null
+            ]);
+        }
         $persona = (string) ($payload['persona'] ?? 'president');
         $_SESSION['is_superadmin'] = false;
         unset($_SESSION['sys_admin_id']);
@@ -156,35 +192,37 @@ try {
         session_write_close();
     }
 
-    if (str_contains($authHeader, 'stub-tutor-a-token')) {
-        $currentUserId = 10;
-        $currentRole = 'Adhérent';
-        $isAuthenticated = true;
-    } elseif (str_contains($authHeader, 'stub-tutor-b-token')) {
-        $currentUserId = 2;
-        $currentRole = 'Adhérent';
-        $isAuthenticated = true;
-    } elseif (str_contains($authHeader, 'stub-redacteur-token')) {
-        $currentUserId = 3;
-        $currentRole = 'Rédacteur';
-        $isAuthenticated = true;
-    } elseif (str_contains($authHeader, 'stub-entraineur-token')) {
-        $currentUserId = 2;
-        $currentRole = 'Entraîneur';
-        $isAuthenticated = true;
-    } elseif (str_contains($authHeader, 'stub-tresorier-token')) {
-        $currentUserId = 4;
-        $currentRole = 'Trésorier';
-        $isAuthenticated = true;
-    } elseif (str_contains($authHeader, 'stub-superadmin-token')) {
-        $currentUserId = 1;
-        $currentRole = 'Superadmin';
-        $isSuperadmin = true;
-        $isAuthenticated = true;
-    } elseif (str_contains($authHeader, 'stub-visitor-token')) {
-        $currentUserId = 0;
-        $currentRole = '';
-        $isAuthenticated = false;
+    if (isQaHooksEnabled()) {
+        if (str_contains($authHeader, 'stub-tutor-a-token')) {
+            $currentUserId = 10;
+            $currentRole = 'Adhérent';
+            $isAuthenticated = true;
+        } elseif (str_contains($authHeader, 'stub-tutor-b-token')) {
+            $currentUserId = 2;
+            $currentRole = 'Adhérent';
+            $isAuthenticated = true;
+        } elseif (str_contains($authHeader, 'stub-redacteur-token')) {
+            $currentUserId = 3;
+            $currentRole = 'Rédacteur';
+            $isAuthenticated = true;
+        } elseif (str_contains($authHeader, 'stub-entraineur-token')) {
+            $currentUserId = 2;
+            $currentRole = 'Entraîneur';
+            $isAuthenticated = true;
+        } elseif (str_contains($authHeader, 'stub-tresorier-token')) {
+            $currentUserId = 4;
+            $currentRole = 'Trésorier';
+            $isAuthenticated = true;
+        } elseif (str_contains($authHeader, 'stub-superadmin-token')) {
+            $currentUserId = 1;
+            $currentRole = 'Superadmin';
+            $isSuperadmin = true;
+            $isAuthenticated = true;
+        } elseif (str_contains($authHeader, 'stub-visitor-token')) {
+            $currentUserId = 0;
+            $currentRole = '';
+            $isAuthenticated = false;
+        }
     }
 
     $permissions = [];

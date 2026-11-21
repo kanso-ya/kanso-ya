@@ -545,4 +545,107 @@ flowchart LR
   - **Point 20 — Onglets fonctionnels sur tous les tableaux multi-disciplines :** Harmonisation des onglets interactifs (`role="tablist"`, `aria-selected`, compteurs temps réel) sur `/disciplines`, `/horaires` et les vues filtrées multi-disciplines.
   - **Point 21 — Verrouillage E2E v1.1 (Desktop Chrome & Mobile Chrome Pixel 5) :** Ajout de la suite Playwright couvrant les 21 points (Sprints 12, 13, 14) et validation de non-régression à 100 % sur l'ensemble du projet.
 
+---
+
+## 9. Phase V2 — Refactorisation Arborescence PSR-4, Modules Api/Ui, Surcharge UI & Verrouillage Sécurité (Sprints 15 à 19)
+
+Issue du bilan [`ETAT-DES-LIEUX.md`](./ETAT-DES-LIEUX.md) et spécifiée dans [`ARCHITECTURE-CIBLE-V2.md`](./ARCHITECTURE-CIBLE-V2.md), cette phase transforme Kanso-ya v1.1 (246/246 E2E) en une **plateforme V2 durcie, conforme PSR-4 Linux, extensible sans modifier le Core et prête pour la mise en production**.
+
+```mermaid
+flowchart LR
+    subgraph S15["Sprint 15 (R0) : Durcissement Securite (13 SP)"]
+        P15A["Hooks QA confines APP_ENV=testing"]
+        P15B["Suppression fallbacks ?? President"]
+        P15C[".htaccess racine + uploads + headers HTTP"]
+    end
+
+    subgraph S16["Sprint 16 (R1-R2) : Core PSR-4 & Front-Controller (21 SP)"]
+        P16A["Core/Api + Core/Ui + Core/Api/Sdk"]
+        P16B["Eclatement api.php + Services SQL"]
+        P16C["public/index.php -> PageRouter -> Core/Ui/Pages"]
+    end
+
+    subgraph S17["Sprint 17 (R3) : Modules Api / Ui (18 SP)"]
+        P17A["modules/{Nom}Api + {Nom}Ui"]
+        P17B["Manifeste v2 + ui_routes / api_routes"]
+        P17C["Publication assets + migration Boutique"]
+    end
+
+    subgraph S18["Sprint 18 (R4) : Surcharge UI & Safe Mode (18 SP)"]
+        P18A["Filtres ui_text, ui_tabs, ui_slot_*"]
+        P18B["ui_page_override securise"]
+        P18C["Safe Mode etendu aux filtres UI"]
+    end
+
+    subgraph S19["Sprint 19 (R5-R7) : Lockdown V2, Prod & Docs (16 SP)"]
+        P19A[".htaccess 403 strict + E2E securite"]
+        P19B["Tailwind sans CDN + PHPStan L5"]
+        P19C["Docs V2, SDK-MODULES & Deploiement"]
+    end
+
+    S15 --> S16 --> S17 --> S18 --> S19
+```
+
+### 9.1. Sprint 15 (Lot R0) : Durcissement Sécurité Immédiat & Isolation Environnement (13 SP)
+* **Statut :** ✅ **100% VALIDÉ EN RECETTE (254/254 Pass — Rapport : `docs/current-sprint/15-report-sprint15.md`)**
+* **Objectif :** Corriger immédiatement les failles critiques identifiées dans [`ETAT-DES-LIEUX.md`](./ETAT-DES-LIEUX.md) (§3) sans encore déplacer les fichiers.
+* **User Stories & Tâches :**
+  - **US 15.1 — Confinement strict des hooks QA :** Conditionner `POST /api/v1/auth/switch-persona` et tous les jetons `stub-*-token` dans `public/api.php` (puis `AuthMiddleware`) à la double condition `APP_ENV === 'testing'` **ET** `QA_HOOKS_ENABLED === '1'` (retour JSend `404` et rejet des stubs en production). Ajouter `APP_ENV` et `QA_HOOKS_ENABLED` dans `.env` / `.env.example`.
+  - **US 15.2 — Suppression des fallbacks de rôle privilégié :** Remplacer les initialisations `$_SESSION['role_name'] ?? 'Président'` et `$_SESSION['user_id'] ?? 1` dans `dashboard.php`, `settings.php` et `stats.php` par le statut `Visiteur` (`user_id = 0`) strict.
+  - **US 15.3 — Défense périmétrique `.htaccess` & En-têtes HTTP :** Ajouter `/.htaccess` à la racine (blocage `403` sur `Core/`, `core/`, `modules/`, `storage/`, `docs/`, `tests/`, `vendor/`, `.env`, fichiers de config), `/public/uploads/.htaccess` (no-exec PHP/CGI) et les en-têtes HTTP de sécurité (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) dans `/public/.htaccess`.
+* **Critères de Validation (DoD) :** `npm run test:e2e` 100 % vert (246/246) + test dédié vérifiant que `switch-persona` et `stub-superadmin-token` échouent hors mode `testing`.
+
+### 9.2. Sprint 16 (Lots R1 & R2) : Arborescence PSR-4 Stricte (`Core/Api`, `Core/Ui`) & Front-Controller Unique (21 SP)
+* **Statut :** Planifié (Priorité P1 — Dépend du Sprint 15)
+* **Objectif :** Aligner strictement la casse des répertoires sur PSR-4 Linux, assainir la séparation Api/Ui et retirer toute vue métier PHP du `DocumentRoot` `/public/`.
+* **User Stories & Tâches :**
+  - **US 16.1 — Renommage PSR-4 sensible à la casse & déplacement SDK :** Renommer via `git mv` en 2 étapes (compatibilité Windows/Linux) : `core/` → `Core/`, `Core/ui/` → `Core/Ui/`, `templates/` → `Templates/`, `components/` → `Components/`, `migrations/` → `Migrations/`. Déplacer `Core/Sdk/` vers `Core/Api/Sdk/`. Mettre à jour `composer.json` (`"Core\\": "Core/"`), `tsconfig.json` et tous les imports PHP/TS.
+  - **US 16.2 — Éclatement de `public/api.php` & Extraction SQL des vues :** Extraire le bootstrap et le routage de `public/api.php` (839 lignes) vers `Core/Api/Http/ApiKernel.php`, `ApiRouter.php` et `Routes/CoreApiRoutes.php`. Extraire les requêtes SQL de `stats.php`, `horaires.php` et `layout.php` vers `Core/Api/Services/StatsService.php` et `ScheduleService.php`.
+  - **US 16.3 — Front-Controller UI unique (`public/index.php` → `PageRouter`) :** Créer `Core/Ui/Router/PageRouter.php` et déplacer l'ensemble des 21 pages de `public/*.php` vers `Core/Ui/Pages/` (avec vues d'erreur `errors/403.php` et `errors/404.php`). Exécuter les contrôles d'authentification et RBAC **avant** tout rendu de page. Ajouter la garde `if (!defined('KANSO_ENTRY'))` dans chaque page/template/composant.
+  - **US 16.4 — Épuration de `/public/` :** Supprimer tous les fichiers `.php` de `/public/` hormis `index.php` et `api.php` (redirection transitoire 301 optionnelle pour les URLs `.php` legacy le temps de migrer les anciens tests).
+* **Critères de Validation (DoD) :** `composer dump-autoload -o --strict-psr` (0 classe ignorée), PHPStan 0 erreur, `npm run build:ts` 0 erreur, `npm run test:e2e` 100 % vert.
+
+### 9.3. Sprint 17 (Lot R3) : Modules Normalisés (`{NomModule}Api` / `{NomModule}Ui`) & Publication d'Assets (18 SP)
+* **Statut :** Planifié (Priorité P1 — Dépend du Sprint 16)
+* **Objectif :** Appliquer aux modules tiers la même séparation stricte Api/Ui que le Core et supprimer toute intrusion de fichier module dans `/public/`.
+* **User Stories & Tâches :**
+  - **US 17.1 — Manifeste v2 & Autoload `Modules\` :** Ajouter `"Modules\\": "modules/"` dans `composer.json`. Mettre à jour `ModuleScanner` et `ModuleManager` pour découvrir `modules/{NomModule}Api/manifest.json` (schéma v2 : `entry_class`, `ui_folder`, `tables_prefix`, `assets`).
+  - **US 17.2 — Routes modulaires & Publication d'assets :** Supporter la déclaration de routes UI (`ui_routes`) dans `PageRouter` et API (`api_routes`) dans `ApiRouter` (sous `/api/v1/modules/{slug}/*`, enveloppe JSend HTTP 200 obligatoire). À l'activation, copier les assets statiques autorisés (`.js`, `.css`, `.svg`, `.png`, `.webp` — jamais `.php`) depuis `{NomModule}Ui/dist/` vers `public/assets/modules/{slug}/` et purger à la désinstallation.
+  - **US 17.3 — Migration des modules démonstrateurs :** Migrer `Boutique` → `modules/BoutiqueApi/` + `modules/BoutiqueUi/`, `CrashTest` → `modules/CrashTestApi/`, `IncompatibleModule` → `modules/IncompatibleModuleApi/`. Supprimer définitivement `public/boutique.php` (route `/boutique` servie via `ui_routes`).
+* **Critères de Validation (DoD) :** `07-sprint6-modules-sdk.spec.ts` et suite complète E2E 100 % verts ; zéro fichier `.php` de module dans `/public/`.
+
+### 9.4. Sprint 18 (Lot R4) : Système de Surcharge UI (`EventManager`) & Safe Mode Étendu (18 SP)
+* **Statut :** Planifié (Priorité P1 — Dépend du Sprint 17)
+* **Objectif :** Permettre aux modules de personnaliser textes, onglets, zones de page et pages entières sans toucher une seule ligne du Core, tout en garantissant la résilience Safe Mode.
+* **User Stories & Tâches :**
+  - **US 18.1 — Filtres UI officiels & `UiHelpers` :** Implémenter dans `Core/Api/Sdk/EventManager.php` et `UiHelpers.php` les helpers et filtres :
+    - `ui_text` (surcharge de libellés par clé + contexte `page`, `role`, `params`) ;
+    - `ui_tabs` (ajout/modification/remplacement/tri d'onglets sur `/stats`, `/sys-smtp`, `/dashboard`, `/settings`, avec alias rétrocompatible `stats_tabs`) ;
+    - `ui_page_override` (remplacement d'une vue Core par une vue de `modules/*Ui/Pages/`, avec validation stricte `realpath()` anti-path-traversal) ;
+    - `ui_slot_*` (`home_hero`, `home_after_articles`, `dashboard_top`, `dashboard_bottom`, `member_detail`, `footer_links`) et `ui_assets`.
+  - **US 18.2 — Safe Mode étendu aux filtres UI :** Étiqueter automatiquement chaque filtre/action avec le module appelant (`setCurrentModule()` lors du `boot()`). En cas d'exception levée durant un filtre UI, restaurer la valeur précédente sans erreur 500, basculer le module fautif en `status = 'crashed'` (`is_active = 0`) et journaliser `MODULE_SAFE_MODE_TRIGGERED` dans `sys_logs`.
+  - **US 18.3 — Suite E2E Surcharge UI :** Créer une suite Playwright dédiée validant `ui_text`, `ui_tabs`, `ui_slot_*`, `ui_page_override`, le rejet d'un path traversal et le déclenchement du Safe Mode sur un filtre défaillant.
+* **Critères de Validation (DoD) :** 100 % des nouveaux tests surcharge UI + non-régression complète au vert.
+
+### 9.5. Sprint 19 (Lots R5, R6 & R7) : Verrouillage HTTP Définitif, Qualité Production & Documentation Finale (16 SP)
+* **Statut :** Planifié (Priorité P1/P2 — Dépend des Sprints 16 à 18)
+* **Objectif :** Verrouiller définitivement l'accès direct HTTP, éliminer les dettes de build/qualité (CDN Tailwind, PHPStan L0, rétention backups) et livrer la documentation V2 complète.
+* **User Stories & Tâches :**
+  - **US 19.1 — Verrouillage `.htaccess` définitif & Tests de non-exposition (Lot R5) :** Migrer les derniers tests E2E des URLs `.php` legacy vers les URLs propres, puis activer le blocage strict `403` dans `/public/.htaccess` sur tout `.php` direct hors `index.php`/`api.php`. Ajouter la suite E2E de sécurité vérifiant un refus `403`/`404` sur `/Core/`, `/modules/`, `/storage/`, `/docs/`, `/tests/`, `/vendor/`, `/.env`, `/stats.php`, `/uploads/test.php`.
+  - **US 19.2 — Build Tailwind réel, PHPStan niveau 5 & Hygiène (Lot R6) :** Créer `tailwind.config.js` (scanning `Core/Ui/**` et `modules/*Ui/**`), compiler un `public/assets/css/tailwind.css` complet et retirer `<script src="https://cdn.tailwindcss.com">` de `layout.php`. Monter PHPStan au **niveau 5** (0 erreur). Implémenter une rétention automatique sur `storage/backups/` (conserver les 10 dernières sauvegardes) et normaliser les préfixes de specs dupliqués (`14-sprint12` / `14-sprint13`).
+  - **US 19.3 — Documentation finale V2 (Lot R7) :** Promouvoir `ARCHITECTURE.md` en référence active V2, rédiger `docs/SDK-MODULES.md` (création d'un module `{Nom}Api`/`{Nom}Ui` + catalogue complet des hooks UI) et le guide de déploiement production (Apache vHost, mutualisé, Nginx, sauvegardes/restauration).
+* **Critères de Validation (DoD) :** `build:css` non vide sans CDN, PHPStan niveau 5 = 0 erreur, `composer dump-autoload -o --strict-psr` = 0 warning, 100 % de la suite E2E (incluant sécurité & hooks UI) au vert sur Desktop Chrome et Mobile Chrome Pixel 5.
+
+### 9.6. Synthèse de la Charge V2 (Sprints 15 à 19)
+
+| Sprint | Lots couverts | Intitulé | Story Points | Priorité | Statut |
+| :---: | :---: | :--- | :---: | :---: | :--- |
+| **Sprint 15** | R0 | Durcissement Sécurité Immédiat & Isolation Environnement | 13 SP | P0 | ✅ **100% VALIDÉ EN RECETTE (254/254 Pass)** |
+| **Sprint 16** | R1, R2 | Arborescence PSR-4 (`Core/Api`, `Core/Ui`) & Front-Controller Unique | 21 SP | P1 | Planifié |
+| **Sprint 17** | R3 | Modules Normalisés (`{NomModule}Api` / `{NomModule}Ui`) & Assets | 18 SP | P1 | Planifié |
+| **Sprint 18** | R4 | Moteur de Surcharge UI (`EventManager`) & Safe Mode Étendu | 18 SP | P1 | Planifié |
+| **Sprint 19** | R5, R6, R7 | Verrouillage HTTP Définitif, Build Production (Tailwind/PHPStan L5) & Docs V2 | 16 SP | P1/P2 | Planifié |
+| **Total** | **R0–R7** | **Refactorisation Majeure & Durcissement V2** | **86 SP** | — | **Prêt à exécuter** |
+
+
 

@@ -638,7 +638,9 @@ final class CmsController
         $files = scandir($uploadDir) ?: [];
         $deletedCount = 0;
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..' || $file === '.gitignore') continue;
+            if (str_starts_with($file, '.') || !is_file($uploadDir . $file)) {
+                continue;
+            }
             if (strpos($allText, $file) === false) {
                 @unlink($uploadDir . $file);
                 $deletedCount++;

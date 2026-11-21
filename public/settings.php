@@ -9,8 +9,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$currentRole  = (string) ($_SESSION['role_name'] ?? 'Président');
-$isSuperadmin = (bool) ($_SESSION['is_superadmin'] ?? isset($_SESSION['sys_admin_id']));
+$currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+$currentRole   = (string) ($_SESSION['role_name'] ?? 'Visiteur');
+$isSuperadmin  = (bool) ($_SESSION['is_superadmin'] ?? isset($_SESSION['sys_admin_id']));
 
 if ($isSuperadmin) {
     header('Location: /sys-console');
@@ -23,17 +24,30 @@ $requireAuth   = true;
 $requiredPerms = ['settings.manage', 'roles.manage'];
 $pageScripts   = ['/assets/ts/settings.js'];
 
-$db = Database::getInstance();
-$settings = $db->query("SELECT setting_key, setting_value FROM sys_settings")->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+$settings           = [];
+$seasonType         = '';
+$basePrice          = '';
+$regEnabled         = '';
+$confirmTxt         = '';
+$discountThreshold  = 0;
+$discountType       = '';
+$discountValue      = 0.0;
+$medicalCertMode    = '';
 
-$seasonType         = (string) ($settings['season_type'] ?? 'Sept-Juin');
-$basePrice          = (string) ($settings['membership_base_price'] ?? '150');
-$regEnabled         = (string) ($settings['public_registration_enabled'] ?? '1');
-$confirmTxt         = (string) ($settings['registration_confirmation_text'] ?? '');
-$discountThreshold  = (int) ($settings['discount_threshold'] ?? 2);
-$discountType       = (string) ($settings['discount_type'] ?? 'percent');
-$discountValue      = (float) ($settings['discount_value'] ?? 10.0);
-$medicalCertMode    = (string) ($settings['medical_cert_mode'] ?? 'health_questionnaire');
+$isUnauthenticatedVisitor = !$isSuperadmin && ($currentUserId <= 0 || $currentRole === 'Visiteur');
+if (!$isUnauthenticatedVisitor) {
+    $db = Database::getInstance();
+    $settings = $db->query("SELECT setting_key, setting_value FROM sys_settings")->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+
+    $seasonType         = (string) ($settings['season_type'] ?? 'Sept-Juin');
+    $basePrice          = (string) ($settings['membership_base_price'] ?? '150');
+    $regEnabled         = (string) ($settings['public_registration_enabled'] ?? '1');
+    $confirmTxt         = (string) ($settings['registration_confirmation_text'] ?? '');
+    $discountThreshold  = (int) ($settings['discount_threshold'] ?? 2);
+    $discountType       = (string) ($settings['discount_type'] ?? 'percent');
+    $discountValue      = (float) ($settings['discount_value'] ?? 10.0);
+    $medicalCertMode    = (string) ($settings['medical_cert_mode'] ?? 'health_questionnaire');
+}
 
 ob_start();
 ?>

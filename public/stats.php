@@ -11,8 +11,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$currentUserId = (int) ($_SESSION['user_id'] ?? 1);
-$currentRole   = (string) ($_SESSION['role_name'] ?? 'Président');
+$currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+$currentRole   = (string) ($_SESSION['role_name'] ?? 'Visiteur');
 $isSuperadmin  = (bool) ($_SESSION['is_superadmin'] ?? isset($_SESSION['sys_admin_id']));
 
 $pageTitle     = 'Statistiques & Effectifs';
@@ -21,121 +21,132 @@ $requireAuth   = true;
 $requiredPerms = ['stats.view', 'roles.manage', 'finances.manage'];
 $pageScripts   = ['/assets/ts/stats.js'];
 
-$db = Database::getInstance();
-$isTeacher = ($currentRole === 'Entraîneur');
-$isBureau  = ($isSuperadmin || in_array($currentRole, ['Président', 'Trésorier', 'Secrétaire'], true));
+$isTeacher                = ($currentRole === 'Entraîneur');
+$isBureau                 = ($isSuperadmin || in_array($currentRole, ['Président', 'Trésorier', 'Secrétaire'], true));
+$isUnauthenticatedVisitor = !$isSuperadmin && ($currentUserId <= 0 || $currentRole === 'Visiteur');
 
-// 1. Filtrage des disciplines selon le rôle (Toutes pour Bureau, uniquement ses cours pour l'Enseignant)
-if ($isTeacher) {
-    $stmtDisc = $db->prepare("SELECT id, name FROM disciplines WHERE teacher_user_id = :uid OR teacher_user_id IS NULL ORDER BY id ASC");
-    $stmtDisc->execute(['uid' => $currentUserId]);
-} else {
-    $stmtDisc = $db->query("SELECT id, name FROM disciplines ORDER BY id ASC");
-}
-$disciplines = $stmtDisc->fetchAll(PDO::FETCH_ASSOC);
-$discIds = array_map('intval', array_column($disciplines, 'id'));
-if (empty($discIds)) {
-    $discIds = [0];
-}
-$inClause = implode(',', $discIds);
-
-// 2. Récupération des adhérents du périmètre autorisé
-if ($isTeacher) {
-    $members = $db->query("
-        SELECT DISTINCT m.id, m.first_name, m.last_name, m.birth_date, m.status,
-                        m.emergency_contact_name, m.emergency_contact_phone
-        FROM members m
-        INNER JOIN member_practices mp ON m.id = mp.member_id
-        WHERE mp.discipline_id IN ($inClause)
-        ORDER BY m.last_name ASC
-    ")->fetchAll(PDO::FETCH_ASSOC);
-} else {
-    $members = $db->query("SELECT * FROM members ORDER BY last_name ASC")->fetchAll(PDO::FETCH_ASSOC);
-}
-
-$totalMembers   = count($members);
-$activeCount    = 0;
-$pendingCount   = 0;
-$radiatedCount  = 0;
-$minorsCount    = 0;
-$adultsCount    = 0;
-$now            = new DateTimeImmutable();
-
-foreach ($members as $m) {
-    if ($m['status'] === 'active') {
-        $activeCount++;
-    } elseif ($m['status'] === 'pending') {
-        $pendingCount++;
-    } else {
-        $radiatedCount++;
-    }
-
-    try {
-        $age = $now->diff(new DateTimeImmutable((string) $m['birth_date']))->y;
-        if ($age < 18) {
-            $minorsCount++;
-        } else {
-            $adultsCount++;
-        }
-    } catch (Throwable) {
-        $adultsCount++;
-    }
-}
-
-// 3. Taux de renouvellement et ratios démographiques (CA2)
-$renewalRate = $totalMembers > 0 ? round(($activeCount / $totalMembers) * 100, 1) : 0.0;
-$genderRatioMale = $totalMembers > 0 ? 54 : 0;
-$genderRatioFemale = $totalMembers > 0 ? 46 : 0;
-
-// 4. Indicateurs financiers réservés au Bureau (CA3 - Anonymisation stricte pour Entraîneur)
+$disciplines           = [];
+$members               = [];
+$totalMembers          = 0;
+$activeCount           = 0;
+$pendingCount          = 0;
+$radiatedCount         = 0;
+$minorsCount           = 0;
+$adultsCount           = 0;
+$now                   = new DateTimeImmutable();
+$renewalRate           = 0.0;
+$genderRatioMale       = 0;
+$genderRatioFemale     = 0;
 $totalValidatedRevenue = 0.0;
 $totalPendingRevenue   = 0.0;
 $paymentsByMethod      = [];
+$defaultCapacity       = 30;
+$disciplineStats       = [];
 
-if ($isBureau) {
-    $totalValidatedRevenue = (float) ($db->query("SELECT SUM(total_amount) FROM registrations WHERE status = 'validated'")->fetchColumn() ?: 0.0);
-    $totalPendingRevenue   = (float) ($db->query("SELECT SUM(total_amount) FROM registrations WHERE status = 'pending'")->fetchColumn() ?: 0.0);
-    $paymentsByMethod      = $db->query("
-        SELECT payment_method, COUNT(*) AS count, SUM(total_amount) AS total
-        FROM registrations
-        GROUP BY payment_method
-        ORDER BY count DESC
-    ")->fetchAll(PDO::FETCH_ASSOC);
-}
+if (!$isUnauthenticatedVisitor) {
+    $db = Database::getInstance();
 
-// 5. Statistiques détaillées par Discipline, Ratios d'Occupation & Grades
-$defaultCapacityVal = (int) ($db->query("SELECT setting_value FROM sys_settings WHERE setting_key = 'default_course_capacity'")->fetchColumn() ?: 30);
-$defaultCapacity = $defaultCapacityVal > 0 ? $defaultCapacityVal : 30;
-$disciplineStats = [];
-foreach ($disciplines as $d) {
-    $did = (int) $d['id'];
-    $countInDisc = (int) $db->query("SELECT COUNT(DISTINCT member_id) FROM member_practices WHERE discipline_id = $did")->fetchColumn();
+    // 1. Filtrage des disciplines selon le rôle (Toutes pour Bureau, uniquement ses cours pour l'Enseignant)
+    if ($isTeacher) {
+        $stmtDisc = $db->prepare("SELECT id, name FROM disciplines WHERE teacher_user_id = :uid OR teacher_user_id IS NULL ORDER BY id ASC");
+        $stmtDisc->execute(['uid' => $currentUserId]);
+    } else {
+        $stmtDisc = $db->query("SELECT id, name FROM disciplines ORDER BY id ASC");
+    }
+    $disciplines = $stmtDisc->fetchAll(PDO::FETCH_ASSOC);
+    $discIds = array_map('intval', array_column($disciplines, 'id'));
+    if (empty($discIds)) {
+        $discIds = [0];
+    }
+    $inClause = implode(',', $discIds);
 
-    $stmtBreak = $db->prepare("
-        SELECT l.id, l.level_type, l.name, l.color_hex, l.age_min, l.age_max,
-               (SELECT COUNT(DISTINCT mp.member_id)
-                FROM member_practices mp
-                WHERE mp.discipline_id = l.discipline_id
-                  AND (mp.grade_id = l.id OR mp.level_id = l.id)) AS total
-        FROM levels l
-        WHERE l.discipline_id = :did
-        ORDER BY l.level_type ASC, l.rank_order ASC, l.id ASC
-    ");
-    $stmtBreak->execute(['did' => $did]);
-    $rows = $stmtBreak->fetchAll(PDO::FETCH_ASSOC);
+    // 2. Récupération des adhérents du périmètre autorisé
+    if ($isTeacher) {
+        $members = $db->query("
+            SELECT DISTINCT m.id, m.first_name, m.last_name, m.birth_date, m.status,
+                            m.emergency_contact_name, m.emergency_contact_phone
+            FROM members m
+            INNER JOIN member_practices mp ON m.id = mp.member_id
+            WHERE mp.discipline_id IN ($inClause)
+            ORDER BY m.last_name ASC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $members = $db->query("SELECT * FROM members ORDER BY last_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+    }
 
-    $capacity = $defaultCapacity;
-    $occupancyPct = round(($countInDisc / $capacity) * 100, 1);
+    $totalMembers = count($members);
 
-    $disciplineStats[] = [
-        'id'             => $did,
-        'name'           => (string) $d['name'],
-        'total'          => $countInDisc,
-        'capacity'       => $capacity,
-        'occupancy_pct'  => min(100.0, $occupancyPct),
-        'grades'         => array_values(array_filter($rows, static fn($r) => ($r['level_type'] ?? 'grade') === 'grade')),
-        'niveaux'        => array_values(array_filter($rows, static fn($r) => ($r['level_type'] ?? 'grade') === 'niveau'))
-    ];
+    foreach ($members as $m) {
+        if ($m['status'] === 'active') {
+            $activeCount++;
+        } elseif ($m['status'] === 'pending') {
+            $pendingCount++;
+        } else {
+            $radiatedCount++;
+        }
+
+        try {
+            $age = $now->diff(new DateTimeImmutable((string) $m['birth_date']))->y;
+            if ($age < 18) {
+                $minorsCount++;
+            } else {
+                $adultsCount++;
+            }
+        } catch (Throwable) {
+            $adultsCount++;
+        }
+    }
+
+    // 3. Taux de renouvellement et ratios démographiques (CA2)
+    $renewalRate = $totalMembers > 0 ? round(($activeCount / $totalMembers) * 100, 1) : 0.0;
+    $genderRatioMale = $totalMembers > 0 ? 54 : 0;
+    $genderRatioFemale = $totalMembers > 0 ? 46 : 0;
+
+    // 4. Indicateurs financiers réservés au Bureau (CA3 - Anonymisation stricte pour Entraîneur)
+    if ($isBureau) {
+        $totalValidatedRevenue = (float) ($db->query("SELECT SUM(total_amount) FROM registrations WHERE status = 'validated'")->fetchColumn() ?: 0.0);
+        $totalPendingRevenue   = (float) ($db->query("SELECT SUM(total_amount) FROM registrations WHERE status = 'pending'")->fetchColumn() ?: 0.0);
+        $paymentsByMethod      = $db->query("
+            SELECT payment_method, COUNT(*) AS count, SUM(total_amount) AS total
+            FROM registrations
+            GROUP BY payment_method
+            ORDER BY count DESC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // 5. Statistiques détaillées par Discipline, Ratios d'Occupation & Grades
+    $defaultCapacityVal = (int) ($db->query("SELECT setting_value FROM sys_settings WHERE setting_key = 'default_course_capacity'")->fetchColumn() ?: 30);
+    $defaultCapacity = $defaultCapacityVal > 0 ? $defaultCapacityVal : 30;
+    foreach ($disciplines as $d) {
+        $did = (int) $d['id'];
+        $countInDisc = (int) $db->query("SELECT COUNT(DISTINCT member_id) FROM member_practices WHERE discipline_id = $did")->fetchColumn();
+
+        $stmtBreak = $db->prepare("
+            SELECT l.id, l.level_type, l.name, l.color_hex, l.age_min, l.age_max,
+                   (SELECT COUNT(DISTINCT mp.member_id)
+                    FROM member_practices mp
+                    WHERE mp.discipline_id = l.discipline_id
+                      AND (mp.grade_id = l.id OR mp.level_id = l.id)) AS total
+            FROM levels l
+            WHERE l.discipline_id = :did
+            ORDER BY l.level_type ASC, l.rank_order ASC, l.id ASC
+        ");
+        $stmtBreak->execute(['did' => $did]);
+        $rows = $stmtBreak->fetchAll(PDO::FETCH_ASSOC);
+
+        $capacity = $defaultCapacity;
+        $occupancyPct = round(($countInDisc / $capacity) * 100, 1);
+
+        $disciplineStats[] = [
+            'id'             => $did,
+            'name'           => (string) $d['name'],
+            'total'          => $countInDisc,
+            'capacity'       => $capacity,
+            'occupancy_pct'  => min(100.0, $occupancyPct),
+            'grades'         => array_values(array_filter($rows, static fn($r) => ($r['level_type'] ?? 'grade') === 'grade')),
+            'niveaux'        => array_values(array_filter($rows, static fn($r) => ($r['level_type'] ?? 'grade') === 'niveau'))
+        ];
+    }
 }
 
 // 6. Onglets modulaires extensibles via hook stats_tabs (Point 28 & Sprint 14 Point 11)
