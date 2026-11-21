@@ -1,4 +1,8 @@
+# ==============================================================================
+# KANSO-YA V2 — FRONT-CONTROLLER UNIQUE & VERROUILLAGE /public/ (Lot R2)
+# ==============================================================================
 Options -Indexes -MultiViews
+DirectoryIndex index.php
 
 # En-têtes de sécurité HTTP
 <IfModule mod_headers.c>
@@ -19,42 +23,24 @@ Options -Indexes -MultiViews
     RewriteEngine On
     RewriteBase /
 
-    # 1. Conserver l'en-tête Authorization pour l'API et Playwright
+    # 1. Conserver l'en-tête Authorization pour l'API REST et Playwright
     SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 
-    # 2. Routes d'authentification, console furtive et inscription publique
-    RewriteRule ^login/?$ login.php [L,NC]
-    RewriteRule ^sys-admin-xyz/?$ sys-admin-login.php [L,NC]
-    RewriteRule ^sys-console/?$ sys-console.php [L,NC]
-    RewriteRule ^sys-branding/?$ sys-branding.php [L,NC]
-    RewriteRule ^sys-smtp/?$ sys-smtp.php [L,NC]
-    RewriteRule ^sys-modules/?$ sys-modules.php [L,NC]
-    RewriteRule ^sys-logs/?$ sys-logs.php [L,NC]
-    RewriteRule ^register/?$ register.php [L,QSA,NC]
-    RewriteRule ^activate-otp/?$ activate-otp.php [L,QSA,NC]
+    # 2. Interdiction de toute tentative d'accès à des segments internes via /public/
+    RewriteRule ^(Core|core|modules|storage|docs|tests|vendor)(/|$) - [F,L,NC]
 
-    # 3. Routes propres du Back-Office (incluant /stats, /settings et /boutique)
-    RewriteRule ^dashboard/?$ dashboard.php [L,NC]
-    RewriteRule ^settings/?$ settings.php [L,NC]
-    RewriteRule ^stats/?$ stats.php [L,NC]
-    RewriteRule ^members/?$ members.php [L,NC]
-    RewriteRule ^registrations/?$ registrations.php [L,NC]
-    RewriteRule ^cms/?$ cms.php [L,NC]
-    RewriteRule ^disciplines/?$ disciplines.php [L,NC]
-    RewriteRule ^roles/?$ roles.php [L,NC]
-    RewriteRule ^boutique/?$ boutique.php [L,NC]
-    RewriteRule ^questionnaire-sante/?$ health-check.php [L,NC]
-    RewriteRule ^horaires/?$ horaires.php [L,NC]
+    # 3. Ne pas réécrire les deux front-controllers autorisés
+    RewriteRule ^(index|api)\.php$ - [L,NC]
 
-    # 4. Pages institutionnelles et légales fixes (US 4.1 - CA3)
-    RewriteRule ^(rgpd|cgv|mentions-legales)/?$ legal.php?slug=$1 [L,QSA,NC]
+    # 4. Trafic API -> Front-Controller API unique
+    RewriteCond %{REQUEST_URI} ^/api(/|$) [NC]
+    RewriteRule ^(.*)$ api.php [L,QSA]
 
-    # 5. Accès direct aux fichiers physiques existants
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
+    # 5. Assets statiques existants (assets/, uploads/, etc.) servis directement (hors .php)
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteCond %{REQUEST_URI} !\.php$ [NC]
     RewriteRule ^ - [L]
 
-    # 6. Redirection de tout le trafic API vers le Front-Controller api.php
-    RewriteCond %{REQUEST_URI} ^/api/ [NC]
-    RewriteRule ^(.*)$ api.php [L,QSA]
+    # 6. Tout le reste (routes propres + alias .php legacy gérés par PageRouter) -> Front-Controller UI unique
+    RewriteRule ^ index.php [L,QSA]
 </IfModule>

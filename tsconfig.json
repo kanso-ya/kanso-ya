@@ -2,14 +2,14 @@
     "compilerOptions": {
         "target": "ES2022",
         "module": "ES2022",
-        "rootDir": "./core/ui/ts",
+        "rootDir": "./Core/Ui/ts",
         "outDir": "./public/assets/ts",
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true
     },
-    "include": ["core/ui/ts/**/*"],
+    "include": ["Core/Ui/ts/**/*"],
     "exclude": [
         "node_modules",
         "tests",

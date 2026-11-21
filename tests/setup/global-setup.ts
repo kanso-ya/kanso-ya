@@ -17,5 +17,5 @@ export default async function globalSetup(): Promise<void> {
         fs.copyFileSync(dbPath, backupPath);
     }
 
-    execSync('php core/Api/Database/migrations/002_core_seed.php', { stdio: 'ignore' });
+    execSync('php Core/Api/Database/Migrations/002_core_seed.php', { stdio: 'ignore' });
 }
