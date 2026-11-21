@@ -10,6 +10,7 @@
         "db:reset": "php Core/Api/Database/Migrations/002_core_seed.php",
         "db:check-mysql": "php Core/Api/Database/check_mysql_compat.php",
         "test:e2e": "playwright test",
+        "test:qa-full": "playwright test -c playwright.sprint27.config.ts",
         "test:e2e:ui": "playwright test --ui",
         "report:allure": "allure generate allure-results --clean -o allure-report && allure open",
         "test:allure": "npx playwright test & npx allure serve allure-results --port 8085"

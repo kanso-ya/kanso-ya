@@ -2,8 +2,8 @@
 
 **Rôle :** @cp (Chef de Projet)  
 **Dernière mise à jour :** 21 novembre 2026  
-**État courant :** **V2.3 homologuée — Lot 6 complet (Sprints 24, 25 & 26 validés)** (324/324 tests E2E Playwright Desktop & Mobile · PHPStan niveau 5 : 0 erreur · PSR-4 strict : 36 classes, 0 avertissement)  
-**Dernier sprint clôturé :** **Lot 6 — Sprint 26 : Module Boutique Club — Commandes, Paiement Hors-Ligne, Livraison, Suivi & Liaison Facturation PDF** ([`docs/archive/sprint-26/`](./archive/sprint-26/))
+**État courant :** **V2.4 homologuée — Lot 7 / Sprint 27 QA Intégrale validé** (35/35 matrice 7 navigateurs Desktop & Mobile + 324/324 socle V2.3 · PHPStan niveau 5 : 0 erreur · PSR-4 strict : 36 classes, 0 avertissement)  
+**Dernier sprint clôturé :** **Lot 7 — Sprint 27 : QA Intégrale — Parcours Utilisateur 100 % UI, Audit Vues & E-mails Réels (Mailpit)** ([`docs/archive/sprint-27/`](./archive/sprint-27/))
 
 ---
 
@@ -93,7 +93,7 @@
 | **Lot 6 — Sprint 24** | **Module Facturation PDF Officielle & Envoi Automatique par E-mail** | V2.3 | Haute | **Terminé** |
 | **Lot 6 — Sprint 25** | **Module Boutique Club — Catalogue Avancé, Variantes, Remises Adhérents, Flocage & Lots** | V2.3 | Haute | **Terminé** |
 | **Lot 6 — Sprint 26** | **Module Boutique Club — Commandes, Paiement Hors-Ligne, Livraison, Suivi & Facturation PDF** | V2.3 | Moyenne | **Terminé** |
-| **Lot 7 — Sprint 27** | **QA Intégrale — Parcours 100 % UI (Boîte Noire), Matrice RBAC, Audit Vues, Multi-Navigateurs & E-mails Réels (Mailpit)** | V2.4 | Haute | **À faire** |
+| **Lot 7 — Sprint 27** | **QA Intégrale — Parcours 100 % UI (Boîte Noire), Matrice RBAC, Audit Vues, Multi-Navigateurs & E-mails Réels (Mailpit)** | V2.4 | Haute | **Terminé** |
 
 ---
 
@@ -197,7 +197,7 @@
 
 **Vision du Lot :** Homologuer l'intégralité de la plateforme Kanso-ya (Core + Modules V2.3) en conditions réelles d'utilisation **100 % boîte noire via l'interface utilisateur**, sur une matrice complète de navigateurs Desktop et d'émulations Mobile, en auditant la propreté visuelle/structurelle de chaque vue et en certifiant l'envoi réel des e-mails via **Mailpit** (Laragon).
 
-#### Sprint 27 : QA Intégrale — Parcours Utilisateur 100 % UI, Audit Vues & E-mails Réels (Mailpit) *(À faire)*
+#### Sprint 27 : QA Intégrale — Parcours Utilisateur 100 % UI, Audit Vues & E-mails Réels (Mailpit) *(Terminé — archivé dans `docs/archive/sprint-27/`)*
 - **Objectif métier :** Garantir qu'aucun parcours utilisateur, contrôle RBAC, écran à onglets ou envoi d'e-mail réel ne présente de défaut caché par des raccourcis API ou des mocks, et fournir une couverture multi-navigateurs Desktop & Mobile sans compromis.
 - **Périmètre macro (User Stories) :**
   - `US-LOT7-01` — **Parcours Utilisateur 100 % UI (Boîte Noire) :** Rejouer l'ensemble des scénarios fonctionnels existants (Core + modules actifs `PresenceApi`, `EvenementsApi`, `FacturationApi`, `BoutiqueApi`) exclusivement via l'interface utilisateur : connexion par formulaire (`/login` et `/sys-admin-xyz`), saisie, clics et navigation réelle — **aucun raccourci API (`switch-persona`, appels directs) ni injection de session**.

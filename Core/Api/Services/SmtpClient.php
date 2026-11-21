@@ -123,8 +123,8 @@ final class SmtpClient
                 $ehloCapabilities = strtoupper($ehloResp['message']);
             }
 
-            // 4. Authentification si identifiant renseigné
-            if ($username !== '') {
+            // 4. Authentification si identifiant renseigné et requis (serveur annonçant AUTH ou mot de passe explicite)
+            if ($username !== '' && (str_contains($ehloCapabilities, 'AUTH') || $password !== '')) {
                 $this->authenticate($username, $password, $ehloCapabilities);
             }
 

@@ -53,9 +53,12 @@ final class MailerService
 
         $envFile = dirname(__DIR__, 3) . '/.env';
         if (is_file($envFile)) {
-            $parsed = @parse_ini_file($envFile);
-            if (is_array($parsed) && isset($parsed[$key]) && (string) $parsed[$key] !== '') {
-                return (string) $parsed[$key];
+            $parsed = @parse_ini_file($envFile, false, INI_SCANNER_RAW);
+            if (is_array($parsed) && isset($parsed[$key])) {
+                $rawVal = trim((string) $parsed[$key], " \t\r\n\"'");
+                if ($rawVal !== '') {
+                    return $rawVal;
+                }
             }
         }
 
@@ -317,17 +320,20 @@ final class MailerService
             ? $envPassword
             : self::decryptSecret((string) ($settings['smtp_password'] ?? ''));
 
-        $transport = strtolower(trim((string) ($settings['smtp_transport'] ?? 'log')));
+        $envTransport = self::readEnv('SMTP_TRANSPORT');
+        $transport = strtolower(trim($envTransport ?? (string) ($settings['smtp_transport'] ?? 'log')));
         if (!in_array($transport, ['log', 'smtp'], true)) {
             $transport = 'log';
         }
 
-        $encryption = strtolower(trim((string) ($settings['smtp_encryption'] ?? 'tls')));
+        $envEncryption = self::readEnv('SMTP_ENCRYPTION');
+        $encryption = strtolower(trim($envEncryption ?? (string) ($settings['smtp_encryption'] ?? 'tls')));
         if (!in_array($encryption, ['tls', 'ssl', 'none'], true)) {
             $encryption = 'tls';
         }
 
-        $port = (int) ($settings['smtp_port'] ?? 587);
+        $envPort = self::readEnv('SMTP_PORT');
+        $port = (int) ($envPort ?? ($settings['smtp_port'] ?? 587));
         if ($port < 1 || $port > 65535) {
             $port = 587;
         }
@@ -337,13 +343,16 @@ final class MailerService
             $timeout = 10;
         }
 
+        $envHost = self::readEnv('SMTP_HOST');
+        $envUsername = self::readEnv('SMTP_USERNAME');
+
         return [
             'transport'  => $transport,
-            'host'       => trim((string) ($settings['smtp_host'] ?? 'smtp.kanso-ya.fr')),
+            'host'       => trim($envHost ?? (string) ($settings['smtp_host'] ?? 'smtp.kanso-ya.fr')),
             'port'       => $port,
             'encryption' => $encryption,
             'timeout'    => $timeout,
-            'username'   => trim((string) ($settings['smtp_username'] ?? '')),
+            'username'   => trim($envUsername ?? (string) ($settings['smtp_username'] ?? '')),
             'password'   => $password,
             'from_email' => trim((string) ($settings['smtp_from_email'] ?? 'ne-pas-repondre@kanso-ya.fr')),
             'from_name'  => trim((string) ($settings['smtp_from_name'] ?? 'Secrétariat Kanso-ya')),

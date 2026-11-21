@@ -1,4 +1,4 @@
-# Kanso-ya — CMS & CRM Associatif Modulaire (V2.3)
+# Kanso-ya — CMS & CRM Associatif Modulaire (V2.4)
 
 **Kanso-ya** est une plateforme web légère, autonome et sans framework lourd conçue pour les clubs sportifs et associations (gestion d'adhérents, inscriptions familiales, trésorerie, studio éditorial, statistiques, console Superadmin et moteur de modules SDK).
 
@@ -45,8 +45,9 @@ vendor\bin\phpstan analyse
 npm run db:reset
 npm run db:check-mysql
 
-# 4. Exécution complète des tests E2E Playwright (Desktop + Mobile)
+# 4. Exécution complète des tests E2E Playwright (Desktop + Mobile) & Matrice QA 7 navigateurs (Mailpit)
 npm run test:e2e
+npm run test:qa-full
 ```
 
 ---
@@ -54,6 +55,6 @@ npm run test:e2e
 ## Documentation de Référence
 
 - **Architecture technique :** [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
-- **Feuille de route (Lots 4 à 6) :** [`docs/ROADMAP.md`](./docs/ROADMAP.md)
-- **Dernier sprint clôturé (Lot 6 — Sprint 26 / V2.3 complète) :** `docs/archive/sprint-26/`
+- **Feuille de route (Lots 4 à 7) :** [`docs/ROADMAP.md`](./docs/ROADMAP.md)
+- **Dernier sprint clôturé (Lot 7 — Sprint 27 / V2.4 QA Intégrale) :** `docs/archive/sprint-27/`
 - **Archives historiques (V1 & V2) :** `docs/archive/reprise-docs/` (incluant `SDK-MODULES.md`, `DEPLOIEMENT-PRODUCTION.md`, `ETAT-DES-LIEUX.md` et les rapports de sprints).
