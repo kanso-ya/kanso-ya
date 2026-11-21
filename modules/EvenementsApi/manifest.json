@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "evenements",
+  "name": "Événements, Stages & Compétitions",
+  "version": "1.0.0",
+  "author": "Kanso-ya Team",
+  "description": "Calendrier des stages, passages de grades et compétitions, inscriptions adhérents en 1 clic et widget d'accueil.",
+  "namespace": "Modules\\EvenementsApi",
+  "entry_class": "Modules\\EvenementsApi\\Module",
+  "ui_folder": "EvenementsUi",
+  "compatibility": {
+    "core_min": "2.0.0",
+    "php_min": "8.5.0"
+  },
+  "tables_prefix": "mod_evenements_",
+  "assets": {
+    "publish_dir": "EvenementsUi/dist",
+    "public_slug": "evenements"
+  },
+  "permissions_required": [
+    "stats.view"
+  ]
+}

@@ -1,0 +1,31 @@
+# Spécifications Fonctionnelles : Lot 5 — Sprint 23 (Module « Événements, Stages & Compétitions »)
+
+## 1. Règles de Gestion (RG) et Cas Limites
+| ID RG | ID US Liée | Description de la règle métier | Comportement en cas d'erreur / Cas limite |
+|---|---|---|---|
+| `RG-01` | `US-LOT5-05` | Le module `EvenementsApi` / `EvenementsUi` est découvert par `ModuleScanner`, activable et désinstallable depuis `/sys-modules`. À l'activation, ses tables `mod_evenements_events` et `mod_evenements_registrations` sont créées (compatibles SQLite & MySQL) avec 2 événements publiés de démonstration si vide, et ses assets (`evenements.js`, `evenements.css`) sont publiés sous `/assets/modules/evenements/`. | Lorsque le module est désinstallé, `/evenements` retourne HTTP `404`, `/api/v1/modules/evenements/*` retourne JSend `404`, les assets sont purgés et le widget d'accueil disparaît de `/`. |
+| `RG-02` | `US-LOT5-06` | La création, la modification, la publication et la clôture d'un événement sont réservées aux profils disposant de `stats.view` ou `articles.write` (Bureau, Entraîneur, Rédacteur) ou au Superadmin. Types autorisés : `stage`, `grade`, `competition`, `autre`. Statuts autorisés : `draft`, `published`, `closed`. | Tout Adhérent ou Visiteur tentant de créer/modifier un événement ou consulter la liste complète des participants reçoit JSend `403`. Un titre vide, une date invalide ou un type inconnu retourne `422`. |
+| `RG-03` | `US-LOT5-07` | Un utilisateur connecté peut inscrire ou désinscrire en 1 clic sur un événement `published` sa propre fiche adhérent (correspondance e-mail) ou tout membre rattaché via `member_tutor` (et un gestionnaire peut inscrire tout adhérent). Si `max_capacity > 0` et que le nombre d'inscrits actifs atteint la jauge, toute nouvelle inscription est bloquée. | Tenter d'inscrire un adhérent sur un événement `closed` ou `draft` retourne `409` ; sur un événement complet retourne `409` (« Événement complet ») ; pour un adhérent tiers non rattaché retourne `403` ; pour un visiteur non connecté retourne `401`. |
+| `RG-04` | `US-LOT5-07` | Les gestionnaires peuvent consulter la liste des participants inscrits d'un événement (`GET /api/v1/modules/evenements/events/{id}/participants`) incluant un contenu CSV téléchargeable (prénom, nom, date d'inscription — sans exposer d'adresse postale). | Tout non-gestionnaire reçoit `403` ; un `event_id` inexistant retourne `404`. |
+| `RG-05` | `US-LOT5-08` | Lorsque le module est actif, le filtre SDK `ui_slot_home_after_articles` injecte le widget « 📅 Prochains Événements du Club » (`data-testid="home-events-widget"`) sur `/` affichant jusqu'à 3 événements `published` à venir avec leur type, date, lieu, jauge restante et lien vers `/evenements`. | Si aucun événement publié n'existe, le widget n'affiche aucune erreur PHP et propose un lien discret vers `/evenements`. |
+
+## 2. Éléments d'Interface et Testabilité
+| Composant / Vue | Élément UI | Attribut `data-testid` | Comportement UX attendu |
+|---|---|---|---|
+| `/` — Widget Accueil | Conteneur du widget événements | `home-events-widget` | Injecté via `ui_slot_home_after_articles` uniquement si le module est actif. |
+| `/evenements` — Gestion | Formulaire création d'événement (gestionnaires) | `events-create-form` | Visible uniquement pour les gestionnaires (`can_manage`). |
+| `/evenements` — Gestion | Champs Titre, Type, Date, Lieu, Jauge | `event-title-input`, `event-type-select`, `event-date-input`, `event-location-input`, `event-capacity-input` | Validation côté client + serveur (`422` si invalide). |
+| `/evenements` — Gestion | Bouton Publier l'événement | `btn-create-event` | Appelle `POST /api/v1/modules/evenements/events`, affiche un toast et rafraîchit la grille. |
+| `/evenements` — Calendrier | Grille des événements | `events-list-grid` | Affiche chaque carte événement (`data-testid="event-card-{id}"`) avec badge type, statut, date, lieu et jauge. |
+| `/evenements` — Carte | Sélecteur du membre à inscrire (si famille) | `event-member-select-{id}` | Liste les membres éligibles de l'utilisateur connecté. |
+| `/evenements` — Carte | Bouton Inscription en 1 clic | `btn-register-event-{id}` | Appelle `POST /api/v1/modules/evenements/events/{id}/register`, désactivé si complet ou clôturé. |
+| `/evenements` — Carte | Bouton Désinscription | `btn-unregister-event-{id}` | Affiché lorsque le membre sélectionné est déjà inscrit ; appelle `DELETE .../register/{memberId}`. |
+| `/evenements` — Carte | Bouton Voir les inscrits (gestionnaire) | `btn-event-participants-{id}` | Ouvre la modale des participants (`data-testid="event-participants-modal"`) avec bouton export CSV (`data-testid="btn-export-participants-csv"`). |
+| `/evenements` — Carte | Bouton Clôturer / Rouvrir (gestionnaire) | `btn-toggle-event-status-{id}` | Bascule le statut entre `published` et `closed` via `PATCH`. |
+
+## 3. Scénarios de Recette Utilisateur (UAT)
+- **Persona 1 (Président + Adhérent/Parent — Création d'un stage à jauge limitée, widget `/` & inscription 1 clic) :** Le Superadmin active `EvenementsApi`. Le Président accède à `/evenements`, crée un stage avec `max_capacity = 1` et vérifie son apparition sur `/` via `home-events-widget`. Un Parent/Adhérent connecté se rend sur `/evenements`, inscrit son enfant rattaché en 1 clic (`btn-register-event-{id}`) : la jauge passe à `1 / 1` (« Complet »). Un second adhérent (ou tentative API) se heurte à un refus `409` « Complet ». Le Président consulte la modale des participants et vérifie la présence de l'inscrit.
+- **Persona 2 (Adhérent tiers / Visiteur — Contrôles RBAC `401`/`403` & Désinstallation propre) :** Un Adhérent tente de créer un événement ou d'inscrire un adhérent tiers non rattaché (`#19`) → refus `403`. Un Visiteur tente de s'inscrire → refus `401`. Le Superadmin désinstalle `EvenementsApi` : `/evenements` retourne `404`, `home-events-widget` disparaît de `/` et les assets sont purgés.
+
+## 4. Instructions de passage de relais (Handoff)
+- **Pour l'Architecte :** À partir de ces règles de gestion, définis les tables `mod_evenements_*`, l'arborescence `modules/EvenementsApi` / `modules/EvenementsUi` et les contrats d'API `/api/v1/modules/evenements/*` dans `/docs/current-sprint/03-architecture.md`.

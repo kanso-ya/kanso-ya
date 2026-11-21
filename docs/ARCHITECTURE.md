@@ -9,12 +9,12 @@
 
 ## 1. Stack Technique & Principes Directeurs
 
-- **Backend :** Vanilla PHP 8.5+ (`declare(strict_types=1)`), zéro framework lourd, autoloader PSR-4 strict (`composer.json` : `Core\` → `Core/`, `Modules\` → `modules/`, 28 classes, 0 avertissement sous `composer dump-autoload -o --strict-psr`), analyse statique **PHPStan niveau 5** (`phpstan.neon`, 0 erreur).
+- **Backend :** Vanilla PHP 8.5+ (`declare(strict_types=1)`), zéro framework lourd, autoloader PSR-4 strict (`composer.json` : `Core\` → `Core/`, `Modules\` → `modules/`, 36 classes, 0 avertissement sous `composer dump-autoload -o --strict-psr`), analyse statique **PHPStan niveau 5** (`phpstan.neon`, 0 erreur).
 - **Base de Données :** PDO pur avec requêtes préparées via le Singleton `Core\Api\Database\Database`.
   - Moteur actif : **SQLite 3 en mode WAL** (`storage/db/kanso-ya.sqlite`, `PRAGMA busy_timeout = 15000`, `PRAGMA journal_mode = WAL`, `PRAGMA synchronous = NORMAL`), transactions `BEGIN IMMEDIATE` avec retries.
   - Compatibilité MySQL/MariaDB prévue via `.env` (`DB_CONNECTION=mysql`).
 - **Frontend :** Architecture MPA derrière un Front-Controller unique (`public/index.php` → `Core\Ui\Router\PageRouter`), **TypeScript strict** (`Core/Ui/ts/` → `public/assets/ts/`), **Tailwind CSS compilé localement** (`tailwind.config.js` → `public/assets/css/tailwind.css`, 44 Ko, zéro CDN), thème dynamique CSS réel (`--brand-primary`, `--brand-primary-hover`, `--brand-sidebar`, `--brand-header`, `--brand-accent`).
-- **Qualité & Non-Régression :** 23 suites Playwright E2E dans `tests/e2e/` (**298/298 Pass** Desktop Chrome + Mobile Chrome Pixel 5) avec snapshot/restauration bit-à-bit de la base SQLite (`tests/setup/`).
+- **Qualité & Non-Régression :** 27 suites Playwright E2E dans `tests/e2e/` (**320/320 Pass** Desktop Chrome + Mobile Chrome Pixel 5) avec snapshot/restauration bit-à-bit de la base SQLite (`tests/setup/`).
 
 ---
 
@@ -86,6 +86,12 @@ kanso-ya/
 ├── modules/                            # MODULES NORMALISÉS ({NomModule}Api / {NomModule}Ui)
 │   ├── BoutiqueApi/                    # manifest.json (v2), Module.php, Endpoints/BoutiqueController.php
 │   ├── BoutiqueUi/                     # Pages/boutique.php, dist/boutique.css
+│   ├── EvenementsApi/                  # manifest.json (v2), Module.php, Endpoints/EvenementsController.php (mod_evenements_*)
+│   ├── EvenementsUi/                   # Pages/evenements.php, dist/{evenements.css, evenements.js}
+│   ├── FacturationApi/                 # manifest.json (v2), Module.php, Services/{NativePdfBuilder,InvoiceService}, Endpoints/FacturationController.php (mod_facturation_*)
+│   ├── FacturationUi/                  # Pages/factures.php, dist/{facturation.css, facturation.js}
+│   ├── PresenceApi/                    # manifest.json (v2), Module.php, Endpoints/PresenceController.php (mod_presence_*)
+│   ├── PresenceUi/                     # Pages/presences.php, dist/{presence.css, presence.js}
 │   ├── CrashTestApi/                   # Démonstrateur Safe Mode (exception volontaire au boot)
 │   └── IncompatibleModuleApi/          # Démonstrateur rejet compatibilité (core_min: 3.0.0)
 │
@@ -177,3 +183,11 @@ Toute route API transite par `public/api.php` → `Core\Api\Http\ApiKernel::hand
 2. **Garde applicative :** chaque vue/template/composant sous `Core/Ui/` et `modules/*Ui/` vérifie `if (!defined('KANSO_ENTRY')) { http_response_code(403); exit; }`.
 3. **Isolation des hooks QA :** `POST /api/v1/auth/switch-persona` et les jetons `stub-*` ne sont actifs que si `APP_ENV=testing` **ET** `QA_HOOKS_ENABLED=1`.
 4. **Rétention des sauvegardes :** `SystemController::backupDatabase()` conserve automatiquement les **10 dernières sauvegardes** SQLite dans `storage/backups/`.
+
+---
+
+## 7. Modules Métier V2.2 / V2.3 (Lot 5 & Lot 6)
+- **`PresenceApi` / `PresenceUi` (Sprint 22) :** `/presences`, tables `mod_presence_sessions` & `mod_presence_records`, onglet `/stats` via `ui_tabs`.
+- **`EvenementsApi` / `EvenementsUi` (Sprint 23) :** `/evenements`, tables `mod_evenements_events` & `mod_evenements_registrations`, widget accueil via `ui_slot_home_after_articles`.
+- **`FacturationApi` / `FacturationUi` (Sprint 24) :** `/factures`, tables `mod_facturation_settings` & `mod_facturation_invoices`, générateur PDF 1.4 natif (`NativePdfBuilder`), pièces jointes PDF MIME dans `SmtpClient`/`MailerService`, hooks `on_registration_validated` et `issue_official_invoice`.
+- **`BoutiqueApi` / `BoutiqueUi` v2.3.0 (Sprints 25 & 26) :** `/boutique` (3 onglets : Catalogue & Panier, Suivi Commandes, Administration & Paramètres), 7 tables `mod_boutique_*` (`products`, `variants`, `bundles`, `bundle_items`, `settings`, `orders`, `order_items`), variantes de taille, disponibilité, tarifs préférentiels & `members_only`, flocage personnalisé, lots/packs, paramétrage paiements hors-ligne (paiement en ligne verrouillé « Indisponible pour le moment » et rejeté en `422`) & livraisons, décrémentation/restauration atomique du stock et déclenchement automatique de `issue_official_invoice` sur passage au statut `payee`.

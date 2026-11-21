@@ -1,0 +1,24 @@
+/* Styles du module Présences & Suivi Tatami (publiés dans /assets/modules/presence/presence.css) */
+
+.presence-status-btn {
+    min-width: 78px;
+    transition: all 0.12s ease;
+}
+
+.presence-status-btn[data-active="true"][data-status="present"] {
+    background-color: #059669;
+    border-color: #059669;
+    color: #ffffff;
+}
+
+.presence-status-btn[data-active="true"][data-status="absent"] {
+    background-color: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+}
+
+.presence-status-btn[data-active="true"][data-status="excused"] {
+    background-color: #d97706;
+    border-color: #d97706;
+    color: #ffffff;
+}

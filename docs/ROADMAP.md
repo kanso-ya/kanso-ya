@@ -2,8 +2,8 @@
 
 **Rôle :** @cp (Chef de Projet)  
 **Dernière mise à jour :** 21 novembre 2026  
-**État courant :** **V2.1 homologuée (Lot 4 complet : Sprints 20 & 21 validés)** (298/298 tests E2E Playwright Desktop & Mobile · PHPStan niveau 5 : 0 erreur · PSR-4 strict : 28 classes, 0 avertissement)  
-**Sprint actif :** *Aucun* (`docs/current-sprint/` est vide, prêt pour le démarrage du **Lot 5 — Sprint 22**).
+**État courant :** **V2.3 homologuée — Lot 6 complet (Sprints 24, 25 & 26 validés)** (324/324 tests E2E Playwright Desktop & Mobile · PHPStan niveau 5 : 0 erreur · PSR-4 strict : 36 classes, 0 avertissement)  
+**Dernier sprint clôturé :** **Lot 6 — Sprint 26 : Module Boutique Club — Commandes, Paiement Hors-Ligne, Livraison, Suivi & Liaison Facturation PDF** ([`docs/archive/sprint-26/`](./archive/sprint-26/))
 
 ---
 
@@ -54,6 +54,30 @@
 - **Statistiques démographiques réelles :** suppression définitive du ratio statique `54 % / 46 %` dans `StatsService` et `SystemController::getDemographics()`, remplacé par les effectifs/pourcentages réels (`male`, `female`, `other`, `unspecified`) affichés sur `/stats`.
 - **Portabilité SQLite WAL & MySQL 8 / MariaDB 10.6+ :** abstraction dialectale centralisée dans `Core\Api\Database\Database` (`beginWriteTransaction`, `tableHasColumn`, `insertIgnorePrefix`, `upsertSettingSql`, `adaptDdlForDriver`, `execDdlStatements`) et script d'audit `npm run db:check-mysql`.
 
+### 1.8. Module « Présences & Suivi Tatami » (Lot 5 — Sprint 22)
+- **Extension normalisée SDK v2 (`modules/PresenceApi/` & `modules/PresenceUi/`) :** manifeste v2, tables isolées `mod_presence_sessions` et `mod_presence_records` (compatibles SQLite & MySQL via `Database::execDdlStatements()`), assets `presence.css`/`presence.js` publiés sous `/assets/modules/presence/` et purgés à la désinstallation.
+- **Appel numérique mobile-first (`/presences`) :** création/réouverture idempotente par discipline/date/créneau, roster anonymisé RGPD (zéro e-mail/adresse), pointage `Présent` / `Absent` / `Excusé`, modale d'historique individuel protégée (Entraîneur/Bureau/Adhérent/Tuteur rattaché).
+- **Intégration `/stats` sans toucher au Core :** onglet analytique « 📋 Assiduité » injecté dynamiquement via le hook `ui_tabs` (séances, présents/absents/excusés, taux par discipline).
+
+### 1.9. Module « Événements, Stages & Compétitions » (Lot 5 — Sprint 23)
+- **Extension normalisée SDK v2 (`modules/EvenementsApi/` & `modules/EvenementsUi/`) :** manifeste v2, tables isolées `mod_evenements_events` et `mod_evenements_registrations` (compatibles SQLite & MySQL), assets `evenements.css`/`evenements.js` publiés sous `/assets/modules/evenements/` et purgés à la désinstallation.
+- **Calendrier & Inscriptions 1 clic (`/evenements`) :** création/publication/clôture pour les gestionnaires (`stats.view` / `articles.write`), contrôle strict de jauge (`409` Complet), inscription familiale sécurisée (`member_tutor`) et modale participants avec export CSV.
+- **Widget d'accueil sans toucher au Core :** bloc « 📅 Prochains Événements, Stages & Compétitions » injecté sur `/` via `ui_slot_home_after_articles`.
+
+### 1.10. Module « Facturation PDF Officielle & Envoi Automatique » (Lot 6 — Sprint 24)
+- **Extension transversale SDK v2 (`modules/FacturationApi/` & `modules/FacturationUi/`) :** manifeste v2, tables `mod_facturation_settings` et `mod_facturation_invoices` (compatibles SQLite & MySQL), numérotation séquentielle légale `FAC-YYYY-0001`, archivage PDF hors webroot (`storage/private_uploads/invoices/`).
+- **Moteur PDF 1.4 natif & Templates dédiés :** `NativePdfBuilder` en PHP 8.5 pur (A4, accents français, tableau lignes, remises, total net, mentions légales), paramétrage du template PDF et du template d'e-mail dédié `invoice_issued` sur `/factures`.
+- **Envoi automatique avec pièce jointe PDF :** extension rétrocompatible MIME `multipart/mixed` (`application/pdf`) dans `SmtpClient` / `MailerService`, déclenchement automatique sur `on_registration_validated` et action SDK `issue_official_invoice` réutilisable par les autres modules (Boutique, etc.).
+
+### 1.11. Module Boutique Club — Catalogue Avancé, Variantes, Flocage & Lots (Lot 6 — Sprint 25)
+- **Schéma étendu (`mod_boutique_products`, `mod_boutique_variants`, `mod_boutique_bundles`, `mod_boutique_bundle_items`) :** compatible SQLite & MySQL (`Database::execDdlStatements()`).
+- **Fonctionnalités catalogue (`/boutique` & `/api/v1/modules/boutique/*`) :** options de taille avec stock par taille, statuts de disponibilité (`en_stock`, `sur_commande`, `rupture`, `masque`), remises adhérents (`percent`/`fixed`), accès « Réservé aux adhérents uniquement » (`members_only`), option flocage personnalisé avec recalcul de prix en direct, et création de lots/packs combinant articles catalogue et/ou exclusifs au lot.
+
+### 1.12. Module Boutique Club — Commandes, Paiement Hors-Ligne, Livraison, Suivi & Facturation PDF (Lot 6 — Sprint 26)
+- **Paramétrage Paiements Hors-Ligne & Livraisons (`mod_boutique_settings`) :** activation/désactivation des modes hors-ligne (`cheque`, `especes`, `virement`), option « Paiement en ligne » verrouillée **« Indisponible pour le moment »** (rejet strict API `422`), modes de livraison (`retrait_dojo`, `remise_main_propre`, `livraison_postale`) et frais postaux configurables.
+- **Panier, Commandes & Suivi (`mod_boutique_orders`, `mod_boutique_order_items`) :** interface 3 onglets sur `/boutique` (`Catalogue & Panier`, `Suivi Commandes`, `Administration & Paramètres`), recalcul intégral côté serveur (remise adhérent, flocage, livraison), numérotation séquentielle `CMD-YYYY-0001`, décrémentation atomique du stock et restauration sur annulation (`annulee`).
+- **Liaison Facturation PDF Officielle :** déclenchement automatique du hook SDK `issue_official_invoice` lors du passage au statut `payee` (génération PDF officielle `FacturationApi` + envoi e-mail avec pièce jointe PDF, dégradation gracieuse totale si `FacturationApi` est inactif).
+
 ---
 
 ## 2. Prochains Lots / Sprints à Venir (Backlog V2.1+)
@@ -64,9 +88,12 @@
 | :---: | :--- | :---: | :---: | :---: |
 | **Lot 4 — Sprint 20** | **Transport SMTP Réel & Fiabilité Messagerie** | V2.1 | Haute | **Terminé** |
 | **Lot 4 — Sprint 21** | **Données Réelles Stats & Compatibilité MySQL/MariaDB** | V2.1 | Moyenne | **Terminé** |
-| **Lot 5 — Sprint 22** | **Module Présences & Appel Numérique Tatami** | V2.2 | Moyenne | À faire |
-| **Lot 5 — Sprint 23** | **Module Événements, Stages & Compétitions** | V2.2 | Basse | À faire |
-| **Lot 6 — Sprint 24** | **Paiement en Ligne (HelloAsso / Stripe) & Facturation** | V2.3 | Basse | À faire |
+| **Lot 5 — Sprint 22** | **Module Présences & Appel Numérique Tatami** | V2.2 | Moyenne | **Terminé** |
+| **Lot 5 — Sprint 23** | **Module Événements, Stages & Compétitions** | V2.2 | Basse | **Terminé** |
+| **Lot 6 — Sprint 24** | **Module Facturation PDF Officielle & Envoi Automatique par E-mail** | V2.3 | Haute | **Terminé** |
+| **Lot 6 — Sprint 25** | **Module Boutique Club — Catalogue Avancé, Variantes, Remises Adhérents, Flocage & Lots** | V2.3 | Haute | **Terminé** |
+| **Lot 6 — Sprint 26** | **Module Boutique Club — Commandes, Paiement Hors-Ligne, Livraison, Suivi & Facturation PDF** | V2.3 | Moyenne | **Terminé** |
+| **Lot 7 — Sprint 27** | **QA Intégrale — Parcours 100 % UI (Boîte Noire), Matrice RBAC, Audit Vues, Multi-Navigateurs & E-mails Réels (Mailpit)** | V2.4 | Haute | **À faire** |
 
 ---
 
@@ -101,7 +128,7 @@
 
 **Vision du Lot :** Capitaliser sur le moteur de modules V2 (`modules/{NomModule}Api` + `{NomModule}Ui`, hooks UI, Safe Mode) pour livrer deux modules métier à forte valeur opérationnelle pour les entraîneurs et les adhérents, sans alourdir le Core.
 
-#### Sprint 22 : Module Présences & Appel Numérique Tatami *(À faire)*
+#### Sprint 22 : Module Présences & Appel Numérique Tatami *(Terminé — archivé dans `docs/archive/sprint-22/`)*
 - **Objectif métier :** Permettre aux Entraîneurs de réaliser l'appel numérique sur smartphone ou tablette au bord du tatami, suivre l'assiduité des adhérents et enrichir `/stats` sans modifier le Core.
 - **Périmètre macro (User Stories) :**
   - `US-LOT5-01` — **Squelette modulaire `PresenceApi` / `PresenceUi` :** Manifeste v2, tables préfixées `mod_presence_*`, routes `/api/v1/modules/presence/*` et route UI dédiée protégée par RBAC (Entraîneur / Bureau).
@@ -112,7 +139,7 @@
 - **Hors périmètre :** Pointage par badge NFC/QR Code matériel, notifications push mobiles natives, modification directe du code Core hors hooks existants.
 - **Critères de sortie :** Activation/désactivation/désinstallation propre via `/sys-modules`, zéro régression Core, PHPStan niveau 5, nouvelle suite `23-sprint22-module-presence.spec.ts` verte (Desktop & Mobile).
 
-#### Sprint 23 : Module Événements, Stages & Compétitions *(À faire)*
+#### Sprint 23 : Module Événements, Stages & Compétitions *(Terminé — archivé dans `docs/archive/sprint-23/`)*
 - **Objectif métier :** Offrir au club un calendrier unifié des stages, passages de grades et compétitions, avec inscription en 1 clic pour les adhérents connectés et mise en avant sur la page d'accueil.
 - **Périmètre macro (User Stories) :**
   - `US-LOT5-05` — **Squelette modulaire `EvenementsApi` / `EvenementsUi` :** Manifeste v2, tables `mod_evenements_*`, routes `/api/v1/modules/evenements/*` et page publique/connectée du calendrier.
@@ -125,24 +152,71 @@
 
 ---
 
-### 2.4. Lot 6 — Paiement en Ligne & Comptabilité (V2.3)
+### 2.4. Lot 6 — Facturation PDF Officielle & Boutique Club Complète (V2.3)
 
-**Vision du Lot :** Permettre aux clubs qui le souhaitent d'encaisser leurs cotisations en ligne de manière optionnelle et modulaire, tout en conservant le parcours hors-ligne (chèque, espèces, virement, Pass'Sport) 100 % fonctionnel.
+**Vision du Lot :** Doter le CMS d'un moteur modulaire de **facturation PDF officielle** (multi-sources : cotisations Core et modules tiers comme la Boutique) avec envoi automatique par e-mail dédié, puis transformer la Boutique Club en un véritable **module e-commerce associatif hors-ligne** (tailles, remises adhérents, flocage, lots/packs, livraison et suivi de commandes).
 
-#### Sprint 24 : Paiement en Ligne (HelloAsso / Stripe) & Facturation *(À faire)*
-- **Objectif métier :** Connecter un module de paiement en ligne optionnel au tunnel `/register` et à la trésorerie `/registrations` pour automatiser le rapprochement des cotisations et simplifier l'export comptable.
+> **Décision de cadrage (Hors Périmètre Projet) :** Le **paiement en ligne** (carte bancaire, Stripe, HelloAsso ou virement direct initié depuis le CMS) est **définitivement sorti du périmètre de Kanso-ya** et fera l'objet d'un projet distinct. Dans les paramétrages Boutique, l'option « Paiement en ligne » reste visible mais explicitement verrouillée sur **« Indisponible pour le moment »**.
+
+#### Sprint 24 : Module Facturation PDF Officielle & Envoi Automatique par E-mail *(Terminé — archivé dans `docs/archive/sprint-24/`)*
+- **Objectif métier :** Permettre au club de générer, archiver et expédier automatiquement par e-mail des factures **PDF officielles** (numérotation légale, template PDF spécifique personnalisable aux couleurs du club et template d'e-mail dédié) pour les cotisations d'adhésion ainsi que pour les autres modules (Boutique, etc.).
 - **Périmètre macro (User Stories) :**
-  - `US-LOT6-01` — **Architecture modulaire de paiement (`PaiementApi` / `PaiementUi`) :** Configuration sécurisée des clés API et du prestataire (HelloAsso et/ou Stripe, mode sandbox/production) réservée au Superadmin/Trésorier, tables `mod_paiement_*`.
-  - `US-LOT6-02` — **Option paiement en ligne dans `/register` :** Branchement conditionnel sur le tunnel d'inscription (uniquement si le module est actif) pour initier une session de paiement sécurisée et rediriger vers la page de confirmation.
-  - `US-LOT6-03` — **Webhooks signés & rapprochement automatique :** Réception et vérification cryptographique des webhooks prestataire, passage automatique du statut de la cotisation dans `registrations` et déclenchement idempotent de la génération de reçu.
-  - `US-LOT6-04` — **Journal des transactions & export comptable :** Vue de suivi des encaissements dans `/registrations` (ou onglet dédié) et export CSV comptable normalisé (date, référence, adhérent, montant, frais, statut).
-- **Dépendances :** Transport SMTP réel (Sprint 20) pour l'envoi automatique des reçus, SDK V2, tunnel `/register` & Trésorerie `/registrations`.
-- **Hors périmètre :** Stockage de données de carte bancaire (PCI-DSS délégué au prestataire), comptabilité en partie double complète (FEC/bilan), remboursements partiels complexes multi-devises.
-- **Critères de sortie :** Tests E2E avec webhook simulé/signé en environnement de test (`25-sprint24-module-paiement.spec.ts`), non-régression totale du tunnel sans paiement en ligne, PHPStan niveau 5.
+  - `US-LOT6-01` — **Squelette modulaire `FacturationApi` / `FacturationUi` :** Manifeste SDK v2, tables isolées `mod_facturation_*` (factures, lignes, séquences annuelles `FAC-YYYY-0001`, paramètres de template PDF), stockage sécurisé hors webroot (`storage/private_uploads/invoices/`).
+  - `US-LOT6-02` — **Moteur d'édition PDF & Template spécifique :** Génération native d'un PDF officiel valide à partir d'un gabarit dédié configurable (logo, raison sociale/SIRET/RNA du club, coordonnées adhérent/payeur, détail des lignes, remises, total net, mentions légales de pied de page et prévisualisation).
+  - `US-LOT6-03` — **Envoi automatique par e-mail avec pièce jointe PDF :** Template d'e-mail dédié (`invoice_issued` personnalisable), extension du transport SMTP (`MailerService` / `SmtpClient`) pour supporter les pièces jointes MIME (`application/pdf`), déclenchement automatique sur `on_registration_validated` et relance manuelle en cas d'échec.
+  - `US-LOT6-04` — **Service transversal multi-modules & Espace Factures :** Interface/hook SDK permettant à d'autres modules (ex. `BoutiqueApi`) d'émettre une facture officielle standardisée ; écran de gestion/historique pour le Bureau (`finances.manage`) et téléchargement sécurisé pour l'adhérent/payeur concerné.
+- **Dépendances :** Transport SMTP natif (Sprint 20), SDK V2 (`on_registration_validated`, `ui_routes`, `api_routes`), dossiers `registrations`.
+- **Hors périmètre :** Paiement en ligne / prélèvement SEPA, comptabilité en partie double (FEC/bilan), facturation électronique Factur-X B2B.
+- **Critères de sortie :** Génération PDF binaire valide (`%PDF-1.x`), pièce jointe vérifiée sur serveur SMTP local en E2E, contrôle d'accès strict (`403` sur facture tierce), PHPStan niveau 5, nouvelle suite `25-sprint24-module-facturation.spec.ts` verte.
+
+#### Sprint 25 : Module Boutique Club — Catalogue Avancé, Variantes, Remises Adhérents, Flocage & Lots *(Terminé — archivé dans `docs/archive/sprint-25/`)*
+- **Objectif métier :** Faire évoluer le module `BoutiqueApi` / `BoutiqueUi` (au-delà du démonstrateur V2) en un catalogue associatif complet gérant les variantes de taille, la disponibilité, les tarifs préférentiels / accès réservé aux adhérents, l'option de flocage personnalisé et la composition de lots/packs.
+- **Périmètre macro (User Stories) :**
+  - `US-LOT6-05` — **Modèle catalogue étendu & gestion back-office (`mod_boutique_*`) :** CRUD complet des produits pour les gestionnaires (`finances.manage`) avec gestion des **options de taille** (ex. XS/S/M/L/XL ou 120cm..190cm avec stock individuel par taille) et de la **disponibilité** (`en_stock`, `sur_commande`, `rupture`, `masque`).
+  - `US-LOT6-06` — **Tarification & visibilité adhérents :** Paramétrage par article d'un prix public, d'une **remise / tarif préférentiel adhérent** (montant fixe ou pourcentage) et d'une option **« Réservé aux adhérents connectés uniquement »** (masqué ou verrouillé aux visiteurs).
+  - `US-LOT6-07` — **Option de flocage personnalisé :** Activation du flocage par article avec supplément tarifaire paramétrable, saisie du texte à floquer (ex. nom / initiales, limite de caractères) et prévisualisation du surcoût.
+  - `US-LOT6-08` — **Création de Lots / Packs :** Composition d'un lot promotionnel regroupant des **articles existants du catalogue** et/ou des **articles exclusifs au lot**, avec sélection des tailles/flocages par composant et prix de lot dédié.
+- **Dépendances :** SDK V2 (`BoutiqueApi` / `BoutiqueUi`), contexte d'authentification adhérent Core.
+- **Hors périmètre :** Paiement en ligne CB/Stripe/HelloAsso, gestion multi-entrepôts ou synchronisation fournisseur externe.
+- **Critères de sortie :** Rétrocompatibilité des routes `/boutique` et `/api/v1/modules/boutique/products` (zéro régression Sprint 17), PHPStan niveau 5, nouvelle suite `26-sprint25-boutique-catalogue.spec.ts` verte.
+
+#### Sprint 26 : Module Boutique Club — Commandes, Paiement Hors-Ligne, Livraison, Suivi & Liaison Facturation PDF *(Terminé — archivé dans `docs/archive/sprint-26/`)*
+- **Objectif métier :** Compléter la Boutique Club avec le tunnel de commande, le paramétrage des modes de paiement hors-ligne (avec paiement en ligne explicitement marqué « Indisponible pour le moment ») et de livraison, le suivi d'avancement des commandes et l'émission automatique de la facture PDF officielle.
+- **Périmètre macro (User Stories) :**
+  - `US-LOT6-09` — **Paramétrages Paiement & Livraison Boutique :** Écran de configuration (`finances.manage`) permettant d'activer/désactiver les modes de paiement hors-ligne (Chèque, Espèces, Virement manuel club), d'afficher l'option **« Paiement en ligne »** en état désactivé **« Indisponible pour le moment »**, et de configurer les **modes de livraison** (ex. Retrait au dojo gratuit, Remise en main propre, Livraison postale avec frais).
+  - `US-LOT6-10` — **Panier & Passage de commande :** Sélection des variantes (taille, flocage, composition de lot), calcul temps réel des remises adhérents et frais de livraison, choix du mode de paiement hors-ligne et de livraison, décrémentation/réservation cohérente du stock.
+  - `US-LOT6-11` — **Suivi des commandes (Bureau & Adhérent) :** Workflow complet de suivi (`en_attente_paiement`, `payee`, `en_preparation`, `prete_ou_expediee`, `livree`, `annulee`) avec historique des étapes, gestion côté Bureau et suivi en temps réel dans l'espace de l'acheteur.
+  - `US-LOT6-12` — **Liaison Facturation PDF Officielle :** Déclenchement automatique de la génération de facture PDF officielle et de son envoi par e-mail dédié via `FacturationApi` (Sprint 24) lors du passage d'une commande au statut `payee` (avec dégradation gracieuse si le module Facturation est inactif).
+- **Dépendances :** Sprint 24 (`FacturationApi`), Sprint 25 (Catalogue `BoutiqueApi`), transport SMTP (Sprint 20).
+- **Hors périmètre :** Paiement en ligne (CB, Stripe, HelloAsso, virement automatisé — projet séparé), génération d'étiquettes transporteurs (Colissimo/Mondial Relay).
+- **Critères de sortie :** Tunnel complet panier → commande → suivi → facture PDF, vérification du verrouillage « Indisponible pour le moment » sur le paiement en ligne, zéro régression sur les 310+ tests existants, PHPStan niveau 5, nouvelle suite `27-sprint26-boutique-commandes.spec.ts` verte.
 
 ---
 
-### 2.5. Règles Transverses de Pilotage (Applicable à Tous les Sprints)
-1. **Non-régression stricte :** Aucune route API, classe CSS ou `data-testid` existant ne peut être supprimé ; les 284 tests E2E V2.0 doivent rester verts à chaque sprint.
+### 2.5. Lot 7 — Assurance Qualité Intégrale, Audit UI & Messagerie Réelle (V2.4)
+
+**Vision du Lot :** Homologuer l'intégralité de la plateforme Kanso-ya (Core + Modules V2.3) en conditions réelles d'utilisation **100 % boîte noire via l'interface utilisateur**, sur une matrice complète de navigateurs Desktop et d'émulations Mobile, en auditant la propreté visuelle/structurelle de chaque vue et en certifiant l'envoi réel des e-mails via **Mailpit** (Laragon).
+
+#### Sprint 27 : QA Intégrale — Parcours Utilisateur 100 % UI, Audit Vues & E-mails Réels (Mailpit) *(À faire)*
+- **Objectif métier :** Garantir qu'aucun parcours utilisateur, contrôle RBAC, écran à onglets ou envoi d'e-mail réel ne présente de défaut caché par des raccourcis API ou des mocks, et fournir une couverture multi-navigateurs Desktop & Mobile sans compromis.
+- **Périmètre macro (User Stories) :**
+  - `US-LOT7-01` — **Parcours Utilisateur 100 % UI (Boîte Noire) :** Rejouer l'ensemble des scénarios fonctionnels existants (Core + modules actifs `PresenceApi`, `EvenementsApi`, `FacturationApi`, `BoutiqueApi`) exclusivement via l'interface utilisateur : connexion par formulaire (`/login` et `/sys-admin-xyz`), saisie, clics et navigation réelle — **aucun raccourci API (`switch-persona`, appels directs) ni injection de session**.
+  - `US-LOT7-02` — **Couverture Exhaustive des Rôles (Matrice RBAC UI) :** Tester systématiquement chaque profil utilisateur existant (**Visiteur anonyme**, **Adhérent / Tuteur**, **Entraîneur**, **Rédacteur**, **Secrétaire**, **Trésorier**, **Président**, **Superadmin**) afin de vérifier strictement ce qu'il doit voir (menus Sidebar, onglets, boutons d'action, données autorisées) et ce qui doit lui être masqué ou interdit (accès URL directe, boutons absents, cloisonnement RGPD).
+  - `US-LOT7-03` — **Matrice Playwright Complète (Desktop & Mobile, sans compromis sur le temps d'exécution) :** Exécuter la campagne QA sur l'ensemble des moteurs et terminaux cibles :
+    - **Desktop :** `Chromium` (Chrome / Edge / Opera), `Firefox`, `WebKit` (Safari).
+    - **Mobile (émulation Playwright) :** profils Android (`Pixel`, `Samsung Galaxy`) et iOS (`iPhone`, `iPhone Pro`).
+  - `US-LOT7-04` — **Audit de Propreté des Vues & Intégrité UI :** Auditer systématiquement chaque page — en particulier les vues ayant reçu des onglets (`/stats`, `/disciplines`, `/sys-smtp`, `/profile`, `/factures`, `/boutique`, etc.) — pour détecter et corriger tout élément résiduel/superflu (blocs dupliqués, contenu orphelin hors onglet, liens ou contenus manquants/superflus), tout lien mort, toute erreur console JS, toute erreur réseau (`4xx`/`5xx` inattendues) et tout débordement horizontal (`scrollWidth > clientWidth`) sur mobile.
+  - `US-LOT7-05` — **Tests d'Envoi Réel d'E-mails via Mailpit (Laragon — SMTP `127.0.0.1:1025`, API `http://127.0.0.1:8025/api/v1/messages`) en 2 temps :**
+    1. **Phase 1 — Surcharge SMTP (niveau serveur / `.env`) :** Vérifier que la surcharge SMTP pointant vers Mailpit (`127.0.0.1:1025`) est effectivement prise en compte et que les e-mails déclenchés par l'application sont reçus et lisibles via l'API Mailpit.
+    2. **Phase 2 — Configuration Utilisateur (100 % UI) :** Connecté en tant qu'administrateur via l'interface, renseigner manuellement les paramètres SMTP de Mailpit depuis l'écran `/sys-smtp`, sauvegarder, puis vérifier que les envois réels (mail de test et flux métier : OTP, mot de passe oublié, facturation PDF avec pièce jointe, etc.) aboutissent bien dans Mailpit (destinataire, sujet, contenu HTML, liens cliquables).
+    - **Isolation stricte :** Purge automatique de la boîte Mailpit (`DELETE http://127.0.0.1:8025/api/v1/messages`) avant chaque scénario et chaque phase afin d'éliminer tout faux positif.
+- **Dépendances :** Socle V2.3 complet (Sprints 1–26), service Mailpit actif sous Laragon (`127.0.0.1:1025` / `127.0.0.1:8025`), navigateurs Playwright (`chromium`, `firefox`, `webkit`).
+- **Hors périmètre :** Développement de nouvelles fonctionnalités métier hors correctifs d'anomalies UI/RBAC/SMTP découvertes par l'audit, tests sur fermes de terminaux physiques cloud (BrowserStack/SauceLabs), envoi d'e-mails vers des boîtes externes sur Internet.
+- **Critères de sortie :** Zéro erreur console JS / réseau / lien mort / débordement horizontal mobile, audit complet des vues à onglets validé, 100 % des rôles vérifiés en boîte noire UI, phases 1 & 2 Mailpit validées avec purge isolée, matrice Playwright complète (Desktop Chromium/Firefox/WebKit + Mobile Android/iOS) verte, et zéro régression sur les 324 tests E2E existants.
+
+---
+
+### 2.6. Règles Transverses de Pilotage (Applicable à Tous les Sprints)
+1. **Non-régression stricte :** Aucune route API, classe CSS ou `data-testid` existant ne peut être supprimé ; les 324 tests E2E V2.3 doivent rester verts à chaque sprint.
 2. **Qualité obligatoire :** `npm run build:ts`, `npm run build:css`, `composer dump-autoload -o --strict-psr`, `vendor\bin\phpstan analyse` (niveau 5, 0 erreur) et `npm run test:e2e`.
 3. **Isolation des tests :** Chaque sprint ajoute son propre fichier `tests/e2e/XX-sprintYY-*.spec.ts` avec réinitialisation/isolation stricte de la base de données.

@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "presence",
+  "name": "Présences & Suivi Tatami",
+  "version": "1.0.0",
+  "author": "Kanso-ya Team",
+  "description": "Feuilles d'appel numériques par séance/discipline, historique d'assiduité RGPD et onglet analytique dans /stats.",
+  "namespace": "Modules\\PresenceApi",
+  "entry_class": "Modules\\PresenceApi\\Module",
+  "ui_folder": "PresenceUi",
+  "compatibility": {
+    "core_min": "2.0.0",
+    "php_min": "8.5.0"
+  },
+  "tables_prefix": "mod_presence_",
+  "assets": {
+    "publish_dir": "PresenceUi/dist",
+    "public_slug": "presence"
+  },
+  "permissions_required": [
+    "stats.view"
+  ]
+}

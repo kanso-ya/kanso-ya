@@ -30,14 +30,20 @@ final class SmtpClient
      *     from_email: string,
      *     from_name: string
      * } $config Configuration de connexion SMTP.
-     * @param string $recipient Adresse e-mail destinataire.
-     * @param string $subject   Sujet UTF-8 du message.
-     * @param string $bodyHtml  Contenu HTML UTF-8 du message.
+     * @param string $recipient   Adresse e-mail destinataire.
+     * @param string $subject     Sujet UTF-8 du message.
+     * @param string $bodyHtml    Contenu HTML UTF-8 du message.
+     * @param list<array{filename: string, content: string, mime_type?: string}> $attachments Pièces jointes optionnelles.
      * @return string Réponse finale du serveur SMTP (ex: "250 2.0.0 OK ...").
      * @throws RuntimeException En cas d'erreur de connexion, TLS, authentification ou rejet SMTP.
      */
-    public function send(array $config, string $recipient, string $subject, string $bodyHtml): string
-    {
+    public function send(
+        array $config,
+        string $recipient,
+        string $subject,
+        string $bodyHtml,
+        array $attachments = []
+    ): string {
         $host = trim($config['host']);
         $port = max(1, min(65535, (int) $config['port']));
         $encryption = strtolower(trim($config['encryption']));
@@ -128,7 +134,7 @@ final class SmtpClient
 
             // 6. Données MIME
             $this->commandExpect('DATA', [354], 'DATA');
-            $rawMessage = $this->buildMimeMessage($fromEmail, $fromName, $toEmail, $subject, $bodyHtml);
+            $rawMessage = $this->buildMimeMessage($fromEmail, $fromName, $toEmail, $subject, $bodyHtml, $attachments);
             $this->writeRaw($rawMessage . "\r\n.\r\n");
             $dataResp = $this->expectResponse([250], 'Fin de transmission DATA');
 
@@ -180,13 +186,15 @@ final class SmtpClient
     }
 
     /**
-     * Construit un message RFC 5322 UTF-8 HTML avec dot-stuffing RFC 5321.
+     * Construit un message RFC 5322 UTF-8 HTML (avec support multipart/mixed si pièces jointes)
+     * et dot-stuffing RFC 5321.
      *
-     * @param string $fromEmail Adresse expéditeur.
-     * @param string $fromName  Nom affiché expéditeur.
-     * @param string $toEmail   Adresse destinataire.
-     * @param string $subject   Sujet UTF-8.
-     * @param string $bodyHtml  Corps HTML UTF-8.
+     * @param string $fromEmail   Adresse expéditeur.
+     * @param string $fromName    Nom affiché expéditeur.
+     * @param string $toEmail     Adresse destinataire.
+     * @param string $subject     Sujet UTF-8.
+     * @param string $bodyHtml    Corps HTML UTF-8.
+     * @param list<array{filename: string, content: string, mime_type?: string}> $attachments Pièces jointes optionnelles.
      * @return string Message prêt pour la commande DATA.
      */
     private function buildMimeMessage(
@@ -194,7 +202,8 @@ final class SmtpClient
         string $fromName,
         string $toEmail,
         string $subject,
-        string $bodyHtml
+        string $bodyHtml,
+        array $attachments = []
     ): string {
         $encodedSubject = '=?UTF-8?B?' . base64_encode($this->sanitizeHeader($subject)) . '?=';
         $fromHeader = $fromName !== ''
@@ -211,13 +220,38 @@ final class SmtpClient
             'Subject: ' . $encodedSubject,
             'Message-ID: ' . $messageId,
             'MIME-Version: 1.0',
-            'Content-Type: text/html; charset=UTF-8',
-            'Content-Transfer-Encoding: base64',
-            'X-Mailer: Kanso-ya-SMTP/2.1',
+            'X-Mailer: Kanso-ya-SMTP/2.3',
         ];
 
         $encodedBody = rtrim(chunk_split(base64_encode($bodyHtml), 76, "\r\n"));
-        $fullMessage = implode("\r\n", $headers) . "\r\n\r\n" . $encodedBody;
+
+        if (empty($attachments)) {
+            $headers[] = 'Content-Type: text/html; charset=UTF-8';
+            $headers[] = 'Content-Transfer-Encoding: base64';
+            $fullMessage = implode("\r\n", $headers) . "\r\n\r\n" . $encodedBody;
+        } else {
+            $boundary = 'KansoYaMix_' . bin2hex(random_bytes(12));
+            $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+
+            $parts = [];
+            $parts[] = "--{$boundary}\r\n"
+                . "Content-Type: text/html; charset=UTF-8\r\n"
+                . "Content-Transfer-Encoding: base64\r\n\r\n"
+                . $encodedBody;
+
+            foreach ($attachments as $att) {
+                $safeFile = preg_replace('/[^a-zA-Z0-9._-]/', '_', (string) $att['filename']) ?: 'document.pdf';
+                $mime = $this->sanitizeHeader((string) ($att['mime_type'] ?? 'application/pdf'));
+                $encodedAtt = rtrim(chunk_split(base64_encode((string) $att['content']), 76, "\r\n"));
+                $parts[] = "--{$boundary}\r\n"
+                    . "Content-Type: {$mime}; name=\"{$safeFile}\"\r\n"
+                    . "Content-Disposition: attachment; filename=\"{$safeFile}\"\r\n"
+                    . "Content-Transfer-Encoding: base64\r\n\r\n"
+                    . $encodedAtt;
+            }
+
+            $fullMessage = implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $parts) . "\r\n--{$boundary}--";
+        }
 
         // Normalisation CRLF + dot-stuffing RFC 5321
         $normalized = str_replace(["\r\n", "\r"], "\n", $fullMessage);

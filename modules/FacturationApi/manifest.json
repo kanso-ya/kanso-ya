@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "facturation",
+  "name": "Facturation PDF Officielle & E-mail Auto",
+  "version": "1.0.0",
+  "author": "Kanso-ya Team",
+  "description": "Génération de factures PDF officielles à partir d'un template dédié, archivage sécurisé et envoi automatique par e-mail (cotisations, boutique, modules tiers).",
+  "namespace": "Modules\\FacturationApi",
+  "entry_class": "Modules\\FacturationApi\\Module",
+  "ui_folder": "FacturationUi",
+  "compatibility": {
+    "core_min": "2.0.0",
+    "php_min": "8.5.0"
+  },
+  "tables_prefix": "mod_facturation_",
+  "assets": {
+    "publish_dir": "FacturationUi/dist",
+    "public_slug": "facturation"
+  },
+  "permissions_required": [
+    "finances.manage"
+  ]
+}

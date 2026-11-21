@@ -1,0 +1,5 @@
+/* Styles du module Facturation PDF Officielle (publiés dans /assets/modules/facturation/facturation.css) */
+
+.invoice-number-badge {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

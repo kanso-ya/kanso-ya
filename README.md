@@ -1,4 +1,4 @@
-# Kanso-ya — CMS & CRM Associatif Modulaire (V2.1)
+# Kanso-ya — CMS & CRM Associatif Modulaire (V2.3)
 
 **Kanso-ya** est une plateforme web légère, autonome et sans framework lourd conçue pour les clubs sportifs et associations (gestion d'adhérents, inscriptions familiales, trésorerie, studio éditorial, statistiques, console Superadmin et moteur de modules SDK).
 
@@ -10,7 +10,7 @@
 - **Base de données :** PDO pur avec requêtes préparées, **SQLite 3 en mode WAL** (`storage/db/kanso-ya.sqlite`, `busy_timeout = 15000`, transactions `BEGIN IMMEDIATE`), compatibilité MySQL prévue via `.env`.
 - **Frontend :** Architecture MPA derrière un Front-Controller unique (`public/index.php` → `Core\Ui\Router\PageRouter`), **TypeScript strict** (`Core/Ui/ts/` → `public/assets/ts/`), **Tailwind CSS compilé localement** (`tailwind.config.js` → `public/assets/css/tailwind.css`, zéro CDN).
 - **API REST :** Front-Controller unique `public/api.php` → `Core\Api\Http\ApiKernel`, enveloppe **JSend sur HTTP 200** systématique.
-- **Qualité & Tests :** Suite End-to-End **Playwright** (**298/298 Pass** sur Desktop Chrome et Mobile Chrome Pixel 5).
+- **Qualité & Tests :** Suite End-to-End **Playwright** (**324/324 Pass** sur Desktop Chrome et Mobile Chrome Pixel 5).
 
 ---
 
@@ -55,5 +55,5 @@ npm run test:e2e
 
 - **Architecture technique :** [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 - **Feuille de route (Lots 4 à 6) :** [`docs/ROADMAP.md`](./docs/ROADMAP.md)
-- **Dernier sprint clôturé (Lot 4 — Sprint 21) :** `docs/archive/sprint-21/`
+- **Dernier sprint clôturé (Lot 6 — Sprint 26 / V2.3 complète) :** `docs/archive/sprint-26/`
 - **Archives historiques (V1 & V2) :** `docs/archive/reprise-docs/` (incluant `SDK-MODULES.md`, `DEPLOIEMENT-PRODUCTION.md`, `ETAT-DES-LIEUX.md` et les rapports de sprints).

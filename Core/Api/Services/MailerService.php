@@ -140,7 +140,8 @@ final class MailerService
      * @param string $recipient    Adresse destinataire.
      * @param string $subject      Sujet du message.
      * @param string $bodyHtml     Corps HTML du message.
-     * @param string $templateType Type métier (SMTP_DIAGNOSTIC, OTP_INVITE, PASSWORD_RESET, etc.).
+     * @param string $templateType Type métier (SMTP_DIAGNOSTIC, OTP_INVITE, PASSWORD_RESET, INVOICE_ISSUED, etc.).
+     * @param list<array{filename: string, content: string, mime_type?: string}> $attachments Pièces jointes optionnelles.
      * @return array{
      *     success: bool,
      *     id: int,
@@ -152,14 +153,15 @@ final class MailerService
         string $recipient,
         string $subject,
         string $bodyHtml,
-        string $templateType = 'GENERIC'
+        string $templateType = 'GENERIC',
+        array $attachments = []
     ): array {
         $cleanRecipient = trim($recipient);
         $cleanSubject = trim($subject) !== '' ? trim($subject) : 'Notification Kanso-ya';
         $cleanBody = trim($bodyHtml) !== '' ? $bodyHtml : '<p>' . htmlspecialchars($cleanSubject, ENT_QUOTES, 'UTF-8') . '</p>';
         $cleanType = trim($templateType) !== '' ? trim($templateType) : 'GENERIC';
 
-        $dispatch = $this->dispatchMessage($cleanRecipient, $cleanSubject, $cleanBody);
+        $dispatch = $this->dispatchMessage($cleanRecipient, $cleanSubject, $cleanBody, $attachments);
         $status = $dispatch['success'] ? 'sent' : 'failed';
         $responseMsg = mb_substr($dispatch['smtp_response'], 0, 250);
 
@@ -355,21 +357,28 @@ final class MailerService
      * @param string $recipient Adresse destinataire.
      * @param string $subject   Sujet du message.
      * @param string $bodyHtml  Corps HTML du message.
+     * @param list<array{filename: string, content: string, mime_type?: string}> $attachments Pièces jointes optionnelles.
      * @return array{success: bool, smtp_response: string}
      */
-    private function dispatchMessage(string $recipient, string $subject, string $bodyHtml): array
+    private function dispatchMessage(string $recipient, string $subject, string $bodyHtml, array $attachments = []): array
     {
         $config = $this->getEffectiveConfig();
 
         if ($config['transport'] === 'log') {
             $queueId = strtoupper(bin2hex(random_bytes(3)));
+            $attachNote = '';
+            if (!empty($attachments)) {
+                $names = array_map(static fn (array $a): string => $a['filename'], $attachments);
+                $attachNote = ' [PJ: ' . implode(', ', $names) . ']';
+            }
             return [
                 'success'       => true,
                 'smtp_response' => sprintf(
-                    '250 2.0.0 OK [LOG/STUB] Relayed via %s:%d [Queue-%s]',
+                    '250 2.0.0 OK [LOG/STUB] Relayed via %s:%d [Queue-%s]%s',
                     $config['host'] !== '' ? $config['host'] : 'localhost',
                     $config['port'],
-                    $queueId
+                    $queueId,
+                    $attachNote
                 ),
             ];
         }
@@ -389,7 +398,7 @@ final class MailerService
         }
 
         try {
-            $smtpResp = $this->smtpClient->send($config, $recipient, $subject, $bodyHtml);
+            $smtpResp = $this->smtpClient->send($config, $recipient, $subject, $bodyHtml, $attachments);
             return [
                 'success'       => true,
                 'smtp_response' => $smtpResp,
