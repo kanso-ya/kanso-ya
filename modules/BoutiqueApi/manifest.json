@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "boutique",
+  "name": "Boutique Officielle du Club",
+  "version": "2.0.0",
+  "author": "Kanso-ya Team",
+  "description": "Gestion des équipements sportifs et commandes adhérents.",
+  "namespace": "Modules\\BoutiqueApi",
+  "entry_class": "Modules\\BoutiqueApi\\Module",
+  "ui_folder": "BoutiqueUi",
+  "compatibility": {
+    "core_min": "2.0.0",
+    "php_min": "8.5.0"
+  },
+  "tables_prefix": "mod_boutique_",
+  "assets": {
+    "publish_dir": "BoutiqueUi/dist",
+    "public_slug": "boutique"
+  },
+  "permissions_required": [
+    "finances.manage"
+  ]
+}

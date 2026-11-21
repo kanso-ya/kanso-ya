@@ -8,7 +8,7 @@ if (!defined('KANSO_ENTRY')) {
 }
 
 /**
- * Page publique / Espace Membre : Boutique Officielle du Club (Module Démonstrateur).
+ * Page publique / Espace Membre : Boutique Officielle du Club (Module Démonstrateur V2).
  */
 
 use Core\Api\Database\Database;
@@ -22,16 +22,20 @@ $tableExists = false;
 
 try {
     $db = Database::getInstance();
-    $check = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='mod_boutique_products'")->fetch();
-    if ($check) {
+    $checkStmt = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='mod_boutique_products'");
+    if ($checkStmt !== false && $checkStmt->fetch() !== false) {
         $tableExists = true;
-        $products = $db->query("SELECT * FROM mod_boutique_products ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+        $prodStmt = $db->query("SELECT * FROM mod_boutique_products ORDER BY id ASC");
+        if ($prodStmt !== false) {
+            $products = $prodStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
     }
 } catch (Throwable) {
 }
 
 ob_start();
 ?>
+<link rel="stylesheet" href="/assets/modules/boutique/boutique.css">
 <div class="space-y-6">
     <!-- En-tête de la Boutique -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -43,8 +47,8 @@ ob_start();
             <p class="text-xs text-slate-500 mt-1">Équipements certifiés, kimonos brodés et goodies aux couleurs de Kanso-ya.</p>
         </div>
         <div class="flex items-center gap-2">
-            <span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span class="boutique-status-badge px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                <span class="boutique-status-dot w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>Module Démonstrateur Actif</span>
             </span>
         </div>
@@ -89,4 +93,4 @@ ob_start();
 </div>
 <?php
 $pageContent = ob_get_clean();
-require __DIR__ . '/../Templates/layout.php';
+require dirname(__DIR__, 3) . '/Core/Ui/Templates/layout.php';

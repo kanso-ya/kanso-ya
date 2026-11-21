@@ -16,6 +16,10 @@ AGENTS.md
 /storage/private_uploads/*
 !/storage/private_uploads/.gitkeep
 
+# Assets statiques publiés dynamiquement par les modules actifs
+/public/assets/modules/*
+!/public/assets/modules/.gitkeep
+
 # Artefacts de Tests Playwright & Allure
 /test-results/
 /playwright-report/

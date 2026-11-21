@@ -42,6 +42,7 @@ interface PageItem {
 
 let draggedBlock: HTMLElement | null = null;
 let draggedToolbarType: string | null = null;
+let dragEndCleanupTimer: ReturnType<typeof setTimeout> | null = null;
 let activeColumnTarget: HTMLElement | null = null;
 let dropIndicator: HTMLElement | null = null;
 let canPublishArticles = true;
@@ -153,6 +154,10 @@ function initMultiColumnBuilder(): void {
     document.querySelectorAll<HTMLButtonElement>('.btn-add-block').forEach((btn) => {
         btn.setAttribute('draggable', 'true');
         btn.addEventListener('dragstart', (ev: DragEvent) => {
+            if (dragEndCleanupTimer !== null) {
+                clearTimeout(dragEndCleanupTimer);
+                dragEndCleanupTimer = null;
+            }
             const type = btn.getAttribute('data-add-block') || 'p';
             draggedToolbarType = type;
             draggedBlock = null;
@@ -166,8 +171,12 @@ function initMultiColumnBuilder(): void {
         btn.addEventListener('dragend', () => {
             btn.classList.remove('opacity-50');
             removeDropIndicator();
-            setTimeout(() => {
+            if (dragEndCleanupTimer !== null) {
+                clearTimeout(dragEndCleanupTimer);
+            }
+            dragEndCleanupTimer = setTimeout(() => {
                 draggedToolbarType = null;
+                dragEndCleanupTimer = null;
             }, 200);
         });
 

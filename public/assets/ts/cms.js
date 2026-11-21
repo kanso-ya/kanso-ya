@@ -14,6 +14,7 @@ import { openConfirmModal, setButtonLoading, showToast } from './main.js';
 import { initCmsMediaInteractions } from './cms-media.js';
 let draggedBlock = null;
 let draggedToolbarType = null;
+let dragEndCleanupTimer = null;
 let activeColumnTarget = null;
 let dropIndicator = null;
 let canPublishArticles = true;
@@ -113,6 +114,10 @@ function initMultiColumnBuilder() {
     document.querySelectorAll('.btn-add-block').forEach((btn) => {
         btn.setAttribute('draggable', 'true');
         btn.addEventListener('dragstart', (ev) => {
+            if (dragEndCleanupTimer !== null) {
+                clearTimeout(dragEndCleanupTimer);
+                dragEndCleanupTimer = null;
+            }
             const type = btn.getAttribute('data-add-block') || 'p';
             draggedToolbarType = type;
             draggedBlock = null;
@@ -126,8 +131,12 @@ function initMultiColumnBuilder() {
         btn.addEventListener('dragend', () => {
             btn.classList.remove('opacity-50');
             removeDropIndicator();
-            setTimeout(() => {
+            if (dragEndCleanupTimer !== null) {
+                clearTimeout(dragEndCleanupTimer);
+            }
+            dragEndCleanupTimer = setTimeout(() => {
                 draggedToolbarType = null;
+                dragEndCleanupTimer = null;
             }, 200);
         });
         btn.addEventListener('click', () => {

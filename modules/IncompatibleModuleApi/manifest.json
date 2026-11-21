@@ -1,12 +1,14 @@
 {
+  "schema_version": 2,
   "id": "incompatible_mod",
   "name": "Module Futuriste Incompatible",
   "version": "2.0.0",
   "author": "Future Labs",
   "description": "Module requérant une version de Core 3.0.0 indisponible.",
+  "namespace": "Modules\\IncompatibleModuleApi",
+  "entry_class": "Modules\\IncompatibleModuleApi\\Module",
   "compatibility": {
-    "core_min_version": "3.0.0",
-    "core_max_version": "4.0.0",
-    "php_min_version": "8.1"
+    "core_min": "3.0.0",
+    "php_min": "8.5.0"
   }
 }

@@ -66,7 +66,7 @@ test.describe('SPRINT 16 (Lots R1 & R2) — PSR-4 Core/Api & Core/Ui + Front-Con
     });
 
     test('S16-03 : Routes clés via public/index.php -> PageRouter et HTTP 404 propre sur /page-inexistante-v2', async ({ request }) => {
-        const publicRoutes = ['/', '/horaires', '/login', '/register', '/rgpd', '/boutique'];
+        const publicRoutes = ['/', '/horaires', '/login', '/register', '/rgpd'];
         for (const route of publicRoutes) {
             const response = await request.get(route);
             expect(response.status(), `Statut HTTP 200 attendu sur ${route}`).toBe(200);

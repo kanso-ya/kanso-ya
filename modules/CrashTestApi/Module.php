@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Modules\CrashTest;
+namespace Modules\CrashTestApi;
 
-use Core\Sdk\EventManager;
-use Core\Sdk\ModuleInterface;
+use Core\Api\Sdk\EventManager;
+use Core\Api\Sdk\ModuleInterface;
 use RuntimeException;
 
 /**
- * Module défaillant conçu pour valider le Safe Mode automatique (US 6.3 / CA3).
+ * Module défaillant conçu pour valider le Safe Mode automatique (US 6.3 / US 17.3).
  * Lève une exception dès son boot() pour vérifier la capture d'erreur par ModuleManager.
  */
 final class Module implements ModuleInterface
@@ -24,8 +24,8 @@ final class Module implements ModuleInterface
         // Nettoyage vide
     }
 
-    public function boot(EventManager $events): void
+    public function boot(EventManager $eventManager): void
     {
-        throw new RuntimeException("Crash volontaire déclenché dans boot() pour validation du Safe Mode automatique.");
+        throw new RuntimeException('Crash volontaire déclenché dans boot() pour validation du Safe Mode automatique.');
     }
 }

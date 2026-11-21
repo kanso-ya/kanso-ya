@@ -14,7 +14,7 @@ use Throwable;
  */
 final class ModuleScanner
 {
-    public const CURRENT_CORE_VERSION = '1.5.0';
+    public const CURRENT_CORE_VERSION = '2.0.0';
 
     private PDO $db;
     private string $modulesDir;
@@ -41,6 +41,11 @@ final class ModuleScanner
 
         foreach ($entries as $entry) {
             if ($entry === '.' || $entry === '..' || !is_dir($this->modulesDir . '/' . $entry)) {
+                continue;
+            }
+
+            // Ignorer silencieusement les dossiers frères UI ({NomModule}Ui) sans avertissement dans sys_logs
+            if (str_ends_with($entry, 'Ui')) {
                 continue;
             }
 
@@ -72,10 +77,15 @@ final class ModuleScanner
                 'id'                   => (int) ($moduleRecord['id'] ?? 0),
                 'folder_name'          => $entry,
                 'manifest_id'          => (string) $manifest['id'],
+                'schema_version'       => (int) ($manifest['schema_version'] ?? 1),
                 'name'                 => (string) $manifest['name'],
                 'version'              => (string) $manifest['version'],
                 'author'               => (string) ($manifest['author'] ?? 'Inconnu'),
                 'description'          => (string) ($manifest['description'] ?? ''),
+                'entry_class'          => isset($manifest['entry_class']) && is_string($manifest['entry_class']) ? $manifest['entry_class'] : null,
+                'ui_folder'            => isset($manifest['ui_folder']) && is_string($manifest['ui_folder']) ? $manifest['ui_folder'] : null,
+                'tables_prefix'        => isset($manifest['tables_prefix']) && is_string($manifest['tables_prefix']) ? $manifest['tables_prefix'] : null,
+                'assets'               => isset($manifest['assets']) && is_array($manifest['assets']) ? $manifest['assets'] : null,
                 'permissions_required' => (array) ($manifest['permissions_required'] ?? []),
                 'is_compatible'        => $compatibility['is_compatible'],
                 'compatibility_error'  => $compatibility['error'],
@@ -86,11 +96,14 @@ final class ModuleScanner
             ];
         }
 
+        // Nettoyage des entrées orphelines dont le dossier n'existe plus dans /modules/
+        $this->purgeOrphanRecords();
+
         return $scanned;
     }
 
     /**
-     * Valide l'adéquation de version du Core et de PHP avec le manifeste.
+     * Valide l'adéquation de version du Core et de PHP avec le manifeste (v1 & v2).
      *
      * @param array<string, mixed> $manifest Données du manifeste.
      * @return array{is_compatible: bool, error: ?string}
@@ -98,9 +111,9 @@ final class ModuleScanner
     public function checkCompatibility(array $manifest): array
     {
         $comp = (array) ($manifest['compatibility'] ?? []);
-        $coreMin = (string) ($comp['core_min_version'] ?? '1.0.0');
-        $coreMax = (string) ($comp['core_max_version'] ?? '9.9.9');
-        $phpMin  = (string) ($comp['php_min_version'] ?? '8.1.0');
+        $coreMin = (string) ($comp['core_min'] ?? $comp['core_min_version'] ?? '1.0.0');
+        $coreMax = (string) ($comp['core_max'] ?? $comp['core_max_version'] ?? '9.9.9');
+        $phpMin  = (string) ($comp['php_min'] ?? $comp['php_min_version'] ?? '8.1.0');
 
         if (version_compare(self::CURRENT_CORE_VERSION, $coreMin, '<')) {
             return [
@@ -223,6 +236,38 @@ final class ModuleScanner
             'last_error'  => null,
             'updated_at'  => date('Y-m-d H:i:s')
         ];
+    }
+
+    /**
+     * Supprime de la table `modules` les entrées orphelines dont le dossier n'existe plus dans /modules/.
+     */
+    private function purgeOrphanRecords(): void
+    {
+        $rows = [];
+        for ($r = 0; $r < 5; $r++) {
+            try {
+                $stmt = $this->db->query("SELECT id, folder_name FROM modules");
+                $rows = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+                break;
+            } catch (Throwable) {
+                usleep(50000);
+            }
+        }
+
+        foreach ($rows as $row) {
+            $folderName = (string) ($row['folder_name'] ?? '');
+            if ($folderName === '' || !is_dir($this->modulesDir . '/' . $folderName)) {
+                for ($retry = 0; $retry < 5; $retry++) {
+                    try {
+                        $stmtDel = $this->db->prepare("DELETE FROM modules WHERE id = :id");
+                        $stmtDel->execute(['id' => (int) $row['id']]);
+                        break;
+                    } catch (Throwable) {
+                        usleep(50000);
+                    }
+                }
+            }
+        }
     }
 
     /**

@@ -1,0 +1,15 @@
+/* Styles publiés du module Boutique Officielle du Club (US 17.3) */
+.boutique-status-badge {
+    letter-spacing: 0.01em;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.12);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.boutique-status-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(5, 150, 105, 0.18);
+}
+
+.boutique-status-dot {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.22);
+}

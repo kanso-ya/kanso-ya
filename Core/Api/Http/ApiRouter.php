@@ -18,7 +18,9 @@ final class ApiRouter
      *     methods: array<int, string>,
      *     pattern: string,
      *     handler: callable,
-     *     perms: array<int, string>
+     *     perms: array<int, string>,
+     *     auth: bool,
+     *     is_module: bool
      * }>
      */
     private array $routes = [];
@@ -37,10 +39,12 @@ final class ApiRouter
         $normalizedMethods = array_map(static fn(string $m): string => strtoupper($m), $methodList);
 
         $this->routes[] = [
-            'methods' => $normalizedMethods,
-            'pattern' => $pattern,
-            'handler' => $handler,
-            'perms'   => $perms,
+            'methods'   => $normalizedMethods,
+            'pattern'   => $pattern,
+            'handler'   => $handler,
+            'perms'     => $perms,
+            'auth'      => false,
+            'is_module' => false,
         ];
     }
 
@@ -56,7 +60,8 @@ final class ApiRouter
     {
         $allRoutes = $this->routes;
 
-        // Point d'extension pour les routes API déclarées par les modules (Sprint 17)
+        // Point d'extension pour les routes API déclarées par les modules (Sprint 17 - US 17.2)
+        // Strictement confinées au namespace /api/v1/modules/{slug}/*
         $moduleRoutes = EventManager::getInstance()->applyFilters('api_routes', [], [
             'method' => $method,
             'uri'    => $uri,
@@ -67,22 +72,44 @@ final class ApiRouter
                 if (!is_array($mr) || !isset($mr['method'], $mr['pattern'], $mr['handler']) || !is_callable($mr['handler'])) {
                     continue;
                 }
+
+                $pattern = (string) $mr['pattern'];
+                if (!$this->isAllowedModulePattern($pattern)) {
+                    continue;
+                }
+
                 $mList = is_array($mr['method']) ? $mr['method'] : [(string) $mr['method']];
-                $perms = isset($mr['perms']) && is_array($mr['perms'])
-                    ? array_values(array_map('strval', $mr['perms']))
-                    : [];
+                $perms = [];
+                if (isset($mr['perms'])) {
+                    if (is_array($mr['perms'])) {
+                        foreach ($mr['perms'] as $p) {
+                            $permStr = trim((string) $p);
+                            if ($permStr !== '') {
+                                $perms[] = $permStr;
+                            }
+                        }
+                    } elseif (is_string($mr['perms']) && trim($mr['perms']) !== '') {
+                        $perms[] = trim($mr['perms']);
+                    }
+                }
 
                 $allRoutes[] = [
-                    'methods' => array_map(static fn(mixed $m): string => strtoupper((string) $m), $mList),
-                    'pattern' => (string) $mr['pattern'],
-                    'handler' => $mr['handler'],
-                    'perms'   => $perms,
+                    'methods'   => array_map(static fn(mixed $m): string => strtoupper((string) $m), $mList),
+                    'pattern'   => $pattern,
+                    'handler'   => $mr['handler'],
+                    'perms'     => $perms,
+                    'auth'      => !empty($mr['auth']),
+                    'is_module' => true,
                 ];
             }
         }
 
         foreach ($allRoutes as $route) {
             if (!in_array($method, $route['methods'], true)) {
+                continue;
+            }
+
+            if ($route['is_module'] && !$this->isAllowedModuleUri($uri)) {
                 continue;
             }
 
@@ -97,6 +124,20 @@ final class ApiRouter
                     continue;
                 }
                 $matches = [$uri];
+            }
+
+            // Vérification générique d'authentification si déclarée
+            if ($route['auth']) {
+                $isSuperadmin = (bool) ($context['is_superadmin'] ?? false);
+                $isAuthenticated = (bool) ($context['is_authenticated'] ?? false);
+                if (!$isSuperadmin && !$isAuthenticated) {
+                    return [
+                        'status'  => 'error',
+                        'code'    => 401,
+                        'message' => 'Authentification requise.',
+                        'data'    => null,
+                    ];
+                }
             }
 
             // Vérification générique des permissions pour les routes qui déclarent 'perms'
@@ -124,8 +165,18 @@ final class ApiRouter
                 }
             }
 
-            /** @var array<string, mixed> $result */
+            $context['matches'] = $matches;
             $result = ($route['handler'])($context, $matches);
+            if (!is_array($result)) {
+                return [
+                    'status'  => 'error',
+                    'code'    => 500,
+                    'message' => 'Réponse JSend invalide retournée par le handler API.',
+                    'data'    => null,
+                ];
+            }
+
+            /** @var array<string, mixed> $result */
             return $result;
         }
 
@@ -135,5 +186,29 @@ final class ApiRouter
             'message' => 'Endpoint API introuvable : ' . $method . ' ' . $uri,
             'data'    => null,
         ];
+    }
+
+    /**
+     * Vérifie qu'un pattern de route modulaire est strictement confiné sous /api/v1/modules/{slug}/*.
+     */
+    private function isAllowedModulePattern(string $pattern): bool
+    {
+        if ($pattern === '') {
+            return false;
+        }
+
+        if (str_starts_with($pattern, '#')) {
+            return preg_match('#^\#\^/api/v1/modules/[a-z0-9_-]+(?:/|\$|\(|\?)#', $pattern) === 1;
+        }
+
+        return $this->isAllowedModuleUri($pattern);
+    }
+
+    /**
+     * Vérifie qu'une URI correspond au préfixe modulaire /api/v1/modules/{slug}(/*).
+     */
+    private function isAllowedModuleUri(string $uri): bool
+    {
+        return preg_match('#^/api/v1/modules/[a-z0-9_-]+(?:/.*)?$#', $uri) === 1;
     }
 }
